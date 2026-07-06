@@ -1,0 +1,30 @@
+# dependências
+node_modules
+**/node_modules
+
+# builds
+dist
+build
+**/dist
+**/build
+.next
+.turbo
+
+# variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# prisma
+apps/backend/prisma/migrations/dev.db
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editores/SO
+.vscode
+.idea
+.DS_Store
+Thumbs.db

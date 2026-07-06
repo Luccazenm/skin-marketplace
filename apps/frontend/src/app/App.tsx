@@ -1,0 +1,1842 @@
+import React, { useState, useMemo, type ReactNode } from "react";
+import {
+  Search,
+  ShoppingCart,
+  Bell,
+  X,
+  TrendingUp,
+  TrendingDown,
+  ChevronDown,
+  SlidersHorizontal,
+  Zap,
+  Star,
+  ArrowUpRight,
+  ArrowRight,
+  Package,
+  User,
+  Check,
+  Plus,
+} from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+
+/* ─── Rarity config ─────────────────────────────────────────────────── */
+const RARITY: Record<string, { label: string; color: string; glow: string; from: string; to: string }> = {
+  consumer:   { label: "Consumer",    color: "#b0b0b0", glow: "rgba(176,176,176,0.2)", from: "#181818", to: "#111111" },
+  industrial: { label: "Industrial",  color: "#5b9bd5", glow: "rgba(91,155,213,0.2)",  from: "#0b1520", to: "#090f17" },
+  milspec:    { label: "Mil-Spec",    color: "#4b69ff", glow: "rgba(75,105,255,0.2)",  from: "#0a0c1e", to: "#080914" },
+  restricted: { label: "Restricted",  color: "#8847ff", glow: "rgba(136,71,255,0.2)",  from: "#0f0a1e", to: "#0a0714" },
+  classified: { label: "Classified",  color: "#d32ee6", glow: "rgba(211,46,230,0.2)",  from: "#180a1e", to: "#100614" },
+  covert:     { label: "Covert",      color: "#eb4b4b", glow: "rgba(235,75,75,0.2)",   from: "#1e0909", to: "#140606" },
+  rare:       { label: "★ Knife/Glove", color: "#f0c040", glow: "rgba(240,192,64,0.2)", from: "#1a1404", to: "#111002" },
+};
+
+/* ─── Skin data ─────────────────────────────────────────────────────── */
+interface Skin {
+  id: number;
+  name: string;
+  weapon: string;
+  wear: string;
+  price: number;
+  rarity: keyof typeof RARITY;
+  float: number;
+  trend: number;
+  discount: number;
+  volume: number;
+  stickers: number;
+  charms: boolean;
+  statTrak: boolean;
+}
+
+const SKINS_RAW: Skin[] = [
+  { id: 1,  name: "Redline",         weapon: "AK-47",       wear: "Field-Tested",  price: 42.50,   rarity: "classified", float: 0.217, trend: +3.2,  discount: -8.4,  volume: 1240, stickers: 0, charms: false, statTrak: false },
+  { id: 2,  name: "Dragon Lore",     weapon: "AWP",         wear: "Factory New",   price: 8420.00, rarity: "covert",     float: 0.032, trend: +12.1, discount: +3.2,  volume: 18,   stickers: 4, charms: true,  statTrak: false },
+  { id: 3,  name: "Howl",            weapon: "M4A4",        wear: "Minimal Wear",  price: 3150.00, rarity: "covert",     float: 0.089, trend: -2.4,  discount: -12.7, volume: 34,   stickers: 0, charms: false, statTrak: true  },
+  { id: 4,  name: "Fade",            weapon: "Glock-18",    wear: "Factory New",   price: 380.00,  rarity: "restricted", float: 0.011, trend: +5.7,  discount: -5.1,  volume: 412,  stickers: 0, charms: true,  statTrak: false },
+  { id: 5,  name: "Blaze",           weapon: "Desert Eagle",wear: "Factory New",   price: 520.00,  rarity: "classified", float: 0.019, trend: +1.3,  discount: +7.8,  volume: 287,  stickers: 2, charms: false, statTrak: false },
+  { id: 6,  name: "Fade",            weapon: "Butterfly Knife", wear: "Factory New", price: 1890.00, rarity: "rare",    float: 0.008, trend: +8.9,  discount: -2.3,  volume: 56,   stickers: 0, charms: false, statTrak: false },
+  { id: 7,  name: "Fire Serpent",    weapon: "AK-47",       wear: "Field-Tested",  price: 890.00,  rarity: "covert",     float: 0.243, trend: -1.1,  discount: -18.5, volume: 98,   stickers: 3, charms: true,  statTrak: false },
+  { id: 8,  name: "Hyper Beast",     weapon: "M4A1-S",      wear: "Factory New",   price: 68.00,   rarity: "covert",     float: 0.034, trend: +0.4,  discount: +1.2,  volume: 892,  stickers: 0, charms: false, statTrak: false },
+  { id: 9,  name: "Kill Confirmed",  weapon: "USP-S",       wear: "Minimal Wear",  price: 145.00,  rarity: "covert",     float: 0.098, trend: +2.8,  discount: -6.9,  volume: 543,  stickers: 1, charms: false, statTrak: true  },
+  { id: 10, name: "Doppler",         weapon: "Karambit",    wear: "Factory New",   price: 2640.00, rarity: "rare",       float: 0.004, trend: +6.4,  discount: -4.4,  volume: 29,   stickers: 0, charms: true,  statTrak: false },
+  { id: 11, name: "Asiimov",         weapon: "AK-47",       wear: "Field-Tested",  price: 28.00,   rarity: "classified", float: 0.221, trend: -0.7,  discount: +5.3,  volume: 2341, stickers: 0, charms: false, statTrak: false },
+  { id: 12, name: "Neo-Noir",        weapon: "AWP",         wear: "Factory New",   price: 12.40,   rarity: "classified", float: 0.041, trend: +0.2,  discount: -1.8,  volume: 5621, stickers: 0, charms: false, statTrak: false },
+  { id: 13, name: "Printstream",     weapon: "M4A1-S",      wear: "Factory New",   price: 74.00,   rarity: "covert",     float: 0.006, trend: +4.1,  discount: -9.2,  volume: 689,  stickers: 0, charms: true,  statTrak: true  },
+  { id: 14, name: "Emerald",         weapon: "Desert Eagle",wear: "Factory New",   price: 98.00,   rarity: "covert",     float: 0.014, trend: +2.2,  discount: +2.6,  volume: 344,  stickers: 0, charms: false, statTrak: false },
+  { id: 15, name: "Icarus Fell",     weapon: "Karambit",    wear: "Factory New",   price: 3200.00, rarity: "rare",       float: 0.019, trend: +9.3,  discount: -7.1,  volume: 21,   stickers: 0, charms: false, statTrak: false },
+  { id: 16, name: "Chatterbox",      weapon: "Galil AR",    wear: "Factory New",   price: 12.40,   rarity: "restricted", float: 0.041, trend: +0.2,  discount: +4.0,  volume: 5621, stickers: 0, charms: false, statTrak: false },
+
+  // SMGs
+  { id: 17, name: "Neon Rider",      weapon: "MP9",         wear: "Factory New",   price: 18.50,   rarity: "covert",     float: 0.021, trend: +1.4,  discount: -3.2,  volume: 1820, stickers: 0, charms: false, statTrak: false },
+  { id: 18, name: "Killing Spree",   weapon: "MAC-10",      wear: "Factory New",   price: 7.80,    rarity: "classified", float: 0.044, trend: -0.5,  discount: +2.1,  volume: 3200, stickers: 0, charms: true,  statTrak: false },
+  { id: 19, name: "Bloodsport",      weapon: "MP5-SD",      wear: "Factory New",   price: 9.20,    rarity: "classified", float: 0.018, trend: +2.3,  discount: -5.8,  volume: 2410, stickers: 1, charms: false, statTrak: false },
+  { id: 20, name: "Phosphor",        weapon: "MP7",         wear: "Factory New",   price: 11.30,   rarity: "classified", float: 0.031, trend: +0.8,  discount: -1.9,  volume: 1980, stickers: 0, charms: false, statTrak: true  },
+  { id: 21, name: "Asiimov",         weapon: "P90",         wear: "Field-Tested",  price: 34.00,   rarity: "covert",     float: 0.198, trend: +3.1,  discount: -6.4,  volume: 890,  stickers: 0, charms: false, statTrak: false },
+  { id: 22, name: "Cobalt Halftone", weapon: "PP-Bizon",    wear: "Factory New",   price: 4.20,    rarity: "restricted", float: 0.062, trend: -0.3,  discount: +1.4,  volume: 4100, stickers: 0, charms: false, statTrak: false },
+  { id: 23, name: "Crime Scene",     weapon: "UMP-45",      wear: "Factory New",   price: 6.50,    rarity: "classified", float: 0.029, trend: +1.1,  discount: -2.7,  volume: 2750, stickers: 0, charms: true,  statTrak: false },
+
+  // Heavy
+  { id: 24, name: "Bulldozer",       weapon: "Nova",        wear: "Factory New",   price: 5.10,    rarity: "milspec",    float: 0.055, trend: +0.4,  discount: +0.8,  volume: 3800, stickers: 0, charms: false, statTrak: false },
+  { id: 25, name: "Firecobra",       weapon: "Sawed-Off",   wear: "Factory New",   price: 3.80,    rarity: "restricted", float: 0.038, trend: -0.6,  discount: +3.2,  volume: 2900, stickers: 0, charms: false, statTrak: false },
+  { id: 26, name: "Urban Hazard",    weapon: "MAG-7",       wear: "Minimal Wear",  price: 8.90,    rarity: "classified", float: 0.091, trend: +1.8,  discount: -4.1,  volume: 1640, stickers: 0, charms: false, statTrak: false },
+  { id: 27, name: "Ambush",         weapon: "XM1014",      wear: "Factory New",   price: 4.60,    rarity: "restricted", float: 0.047, trend: +0.2,  discount: +2.3,  volume: 3100, stickers: 0, charms: false, statTrak: false },
+  { id: 28, name: "Tooth Fairy",     weapon: "M249",        wear: "Factory New",   price: 6.20,    rarity: "classified", float: 0.033, trend: +1.5,  discount: -3.8,  volume: 1890, stickers: 2, charms: false, statTrak: false },
+  { id: 29, name: "Ultralight",      weapon: "Negev",       wear: "Factory New",   price: 5.70,    rarity: "classified", float: 0.041, trend: -0.9,  discount: +1.6,  volume: 2200, stickers: 0, charms: false, statTrak: false },
+
+  // More pistols
+  { id: 30, name: "Cyrex",           weapon: "Five-SeveN",  wear: "Factory New",   price: 22.00,   rarity: "classified", float: 0.014, trend: +2.6,  discount: -7.3,  volume: 1320, stickers: 0, charms: false, statTrak: false },
+  { id: 31, name: "Asiimov",         weapon: "P250",        wear: "Factory New",   price: 8.40,    rarity: "covert",     float: 0.026, trend: +1.2,  discount: -2.9,  volume: 2100, stickers: 0, charms: true,  statTrak: false },
+  { id: 32, name: "Howl",            weapon: "P2000",       wear: "Factory New",   price: 5.90,    rarity: "classified", float: 0.038, trend: +0.7,  discount: +1.8,  volume: 3400, stickers: 0, charms: false, statTrak: false },
+  { id: 33, name: "Crimson Web",     weapon: "Tec-9",       wear: "Minimal Wear",  price: 14.70,   rarity: "classified", float: 0.112, trend: +3.4,  discount: -5.6,  volume: 980,  stickers: 0, charms: false, statTrak: true  },
+  { id: 34, name: "Fade",            weapon: "R8 Revolver", wear: "Factory New",   price: 31.50,   rarity: "classified", float: 0.009, trend: +4.8,  discount: -9.1,  volume: 720,  stickers: 0, charms: false, statTrak: false },
+  { id: 35, name: "Orion",           weapon: "CZ75-Auto",   wear: "Factory New",   price: 11.20,   rarity: "classified", float: 0.022, trend: +1.9,  discount: -4.4,  volume: 1560, stickers: 0, charms: false, statTrak: false },
+  { id: 36, name: "Wasteland Rebel", weapon: "Dual Berettas",wear: "Factory New",  price: 6.80,    rarity: "classified", float: 0.051, trend: +0.6,  discount: +2.7,  volume: 2800, stickers: 0, charms: false, statTrak: false },
+
+  // More rifles
+  { id: 37, name: "Fever Dream",     weapon: "AUG",         wear: "Factory New",   price: 16.40,   rarity: "covert",     float: 0.027, trend: +2.1,  discount: -6.8,  volume: 1100, stickers: 0, charms: false, statTrak: false },
+  { id: 38, name: "Styx",            weapon: "FAMAS",       wear: "Factory New",   price: 7.30,    rarity: "classified", float: 0.036, trend: +0.9,  discount: -2.3,  volume: 2600, stickers: 0, charms: false, statTrak: false },
+  { id: 39, name: "Pulse",           weapon: "SG 553",      wear: "Factory New",   price: 9.80,    rarity: "classified", float: 0.019, trend: +1.7,  discount: -3.5,  volume: 1780, stickers: 1, charms: false, statTrak: false },
+  { id: 40, name: "Detour",          weapon: "SSG 08",      wear: "Field-Tested",  price: 12.60,   rarity: "covert",     float: 0.187, trend: +2.8,  discount: -4.9,  volume: 1240, stickers: 0, charms: false, statTrak: true  },
+  { id: 41, name: "Contractor",      weapon: "G3SG1",       wear: "Factory New",   price: 8.10,    rarity: "milspec",    float: 0.044, trend: +0.5,  discount: +1.2,  volume: 2300, stickers: 0, charms: false, statTrak: false },
+  { id: 42, name: "Hyper Beast",     weapon: "SCAR-20",     wear: "Factory New",   price: 14.90,   rarity: "covert",     float: 0.031, trend: +1.6,  discount: -5.2,  volume: 950,  stickers: 0, charms: true,  statTrak: false },
+
+  // More knives & gloves
+  { id: 43, name: "Doppler",         weapon: "M9 Bayonet",  wear: "Factory New",   price: 890.00,  rarity: "rare",       float: 0.007, trend: +5.2,  discount: -3.8,  volume: 42,   stickers: 0, charms: false, statTrak: false },
+  { id: 44, name: "Marble Fade",     weapon: "Flip Knife",  wear: "Factory New",   price: 620.00,  rarity: "rare",       float: 0.011, trend: +4.1,  discount: -6.2,  volume: 67,   stickers: 0, charms: false, statTrak: false },
+  { id: 45, name: "Tiger Tooth",     weapon: "Bayonet",     wear: "Factory New",   price: 480.00,  rarity: "rare",       float: 0.003, trend: +3.7,  discount: -2.9,  volume: 88,   stickers: 0, charms: false, statTrak: false },
+  { id: 46, name: "Crimson Web",     weapon: "Gut Knife",   wear: "Minimal Wear",  price: 210.00,  rarity: "rare",       float: 0.082, trend: +2.4,  discount: -4.5,  volume: 134,  stickers: 0, charms: false, statTrak: false },
+  { id: 47, name: "Pandora's Box",   weapon: "Sport Gloves",wear: "Field-Tested",  price: 1240.00, rarity: "rare",       float: 0.231, trend: +7.8,  discount: -8.3,  volume: 24,   stickers: 0, charms: false, statTrak: false },
+  { id: 48, name: "Overtake",        weapon: "Driver Gloves",wear: "Minimal Wear", price: 680.00,  rarity: "rare",       float: 0.096, trend: +5.6,  discount: -5.1,  volume: 38,   stickers: 0, charms: false, statTrak: false },
+];
+
+// Deterministic shuffle so items from different categories are interleaved
+const SKINS = [...SKINS_RAW].sort((a, b) => {
+  const hash = (n: number) => ((n * 2654435761) >>> 0);
+  return hash(a.id) - hash(b.id);
+});
+
+const PRICE_HISTORY = [
+  { d: "Jun 3",  p: 38.2 },
+  { d: "Jun 8",  p: 39.8 },
+  { d: "Jun 13", p: 37.5 },
+  { d: "Jun 18", p: 41.1 },
+  { d: "Jun 23", p: 40.3 },
+  { d: "Jun 28", p: 43.7 },
+  { d: "Jul 2",  p: 42.5 },
+];
+
+const RECENT_SALES = [
+  { name: "AK-47 | Redline FT",       price: 42.50,   user: "dk_vapor",     time: "2m" },
+  { name: "AWP | Asiimov FT",          price: 86.20,   user: "xX_sniper_Xx", time: "5m" },
+  { name: "Glock-18 | Fade FN",        price: 382.00,  user: "trademaster",  time: "8m" },
+  { name: "M4A4 | Howl MW",            price: 3148.50, user: "whale404",     time: "12m" },
+  { name: "USP-S | Kill Confirmed MW", price: 143.75,  user: "css_grinder",  time: "15m" },
+  { name: "Karambit | Doppler FN",     price: 2639.00, user: "knifetrader",  time: "19m" },
+];
+
+/* ─── Weapon pattern SVGs ───────────────────────────────────────────── */
+const WEAPON_PATHS: Record<string, string> = {
+  // Rifles
+  "AK-47":        "M6 16h4l2-2h16l2 2h4v3H6v-3zm2-4h20l2-8H6l2 8z",
+  "AWP":          "M4 18l2-2h24l2 2H4zm3-4l1-10h18l1 10H7z",
+  "M4A4":         "M6 17h4l1-2h14l1 2h4v2H6v-2zm2-3l1-9h16l1 9H8z",
+  "M4A1-S":       "M6 17h3l2-2h13l2 2h4v2H6v-2zm1-3l2-9h16l2 9H7z",
+  "Galil AR":     "M5 16h4l2-2h14l2 2h3v3H5v-3zm2-4h18l2-7H5l2 7z",
+  "AUG":          "M6 17h3l2-2h12l2 2h5v2H6v-2zm1-3l2-8h16l2 8H7z",
+  "FAMAS":        "M5 17h4l1-2h13l3 2h4v2H5v-2zm2-3l1-8h15l2 8H7z",
+  "SG 553":       "M6 17h4l2-2h12l2 2h4v2H6v-2zm2-3l1-8h15l2 8H8z",
+  "SSG 08":       "M4 18l2-2h22l2 2H4zm3-3l1-9h16l2 9H7z",
+  "G3SG1":        "M4 18l3-2h20l2 2H4zm3-3l2-9h14l2 9H7z",
+  "SCAR-20":      "M4 18l2-2h22l3 2H4zm4-3l1-9h14l3 9H8z",
+  // Pistols
+  "Glock-18":     "M10 8h12v8l-2 4H12l-2-4V8zM8 8h2v10H8V8z",
+  "Desert Eagle": "M10 8h11v8l-1 4H13l-2-3V8zM8 9h2v9H8V9z",
+  "USP-S":        "M10 9h10v7l-2 4H13l-1-3V9zM8 9h2v9H8V9z",
+  "Five-SeveN":   "M10 9h10v6l-2 5H13l-1-3V9zM8 9h2v9H8V9z",
+  "P250":         "M10 9h9v6l-2 5H13l-1-3V9zM8 9h2v9H8V9z",
+  "P2000":        "M10 9h10v6l-2 5H13l-1-3V9zM8 9h2v9H8V9z",
+  "Tec-9":        "M9 8h11v7l-2 5H12l-1-3V8zM7 9h2v9H7V9z",
+  "R8 Revolver":  "M10 7h8v5l4 3-4 3v2H10l-2-4V7zM8 8h2v10H8V8z",
+  "CZ75-Auto":    "M10 9h9v6l-2 5H13l-1-4V9zM8 9h2v9H8V9z",
+  "Dual Berettas":"M8 9h8v8l-2 3H10l-1-3V9zM16 9h8v8l-2 3H18l-1-3V9z",
+  // SMGs
+  "MP9":          "M7 15h4l1-2h10l1 2h3v3H7v-3zm1-3l1-7h12l1 7H8z",
+  "MAC-10":       "M6 15h4l1-2h9l2 2h4v3H6v-3zm1-3l1-7h12l2 7H7z",
+  "MP5-SD":       "M5 16h4l2-2h10l2 2h5v2H5v-2zm2-3l1-7h14l1 7H7z",
+  "MP7":          "M6 16h4l1-2h11l2 2h4v2H6v-2zm1-3l1-7h13l2 7H7z",
+  "P90":          "M5 14h4l2-3h12l2 3h5v4H5v-4zm1-4l2-5h14l2 5H6z",
+  "PP-Bizon":     "M6 16h4l1-2h10l2 2h5v2H6v-2zm1-3l1-6h13l2 6H7z",
+  "UMP-45":       "M6 15h3l2-2h11l2 2h4v3H6v-3zm1-3l2-7h12l2 7H7z",
+  // Heavy
+  "Nova":         "M5 14h5l1-2h10l1 2h6v5H5v-5zm2-3l2-6h12l2 6H7z",
+  "Sawed-Off":    "M6 14h5l1-2h8l1 2h7v5H6v-5zm2-3l2-6h10l2 6H8z",
+  "MAG-7":        "M5 14h5l2-2h9l2 2h5v5H5v-5zm2-3l2-6h11l2 6H7z",
+  "XM1014":       "M4 15h5l1-2h12l1 2h5v4H4v-4zm3-3l1-6h12l2 6H7z",
+  "M249":         "M4 16h5l2-2h14l2 2h3v3H4v-3zm2-4h20l2-7H4l2 7z",
+  "Negev":        "M4 16h4l2-2h15l2 2h3v3H4v-3zm2-4h19l2-7H4l2 7z",
+  // Knives & gloves
+  "Karambit":     "M16 6c0 0-8 4-8 10l2 4c2-4 4-8 10-8l2-4c-2-1-4-2-6-2z",
+  "Butterfly Knife": "M14 5l2 16H14L12 5h2zM18 5l-2 16h2l2-16h-2z",
+  "M9 Bayonet":   "M8 14h16l2-2H8v2zM6 14h2v6H6v-6zM24 12l4 2-4 2v-4z",
+  "Flip Knife":   "M10 14h14l2-2H10v2zM8 14h2v6H8v-6zM24 12l4 2-4 2v-4z",
+  "Bayonet":      "M8 14h16l2-2H8v2zM6 14h2v6H6v-6zM24 12l4 2-4 2v-4z",
+  "Gut Knife":    "M10 15h12l2-3-2-3H10l1 3-1 3zM8 12h2v8H8v-8z",
+  "Sport Gloves": "M10 8h12l2 4-2 4H10l2-4-2-4zM8 10h2v8H8v-8z",
+  "Driver Gloves":"M10 8h12l2 4-2 4H10l2-4-2-4zM8 10h2v8H8v-8z",
+};
+
+function WeaponSVG({ weapon, color }: { weapon: string; color: string }) {
+  const path = WEAPON_PATHS[weapon] || WEAPON_PATHS["AK-47"];
+  return (
+    <svg viewBox="0 0 32 32" className="w-full h-full" fill="none">
+      <path d={path} fill={color} opacity={0.9} />
+    </svg>
+  );
+}
+
+/* ─── Dual range slider ─────────────────────────────────────────────── */
+function DualRangeSlider({
+  min, max, onMinChange, onMaxChange,
+}: {
+  min: number; max: number;
+  onMinChange: (v: number) => void;
+  onMaxChange: (v: number) => void;
+}) {
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const dragging = React.useRef<"min" | "max" | null>(null);
+
+  const clamp = (v: number) => Math.min(1, Math.max(0, Math.round(v * 1000) / 1000));
+
+  const getVal = (clientX: number) => {
+    const rect = trackRef.current!.getBoundingClientRect();
+    return clamp((clientX - rect.left) / rect.width);
+  };
+
+  const onMouseDown = (handle: "min" | "max") => (e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = handle;
+
+    const onMove = (ev: MouseEvent) => {
+      const v = getVal(ev.clientX);
+      if (dragging.current === "min") onMinChange(Math.min(v, max - 0.001));
+      else onMaxChange(Math.max(v, min + 0.001));
+    };
+    const onUp = () => {
+      dragging.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  const pMin = min * 100;
+  const pMax = max * 100;
+  const accent = "#f0c040";
+
+  const [minInput, setMinInput] = React.useState(min.toFixed(3));
+  const [maxInput, setMaxInput] = React.useState(max.toFixed(3));
+
+  // Sync inputs when slider moves
+  React.useEffect(() => { setMinInput(min.toFixed(3)); }, [min]);
+  React.useEffect(() => { setMaxInput(max.toFixed(3)); }, [max]);
+
+  const commitMin = (raw: string) => {
+    const v = parseFloat(raw);
+    if (!isNaN(v)) onMinChange(Math.min(clamp(v), max - 0.001));
+    else setMinInput(min.toFixed(3));
+  };
+  const commitMax = (raw: string) => {
+    const v = parseFloat(raw);
+    if (!isNaN(v)) onMaxChange(Math.max(clamp(v), min + 0.001));
+    else setMaxInput(max.toFixed(3));
+  };
+
+  const inputStyle = {
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    color: "#e8eaf0",
+  };
+
+  return (
+    <div className="px-2 pb-1">
+      {/* Inputs */}
+      <div className="flex items-center gap-2 mb-3">
+        <input
+          value={minInput}
+          onChange={(e) => setMinInput(e.target.value)}
+          onBlur={(e) => commitMin(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && commitMin(minInput)}
+          className="w-full px-2 py-1.5 rounded font-mono text-xs text-center focus:outline-none"
+          style={inputStyle}
+          placeholder="0.000"
+        />
+        <span className="font-mono text-xs text-muted-foreground flex-shrink-0">—</span>
+        <input
+          value={maxInput}
+          onChange={(e) => setMaxInput(e.target.value)}
+          onBlur={(e) => commitMax(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && commitMax(maxInput)}
+          className="w-full px-2 py-1.5 rounded font-mono text-xs text-center focus:outline-none"
+          style={inputStyle}
+          placeholder="1.000"
+        />
+      </div>
+
+      {/* Slider */}
+      <div ref={trackRef} className="relative h-1 rounded-full mx-1" style={{ background: "rgba(255,255,255,0.1)" }}>
+        <div
+          className="absolute h-full rounded-full"
+          style={{ left: `${pMin}%`, right: `${100 - pMax}%`, background: accent }}
+        />
+        <div
+          onMouseDown={onMouseDown("min")}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 cursor-grab active:cursor-grabbing"
+          style={{ left: `${pMin}%`, background: "#1a1d28", borderColor: accent }}
+        />
+        <div
+          onMouseDown={onMouseDown("max")}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full border-2 cursor-grab active:cursor-grabbing"
+          style={{ left: `${pMax}%`, background: "#1a1d28", borderColor: accent }}
+        />
+      </div>
+      <div className="flex justify-between font-mono text-[9px] mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>
+        <span>0.000</span>
+        <span>1.000</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Weapon group (collapsible) ───────────────────────────────────── */
+function WeaponGroup({
+  group,
+  weaponFilter,
+  onToggle,
+}: {
+  group: { label: string; items: string[] };
+  weaponFilter: string[];
+  onToggle: (w: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const activeCount = group.items.filter((w) => weaponFilter.includes(w)).length;
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-2 py-1.5 rounded transition-colors hover:bg-white/5 group"
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-widest transition-colors" style={{ color: open ? "#c0c4d8" : "#6b7194" }}>
+            {group.label}
+          </span>
+          {activeCount > 0 && (
+            <span className="font-mono text-[10px] font-bold px-1 rounded" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040" }}>
+              {activeCount}
+            </span>
+          )}
+        </div>
+        <span
+          className="w-4 h-4 rounded flex items-center justify-center font-mono text-xs font-bold leading-none transition-colors"
+          style={{
+            background: open ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.04)",
+            color: open ? "#f0c040" : "#9da3c0",
+          }}
+        >
+          {open ? "−" : "+"}
+        </span>
+      </button>
+      <div
+        className="overflow-hidden transition-all duration-200"
+        style={{ maxHeight: open ? `${group.items.length * 44}px` : "0px", opacity: open ? 1 : 0 }}
+      >
+        <div className="space-y-0.5 pl-1 pb-1">
+          {group.items.map((w) => (
+            <FilterOption
+              key={w}
+              active={weaponFilter.includes(w)}
+              onClick={() => onToggle(w)}
+            >
+              <span className="font-mono text-sm" style={{ color: weaponFilter.includes(w) ? "#e8eaf0" : "#6b7194" }}>{w}</span>
+              {weaponFilter.includes(w) && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
+            </FilterOption>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Filter option row ────────────────────────────────────────────── */
+function FilterOption({
+  active,
+  onClick,
+  children,
+  accentColor = "#f0c040",
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  accentColor?: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="w-full flex items-center justify-between px-2 py-1.5 rounded text-left transition-all duration-100"
+      style={{
+        background: active
+          ? `${accentColor}18`
+          : hovered
+          ? "rgba(255,255,255,0.06)"
+          : "transparent",
+        borderLeft: active ? `2px solid ${accentColor}` : "2px solid transparent",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ─── Collapsible filter section ───────────────────────────────────── */
+function FilterSection({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between py-2.5 group"
+      >
+        <span className="font-mono text-sm uppercase tracking-widest transition-colors" style={{ color: "#d0d4e8" }}>
+          {title}
+        </span>
+        <span
+          className="w-4 h-4 rounded flex items-center justify-center transition-colors font-mono text-xs leading-none font-bold"
+          style={{
+            background: open ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.06)",
+            color: open ? "#f0c040" : "#9da3c0",
+          }}
+        >
+          {open ? "−" : "+"}
+        </span>
+      </button>
+      <div
+        className="overflow-hidden transition-all duration-200"
+        style={{ maxHeight: open ? "9999px" : "0px", opacity: open ? 1 : 0 }}
+      >
+        <div className="pb-3">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Skin card ─────────────────────────────────────────────────────── */
+function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
+  const r = RARITY[skin.rarity];
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
+      style={{
+        height: "230px",
+        borderColor: hovered ? r.color : "rgba(255,255,255,0.07)",
+        background: `linear-gradient(160deg, ${r.from}, ${r.to})`,
+        boxShadow: hovered ? `0 0 20px ${r.glow}` : "none",
+      }}
+    >
+      {/* Rarity strip */}
+      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
+
+      {/* Badges */}
+      <div className="absolute top-2 right-2 flex gap-1">
+        {skin.statTrak && (
+          <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040" }}>ST</span>
+        )}
+        {skin.stickers > 0 && (
+          <div className="flex flex-col gap-0.5">
+            {Array.from({ length: skin.stickers }).map((_, i) => (
+              <div
+                key={i}
+                className="w-5 h-5 rounded-sm flex items-center justify-center"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+              >
+                <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                  <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5"/>
+                  <circle cx="6" cy="6" r="1.5" fill="#c0c4d8"/>
+                </svg>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Illustration — flex-1 so it fills remaining space above the footer */}
+      <div
+        className="flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
+        style={{ paddingTop: hovered ? "8px" : "16px", paddingBottom: hovered ? "8px" : "16px" }}
+      >
+        <div className="w-full h-full max-w-[160px]">
+          <WeaponSVG weapon={skin.weapon} color={r.color} />
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="mx-3" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
+
+      {/* Info footer */}
+      <div className="px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <div className="min-w-0">
+            <div className="text-[9px] font-mono uppercase tracking-wider leading-none mb-0.5" style={{ color: r.color }}>{skin.weapon}</div>
+            <div className="font-display text-sm font-semibold text-foreground leading-tight truncate">{skin.name}</div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <div className="font-mono text-[9px] text-muted-foreground">{skin.wear}</div>
+            <div className="font-mono text-[9px]" style={{ color: r.color }}>{skin.float.toFixed(4)}</div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="font-mono font-semibold text-sm leading-none" style={{ color: "#f0f2f8" }}>
+            ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div className="font-mono text-[11px] font-semibold" style={{ color: skin.discount <= 0 ? "#4ade80" : "#f87171" }}>
+            {skin.discount <= 0 ? "" : "+"}{skin.discount}%
+          </div>
+        </div>
+      </div>
+
+      {/* Buy button */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateRows: hovered ? "1fr" : "0fr",
+          transition: "grid-template-rows 200ms ease",
+        }}
+      >
+        <div style={{ overflow: "hidden" }}>
+          <div className="px-3 pb-2.5">
+            <div
+              className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
+              style={{ background: r.color, color: "#08090d", opacity: hovered ? 1 : 0 }}
+            >
+              BUY NOW
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* ─── Generic nav dropdown ──────────────────────────────────────────── */
+function NavDropdown<T extends string>({
+  value, onChange, options, compactTrigger = false,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string; sub: string }[];
+  compactTrigger?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const current = options.find((o) => o.value === value)!;
+
+  React.useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded font-mono text-xs transition-colors"
+        style={{
+          background: open ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+          border: `1px solid ${open ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.07)"}`,
+          color: "#e8eaf0",
+        }}
+      >
+        <span>{current.label}</span>
+        {!compactTrigger && <span className="text-muted-foreground">{current.sub}</span>}
+        <ChevronDown className="w-3 h-3 text-muted-foreground transition-transform" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
+      </button>
+
+      {open && (
+        <div
+          className="absolute top-full right-0 mt-1 z-50 rounded overflow-hidden"
+          style={{ background: "#10121a", border: "1px solid rgba(255,255,255,0.08)", minWidth: "160px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}
+        >
+          {options.map((o) => (
+            <button
+              key={o.value}
+              onClick={() => { onChange(o.value); setOpen(false); }}
+              className="w-full text-left px-3 py-2 font-mono text-xs transition-colors flex items-center justify-between gap-4"
+              style={{ background: value === o.value ? "rgba(240,192,64,0.08)" : "transparent", color: value === o.value ? "#f0c040" : "#9da3c0" }}
+              onMouseEnter={e => (e.currentTarget.style.background = value === o.value ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.04)")}
+              onMouseLeave={e => (e.currentTarget.style.background = value === o.value ? "rgba(240,192,64,0.08)" : "transparent")}
+            >
+              <span className="flex items-center gap-2">
+                <span>{o.label}</span>
+                <span className="text-muted-foreground">{o.sub}</span>
+              </span>
+              {value === o.value && <Check className="w-3 h-3 flex-shrink-0" style={{ color: "#f0c040" }} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const LANGUAGES = [
+  { value: "EN", label: "🇺🇸", sub: "English"    },
+  { value: "PT", label: "🇧🇷", sub: "Português"   },
+  { value: "ES", label: "🇪🇸", sub: "Español"     },
+  { value: "RU", label: "🇷🇺", sub: "Русский"     },
+  { value: "ZH", label: "🇨🇳", sub: "中文"         },
+] as const;
+
+const CURRENCIES = [
+  { value: "USD", label: "$",  sub: "USD" },
+  { value: "BRL", label: "R$", sub: "BRL" },
+  { value: "EUR", label: "€",  sub: "EUR" },
+  { value: "RUB", label: "₽",  sub: "RUB" },
+  { value: "CNY", label: "¥",  sub: "CNY" },
+] as const;
+
+/* ─── Sort dropdown ─────────────────────────────────────────────────── */
+function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative flex items-center gap-2">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded font-mono text-xs transition-colors"
+        style={{
+          background: open ? "rgba(240,192,64,0.1)" : "#10121a",
+          border: `1px solid ${open ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
+          color: "#e8eaf0",
+        }}
+      >
+        <span>{sort}</span>
+        <ChevronDown className="w-3 h-3 text-muted-foreground transition-transform" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
+      </button>
+
+      {open && (
+        <div
+          className="absolute top-full right-0 mt-1 z-50 rounded overflow-hidden"
+          style={{ background: "#10121a", border: "1px solid rgba(255,255,255,0.08)", minWidth: "130px", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
+        >
+          {SORTS.map((s) => (
+            <button
+              key={s}
+              onClick={() => { setSort(s); setOpen(false); }}
+              className="w-full text-left px-3 py-2 font-mono text-xs transition-colors flex items-center justify-between gap-4"
+              style={{
+                background: sort === s ? "rgba(240,192,64,0.08)" : "transparent",
+                color: sort === s ? "#f0c040" : "#9da3c0",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = sort === s ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.04)")}
+              onMouseLeave={e => (e.currentTarget.style.background = sort === s ? "rgba(240,192,64,0.08)" : "transparent")}
+            >
+              {s}
+              {sort === s && <Check className="w-3 h-3" style={{ color: "#f0c040" }} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Detail modal ──────────────────────────────────────────────────── */
+function SkinDetail({ skin, onClose }: { skin: Skin; onClose: () => void }) {
+  const r = RARITY[skin.rarity];
+  const [tab, setTab] = useState<"listings" | "history">("listings");
+
+  const listings = Array.from({ length: 6 }, (_, i) => ({
+    price: skin.price * (1 + i * 0.02),
+    float: skin.float + i * 0.003,
+    seller: ["vapor_trade", "skinbaron_eu", "dmarkt", "cs2_store", "items_shop", "buff_proxy"][i],
+    stickers: i === 1 ? 2 : 0,
+    statTrak: i === 2,
+  }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)" }}>
+      <div
+        className="relative w-full max-w-2xl rounded-lg border overflow-hidden"
+        style={{ background: "#10121a", borderColor: r.color + "40" }}
+      >
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div>
+            <div className="font-mono text-xs uppercase tracking-wider mb-0.5" style={{ color: r.color }}>{skin.weapon} · {r.label}</div>
+            <h2 className="font-display text-xl font-bold text-foreground">{skin.weapon} | {skin.name}</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex gap-0 flex-col sm:flex-row">
+          {/* Left: weapon */}
+          <div className="sm:w-56 flex-shrink-0 flex flex-col items-center justify-center py-8 px-6" style={{ background: `linear-gradient(160deg, ${r.from}, ${r.to})` }}>
+            <div className="w-40 h-28">
+              <WeaponSVG weapon={skin.weapon} color={r.color} />
+            </div>
+            <div className="mt-4 text-center">
+              <div className="font-mono text-2xl font-bold" style={{ color: r.color }}>
+                ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </div>
+              <div className="font-mono text-xs mt-1" style={{ color: skin.trend >= 0 ? "#4ade80" : "#f87171" }}>
+                {skin.trend >= 0 ? "▲" : "▼"} {Math.abs(skin.trend)}% 7d
+              </div>
+            </div>
+            <div className="mt-4 w-full space-y-2">
+              {[
+                ["Wear", skin.wear],
+                ["Float", skin.float.toFixed(6)],
+                ["Volume", `${skin.volume}/day`],
+              ].map(([label, val]) => (
+                <div key={label} className="flex justify-between text-xs font-mono">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="text-foreground">{val}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              className="mt-5 w-full py-2 rounded font-display font-bold text-sm tracking-wide transition-opacity hover:opacity-90"
+              style={{ background: r.color, color: "#08090d" }}
+            >
+              ADD TO CART
+            </button>
+          </div>
+
+          {/* Right: listings + chart */}
+          <div className="flex-1 flex flex-col">
+            {/* Tabs */}
+            <div className="flex border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              {(["listings", "history"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className="px-5 py-3 font-display text-xs uppercase tracking-widest font-semibold transition-colors"
+                  style={{
+                    color: tab === t ? r.color : "#9da3c0",
+                    borderBottom: tab === t ? `2px solid ${r.color}` : "2px solid transparent",
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {tab === "listings" ? (
+              <div className="flex-1 overflow-y-auto" style={{ maxHeight: 280 }}>
+                {listings.map((l, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-4 py-2 border-b hover:bg-white/[0.03] transition-colors"
+                    style={{ borderColor: "rgba(255,255,255,0.05)" }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="font-mono text-xs text-muted-foreground w-4">{i + 1}</div>
+                      <div>
+                        <div className="font-mono text-sm text-foreground">${l.price.toFixed(2)}</div>
+                        <div className="font-mono text-[10px] text-muted-foreground">Float {l.float.toFixed(4)} · {l.seller}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {l.statTrak && <span className="text-[9px] font-mono px-1 py-0.5 rounded" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040" }}>ST</span>}
+                      {l.stickers > 0 && <span className="text-[9px] font-mono px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.07)", color: "#c0c4d8" }}>{l.stickers}×sticker</span>}
+                      <button className="text-[10px] font-display font-bold px-3 py-1 rounded hover:opacity-80 transition-opacity" style={{ background: r.color, color: "#08090d" }}>
+                        BUY
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 flex-1">
+                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">30-Day Price History</div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart key={skin.id} data={PRICE_HISTORY}>
+                    <XAxis key="xaxis" dataKey="d" tick={{ fill: "#9da3c0", fontSize: 9, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
+                    <YAxis key="yaxis" tick={{ fill: "#9da3c0", fontSize: 9, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+                    <Tooltip
+                      key="tooltip"
+                      contentStyle={{ background: "#1a1d28", border: `1px solid ${r.color}40`, borderRadius: 4, fontFamily: "JetBrains Mono", fontSize: 11 }}
+                      labelStyle={{ color: r.color }}
+                      itemStyle={{ color: "#e8eaf0" }}
+                      formatter={(v: number) => [`$${v.toFixed(2)}`, "Price"]}
+                    />
+                    <Line key="line" type="monotone" dataKey="p" name="Price" stroke={r.color} strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Trade mock data ───────────────────────────────────────────────── */
+interface TradeItem {
+  skinId: number;
+  name: string;
+  weapon: string;
+  wear: string;
+  price: number;
+  rarity: keyof typeof RARITY;
+}
+
+interface TradeOffer {
+  id: number;
+  user: string;
+  timeAgo: string;
+  type: "overpay" | "even" | "underpay";
+  offers: TradeItem[];
+  wants: TradeItem[];
+}
+
+const TRADE_OFFERS: TradeOffer[] = [
+  {
+    id: 1,
+    user: "dk_vapor",
+    timeAgo: "3h",
+    type: "overpay",
+    offers: [
+      { skinId: 1,  name: "Redline",      weapon: "AK-47",        wear: "FT",  price: 42.50,   rarity: "classified" },
+      { skinId: 8,  name: "Hyper Beast",  weapon: "M4A1-S",       wear: "FN",  price: 68.00,   rarity: "covert"     },
+    ],
+    wants: [
+      { skinId: 9,  name: "Kill Confirmed", weapon: "USP-S",      wear: "MW",  price: 145.00,  rarity: "covert"     },
+    ],
+  },
+  {
+    id: 2,
+    user: "xX_pro_Xx",
+    timeAgo: "1h",
+    type: "even",
+    offers: [
+      { skinId: 7,  name: "Fire Serpent", weapon: "AK-47",        wear: "FT",  price: 890.00,  rarity: "covert"     },
+    ],
+    wants: [
+      { skinId: 6,  name: "Fade",         weapon: "Butterfly Knife", wear: "FN", price: 1890.00, rarity: "rare"    },
+    ],
+  },
+  {
+    id: 3,
+    user: "knifetrader99",
+    timeAgo: "30m",
+    type: "overpay",
+    offers: [
+      { skinId: 10, name: "Doppler",      weapon: "Karambit",     wear: "FN",  price: 2640.00, rarity: "rare"       },
+      { skinId: 14, name: "Emerald",      weapon: "Desert Eagle", wear: "FN",  price: 98.00,   rarity: "covert"     },
+    ],
+    wants: [
+      { skinId: 15, name: "Icarus Fell",  weapon: "Karambit",     wear: "FN",  price: 3200.00, rarity: "rare"       },
+    ],
+  },
+  {
+    id: 4,
+    user: "skinflip_eu",
+    timeAgo: "5h",
+    type: "underpay",
+    offers: [
+      { skinId: 11, name: "Asiimov",      weapon: "AK-47",        wear: "FT",  price: 28.00,   rarity: "classified" },
+      { skinId: 12, name: "Neo-Noir",     weapon: "AWP",          wear: "FN",  price: 12.40,   rarity: "classified" },
+      { skinId: 16, name: "Chatterbox",   weapon: "Galil AR",     wear: "FN",  price: 12.40,   rarity: "restricted" },
+    ],
+    wants: [
+      { skinId: 5,  name: "Blaze",        weapon: "Desert Eagle", wear: "FN",  price: 520.00,  rarity: "classified" },
+    ],
+  },
+  {
+    id: 5,
+    user: "m4_collector",
+    timeAgo: "2h",
+    type: "even",
+    offers: [
+      { skinId: 3,  name: "Howl",         weapon: "M4A4",         wear: "MW",  price: 3150.00, rarity: "covert"     },
+    ],
+    wants: [
+      { skinId: 2,  name: "Dragon Lore",  weapon: "AWP",          wear: "FN",  price: 8420.00, rarity: "covert"     },
+    ],
+  },
+  {
+    id: 6,
+    user: "trash2treasure",
+    timeAgo: "45m",
+    type: "overpay",
+    offers: [
+      { skinId: 13, name: "Printstream",  weapon: "M4A1-S",       wear: "FN",  price: 74.00,   rarity: "covert"     },
+      { skinId: 4,  name: "Fade",         weapon: "Glock-18",     wear: "FN",  price: 380.00,  rarity: "restricted" },
+    ],
+    wants: [
+      { skinId: 43, name: "Doppler",      weapon: "M9 Bayonet",   wear: "FN",  price: 890.00,  rarity: "rare"       },
+    ],
+  },
+  {
+    id: 7,
+    user: "glove_god",
+    timeAgo: "6h",
+    type: "even",
+    offers: [
+      { skinId: 47, name: "Pandora's Box", weapon: "Sport Gloves", wear: "FT", price: 1240.00, rarity: "rare"       },
+    ],
+    wants: [
+      { skinId: 48, name: "Overtake",     weapon: "Driver Gloves", wear: "MW", price: 680.00,  rarity: "rare"       },
+      { skinId: 46, name: "Crimson Web",  weapon: "Gut Knife",    wear: "MW",  price: 210.00,  rarity: "rare"       },
+    ],
+  },
+  {
+    id: 8,
+    user: "awp_only",
+    timeAgo: "20m",
+    type: "underpay",
+    offers: [
+      { skinId: 12, name: "Neo-Noir",     weapon: "AWP",          wear: "FN",  price: 12.40,   rarity: "classified" },
+      { skinId: 40, name: "Detour",       weapon: "SSG 08",       wear: "FT",  price: 12.60,   rarity: "covert"     },
+    ],
+    wants: [
+      { skinId: 2,  name: "Dragon Lore",  weapon: "AWP",          wear: "FN",  price: 8420.00, rarity: "covert"     },
+    ],
+  },
+  {
+    id: 9,
+    user: "flippers_cs",
+    timeAgo: "4h",
+    type: "overpay",
+    offers: [
+      { skinId: 44, name: "Marble Fade",  weapon: "Flip Knife",   wear: "FN",  price: 620.00,  rarity: "rare"       },
+      { skinId: 30, name: "Cyrex",        weapon: "Five-SeveN",   wear: "FN",  price: 22.00,   rarity: "classified" },
+    ],
+    wants: [
+      { skinId: 45, name: "Tiger Tooth",  weapon: "Bayonet",      wear: "FN",  price: 480.00,  rarity: "rare"       },
+    ],
+  },
+  {
+    id: 10,
+    user: "stickerking_cz",
+    timeAgo: "12m",
+    type: "even",
+    offers: [
+      { skinId: 5,  name: "Blaze",        weapon: "Desert Eagle", wear: "FN",  price: 520.00,  rarity: "classified" },
+      { skinId: 9,  name: "Kill Confirmed", weapon: "USP-S",      wear: "MW",  price: 145.00,  rarity: "covert"     },
+    ],
+    wants: [
+      { skinId: 6,  name: "Fade",         weapon: "Butterfly Knife", wear: "FN", price: 1890.00, rarity: "rare"    },
+    ],
+  },
+];
+
+/* ─── New Trade Modal ────────────────────────────────────────────────── */
+function NewTradeModal({ onClose }: { onClose: () => void }) {
+  const [mySelected, setMySelected] = useState<number[]>([]);
+  const [wantSelected, setWantSelected] = useState<number[]>([]);
+  const [wantSearch, setWantSearch] = useState("");
+
+  const myInventory = SKINS.slice(0, 16);
+  const wantResults = wantSearch.length > 0
+    ? SKINS.filter((s) =>
+        s.name.toLowerCase().includes(wantSearch.toLowerCase()) ||
+        s.weapon.toLowerCase().includes(wantSearch.toLowerCase())
+      ).slice(0, 16)
+    : SKINS.slice(16, 32);
+
+  const toggleMy = (id: number) =>
+    setMySelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const toggleWant = (id: number) =>
+    setWantSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+
+  const myItems = myInventory.filter((s) => mySelected.includes(s.id));
+  const wantItems = SKINS.filter((s) => wantSelected.includes(s.id));
+  const myTotal = myItems.reduce((sum, s) => sum + s.price, 0);
+  const wantTotal = wantItems.reduce((sum, s) => sum + s.price, 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}>
+      <div
+        className="relative w-full rounded-lg border overflow-hidden flex flex-col"
+        style={{ maxWidth: 900, maxHeight: "90vh", background: "#10121a", borderColor: "rgba(240,192,64,0.25)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <span className="font-display text-lg font-bold tracking-wide" style={{ color: "#f0c040" }}>NEW TRADE OFFER</span>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden gap-0">
+          {/* Left: Your items */}
+          <div className="flex flex-col border-r flex-1" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+            <div className="px-4 py-2 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">Your Items</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))" }}>
+                {myInventory.map((skin) => {
+                  const r = RARITY[skin.rarity];
+                  const selected = mySelected.includes(skin.id);
+                  return (
+                    <button
+                      key={skin.id}
+                      onClick={() => toggleMy(skin.id)}
+                      className="relative rounded border flex flex-col items-center gap-1 p-1.5 transition-all duration-150"
+                      style={{
+                        background: selected ? `${r.color}18` : "rgba(255,255,255,0.03)",
+                        borderColor: selected ? r.color : "rgba(255,255,255,0.08)",
+                        boxShadow: selected ? `0 0 10px ${r.glow}` : "none",
+                      }}
+                    >
+                      {selected && (
+                        <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ background: "#f0c040" }}>
+                          <Check className="w-2 h-2 text-black" />
+                        </div>
+                      )}
+                      <div className="w-12 h-8">
+                        <WeaponSVG weapon={skin.weapon} color={r.color} />
+                      </div>
+                      <div className="font-mono text-[8px] text-center truncate w-full" style={{ color: r.color }}>{skin.weapon}</div>
+                      <div className="font-mono text-[9px] font-semibold text-center truncate w-full" style={{ color: "#e8eaf0" }}>{skin.name}</div>
+                      <div className="font-mono text-[9px]" style={{ color: "#f0c040" }}>${skin.price.toFixed(0)}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right: You want */}
+          <div className="flex flex-col flex-1">
+            <div className="px-4 py-2 border-b flex-shrink-0 flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              <span className="font-mono text-xs uppercase tracking-widest text-muted-foreground">You Want</span>
+              <div className="flex-1 relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                <input
+                  value={wantSearch}
+                  onChange={(e) => setWantSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="w-full pl-6 pr-2 py-1 rounded font-mono text-xs focus:outline-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))" }}>
+                {wantResults.map((skin) => {
+                  const r = RARITY[skin.rarity];
+                  const selected = wantSelected.includes(skin.id);
+                  return (
+                    <button
+                      key={skin.id}
+                      onClick={() => toggleWant(skin.id)}
+                      className="relative rounded border flex flex-col items-center gap-1 p-1.5 transition-all duration-150"
+                      style={{
+                        background: selected ? `${r.color}18` : "rgba(255,255,255,0.03)",
+                        borderColor: selected ? r.color : "rgba(255,255,255,0.08)",
+                        boxShadow: selected ? `0 0 10px ${r.glow}` : "none",
+                      }}
+                    >
+                      {selected && (
+                        <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ background: "#f0c040" }}>
+                          <Check className="w-2 h-2 text-black" />
+                        </div>
+                      )}
+                      <div className="w-12 h-8">
+                        <WeaponSVG weapon={skin.weapon} color={r.color} />
+                      </div>
+                      <div className="font-mono text-[8px] text-center truncate w-full" style={{ color: r.color }}>{skin.weapon}</div>
+                      <div className="font-mono text-[9px] font-semibold text-center truncate w-full" style={{ color: "#e8eaf0" }}>{skin.name}</div>
+                      <div className="font-mono text-[9px]" style={{ color: "#f0c040" }}>${skin.price.toFixed(0)}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer: selected summary + post */}
+        <div className="border-t px-5 py-3 flex-shrink-0 flex items-center gap-4" style={{ borderColor: "rgba(255,255,255,0.07)", background: "#0d0f18" }}>
+          {/* My side */}
+          <div className="flex-1 flex flex-col gap-1 min-w-0">
+            <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Offering ({myItems.length})</div>
+            <div className="flex gap-1 flex-wrap">
+              {myItems.length === 0
+                ? <span className="font-mono text-[10px] text-muted-foreground italic">None selected</span>
+                : myItems.map((s) => (
+                    <span key={s.id} className="font-mono text-[9px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: RARITY[s.rarity].color }}>
+                      {s.weapon} | {s.name}
+                    </span>
+                  ))}
+            </div>
+            {myItems.length > 0 && (
+              <div className="font-mono text-[10px]" style={{ color: "#f0c040" }}>Total: ${myTotal.toFixed(2)}</div>
+            )}
+          </div>
+
+          <ArrowRight className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+
+          {/* Want side */}
+          <div className="flex-1 flex flex-col gap-1 min-w-0">
+            <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Wanting ({wantItems.length})</div>
+            <div className="flex gap-1 flex-wrap">
+              {wantItems.length === 0
+                ? <span className="font-mono text-[10px] text-muted-foreground italic">None selected</span>
+                : wantItems.map((s) => (
+                    <span key={s.id} className="font-mono text-[9px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: RARITY[s.rarity].color }}>
+                      {s.weapon} | {s.name}
+                    </span>
+                  ))}
+            </div>
+            {wantItems.length > 0 && (
+              <div className="font-mono text-[10px]" style={{ color: "#f0c040" }}>Total: ${wantTotal.toFixed(2)}</div>
+            )}
+          </div>
+
+          <button
+            onClick={onClose}
+            disabled={myItems.length === 0 || wantItems.length === 0}
+            className="flex-shrink-0 px-5 py-2 rounded font-display font-bold text-sm tracking-wide transition-opacity"
+            style={{
+              background: myItems.length > 0 && wantItems.length > 0 ? "#f0c040" : "rgba(240,192,64,0.25)",
+              color: myItems.length > 0 && wantItems.length > 0 ? "#08090d" : "#6b5d20",
+              cursor: myItems.length > 0 && wantItems.length > 0 ? "pointer" : "not-allowed",
+            }}
+          >
+            POST TRADE
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Trade offer card ───────────────────────────────────────────────── */
+function TradeOfferCard({ offer }: { offer: TradeOffer }) {
+  const typeColors: Record<string, string> = {
+    overpay: "#4ade80",
+    even:    "#f0c040",
+    underpay: "#f87171",
+  };
+  const typeLabel: Record<string, string> = {
+    overpay:  "OVERPAY",
+    even:     "EVEN",
+    underpay: "UNDERPAY",
+  };
+
+  const offerTotal = offer.offers.reduce((s, i) => s + i.price, 0);
+  const wantTotal  = offer.wants.reduce((s, i)  => s + i.price, 0);
+
+  const initials = offer.user.slice(0, 2).toUpperCase();
+
+  const ItemMini = ({ item }: { item: TradeItem }) => {
+    const r = RARITY[item.rarity];
+    return (
+      <div
+        className="flex flex-col items-center gap-0.5 rounded border p-1.5"
+        style={{ background: `linear-gradient(135deg, ${r.from}, ${r.to})`, borderColor: r.color + "40", minWidth: 64 }}
+      >
+        <div className="w-12 h-8">
+          <WeaponSVG weapon={item.weapon} color={r.color} />
+        </div>
+        <div className="font-mono text-[8px] text-center leading-tight truncate w-full" style={{ color: r.color }}>{item.weapon}</div>
+        <div className="font-mono text-[9px] font-semibold text-center truncate w-full" style={{ color: "#e8eaf0" }}>{item.name}</div>
+        <div className="font-mono text-[9px]" style={{ color: "#f0c040" }}>${item.price >= 1000 ? (item.price / 1000).toFixed(1) + "k" : item.price.toFixed(0)}</div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      className="rounded-lg border p-4 flex flex-col gap-3"
+      style={{ background: "#10121a", borderColor: "rgba(255,255,255,0.07)" }}
+    >
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold flex-shrink-0"
+            style={{ background: "rgba(240,192,64,0.15)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}
+          >
+            {initials}
+          </div>
+          <div>
+            <div className="font-mono text-xs font-semibold" style={{ color: "#e8eaf0" }}>{offer.user}</div>
+            <div className="font-mono text-[9px] text-muted-foreground">{offer.timeAgo} ago</div>
+          </div>
+        </div>
+        <span
+          className="font-mono text-[9px] font-bold px-2 py-0.5 rounded"
+          style={{ background: typeColors[offer.type] + "20", color: typeColors[offer.type], border: `1px solid ${typeColors[offer.type]}40` }}
+        >
+          {typeLabel[offer.type]}
+        </span>
+      </div>
+
+      {/* Items row */}
+      <div className="flex items-center gap-3">
+        {/* Offers side */}
+        <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Offers</div>
+          <div className="flex gap-1.5 flex-wrap">
+            {offer.offers.map((item, i) => <ItemMini key={i} item={item} />)}
+          </div>
+        </div>
+
+        {/* Arrow */}
+        <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <ArrowRight className="w-4 h-4 text-muted-foreground" />
+        </div>
+
+        {/* Wants side */}
+        <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Wants</div>
+          <div className="flex gap-1.5 flex-wrap">
+            {offer.wants.map((item, i) => <ItemMini key={i} item={item} />)}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+        <div className="flex items-center gap-3">
+          <div className="font-mono text-[10px]">
+            <span className="text-muted-foreground">Offer: </span>
+            <span style={{ color: "#f0c040" }}>${offerTotal.toFixed(2)}</span>
+          </div>
+          <div className="font-mono text-[10px]">
+            <span className="text-muted-foreground">Want: </span>
+            <span style={{ color: "#f0c040" }}>${wantTotal.toFixed(2)}</span>
+          </div>
+          <div className="font-mono text-[10px]">
+            <span className="text-muted-foreground">Diff: </span>
+            <span style={{ color: offerTotal >= wantTotal ? "#4ade80" : "#f87171" }}>
+              {offerTotal >= wantTotal ? "+" : ""}${(offerTotal - wantTotal).toFixed(2)}
+            </span>
+          </div>
+        </div>
+        <button
+          className="px-3 py-1 rounded font-display font-bold text-xs tracking-wide hover:opacity-80 transition-opacity"
+          style={{ background: "#f0c040", color: "#08090d" }}
+        >
+          SEND OFFER
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Trade page ─────────────────────────────────────────────────────── */
+function TradePage() {
+  const [tradeType, setTradeType] = useState<string[]>([]);
+  const [tradeRarity, setTradeRarity] = useState<string[]>([]);
+  const [tradeValueMin, setTradeValueMin] = useState("");
+  const [tradeValueMax, setTradeValueMax] = useState("");
+  const [showNewTrade, setShowNewTrade] = useState(false);
+
+  const toggleTT = (v: string) =>
+    setTradeType((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
+  const toggleTR = (v: string) =>
+    setTradeRarity((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
+
+  const filtered = TRADE_OFFERS.filter((offer) => {
+    if (tradeType.length > 0 && !tradeType.includes(offer.type)) return false;
+    if (tradeRarity.length > 0) {
+      const allItems = [...offer.offers, ...offer.wants];
+      if (!allItems.some((i) => tradeRarity.includes(RARITY[i.rarity].label))) return false;
+    }
+    const offerTotal = offer.offers.reduce((s, i) => s + i.price, 0);
+    const wantTotal  = offer.wants.reduce((s, i) => s + i.price, 0);
+    const maxVal     = Math.max(offerTotal, wantTotal);
+    const min = parseFloat(tradeValueMin);
+    const max = parseFloat(tradeValueMax);
+    if (!isNaN(min) && maxVal < min) return false;
+    if (!isNaN(max) && maxVal > max) return false;
+    return true;
+  });
+
+  return (
+    <div className="flex gap-6">
+      {/* Sidebar */}
+      <aside className="hidden lg:flex flex-col w-64 flex-shrink-0">
+        <div className="flex flex-col gap-4">
+          <FilterSection title="Trade Type" defaultOpen={true}>
+            <div className="space-y-0.5 pt-1">
+              {[
+                { value: "any",      label: "Any" },
+                { value: "overpay",  label: "Overpay" },
+                { value: "even",     label: "Even" },
+                { value: "underpay", label: "Underpay" },
+              ].map(({ value, label }) => {
+                if (value === "any") {
+                  const isAny = tradeType.length === 0;
+                  return (
+                    <FilterOption key={value} active={isAny} onClick={() => setTradeType([])}>
+                      <span className="font-mono text-sm" style={{ color: isAny ? "#e8eaf0" : "#6b7194" }}>{label}</span>
+                      {isAny && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
+                    </FilterOption>
+                  );
+                }
+                const active = tradeType.includes(value);
+                return (
+                  <FilterOption key={value} active={active} onClick={() => toggleTT(value)}>
+                    <span className="font-mono text-sm" style={{ color: active ? "#e8eaf0" : "#6b7194" }}>{label}</span>
+                    {active && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
+                  </FilterOption>
+                );
+              })}
+            </div>
+          </FilterSection>
+
+          <FilterSection title="Rarity" defaultOpen={false}>
+            <div className="space-y-0.5 pt-1">
+              {Object.entries(RARITY).map(([key, r]) => (
+                <FilterOption
+                  key={key}
+                  active={tradeRarity.includes(r.label)}
+                  onClick={() => toggleTR(r.label)}
+                  accentColor={r.color}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                    <span className="font-mono text-sm truncate" style={{ color: tradeRarity.includes(r.label) ? r.color : "#6b7194" }}>{r.label}</span>
+                  </div>
+                  {tradeRarity.includes(r.label) && <Check className="w-2.5 h-2.5 flex-shrink-0" style={{ color: r.color }} />}
+                </FilterOption>
+              ))}
+            </div>
+          </FilterSection>
+
+          <FilterSection title="Value Range" defaultOpen={false}>
+            <div className="px-2 pt-2 pb-1">
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Min</div>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={tradeValueMin}
+                      onChange={(e) => setTradeValueMin(e.target.value)}
+                      placeholder="0"
+                      className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
+                    />
+                  </div>
+                </div>
+                <div className="font-mono text-xs text-muted-foreground mt-4">—</div>
+                <div className="flex-1">
+                  <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Max</div>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={tradeValueMax}
+                      onChange={(e) => setTradeValueMax(e.target.value)}
+                      placeholder="MAX"
+                      className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </FilterSection>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex-1 min-w-0">
+        {/* Top bar */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="font-mono text-sm text-muted-foreground">
+            <span className="text-foreground font-semibold">{filtered.length}</span> trade offers
+          </div>
+          <button
+            onClick={() => setShowNewTrade(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded font-display font-bold text-sm tracking-wide transition-opacity hover:opacity-80"
+            style={{ background: "#f0c040", color: "#08090d" }}
+          >
+            <Plus className="w-4 h-4" />
+            NEW TRADE
+          </button>
+        </div>
+
+        {/* Feed */}
+        {filtered.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground font-mono text-sm">
+            No trade offers match your filters.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {filtered.map((offer) => (
+              <TradeOfferCard key={offer.id} offer={offer} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showNewTrade && <NewTradeModal onClose={() => setShowNewTrade(false)} />}
+    </div>
+  );
+}
+
+/* ─── Main app ──────────────────────────────────────────────────────── */
+const RARITIES = ["All", "Covert", "Classified", "Restricted", "Mil-Spec", "Rare"];
+const WEAPON_GROUPS: { label: string; items: string[] }[] = [
+  { label: "Knives", items: ["Bayonet", "Bowie Knife", "Butterfly Knife", "Falchion Knife", "Flip Knife", "Gut Knife", "Huntsman Knife", "Karambit", "M9 Bayonet", "Navaja Knife", "Nomad Knife", "Paracord Knife", "Shadow Daggers", "Skeleton Knife", "Stiletto Knife", "Survival Knife", "Talon Knife", "Ursus Knife"] },
+  { label: "Gloves", items: ["Bloodhound Gloves", "Broken Fang Gloves", "Driver Gloves", "Hand Wraps", "Hydra Gloves", "Moto Gloves", "Specialist Gloves", "Sport Gloves"] },
+  { label: "Pistols", items: ["CZ75-Auto", "Desert Eagle", "Dual Berettas", "Five-SeveN", "Glock-18", "P2000", "P250", "R8 Revolver", "Tec-9", "USP-S"] },
+  { label: "SMG", items: ["MAC-10", "MP5-SD", "MP7", "MP9", "P90", "PP-Bizon", "UMP-45"] },
+  { label: "Rifles", items: ["AK-47", "AUG", "AWP", "FAMAS", "G3SG1", "Galil AR", "M4A1-S", "M4A4", "SCAR-20", "SG 553", "SSG 08"] },
+  { label: "Heavy", items: ["M249", "MAG-7", "Negev", "Nova", "Sawed-Off", "XM1014"] },
+  { label: "Miscellany", items: ["Case Key", "Capsule Key", "Charms", "Stickers", "Cases", "Graffiti", "Music Kits", "Pins", "Agents", "Patches", "Zeus"] },
+];
+const SORTS    = ["Default", "Discount", "Highest Price", "Lowest Price", "Oldest", "Newest", "Highest Float", "Lowest Float"];
+
+export default function App() {
+  const [search, setSearch]         = useState("");
+  const [rarityFilter, setRarity]   = useState<string[]>([]);
+  const [weaponFilter, setWeapon]   = useState<string[]>([]);
+  const [exteriorFilter, setExterior] = useState<string[]>([]);
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [floatMin, setFloatMin] = useState(0);
+  const [floatMax, setFloatMax] = useState(1);
+  const [filterStatTrak, setFilterStatTrak] = useState<"yes" | "no" | null>(null);
+  const [filterStickers, setFilterStickers] = useState<"yes" | "no" | null>(null);
+  const [filterCharms, setFilterCharms]     = useState<"yes" | "no" | null>(null);
+
+  function toggle(set: React.Dispatch<React.SetStateAction<string[]>>, value: string) {
+    set((prev) => prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]);
+  }
+  const [sort, setSort]             = useState("Default");
+  const [selectedSkin, setSelected] = useState<Skin | null>(null);
+  const [cartCount, setCartCount]   = useState(3);
+  const [filtersOpen, setFilters]   = useState(false);
+  const [activeNav, setActiveNav]   = useState("Market");
+  const [language, setLanguage]     = useState("EN");
+  const [currency, setCurrency]     = useState("USD");
+
+  const filtered = useMemo(() => {
+    let out = SKINS.filter((s) => {
+      const q = search.toLowerCase();
+      if (q && !s.name.toLowerCase().includes(q) && !s.weapon.toLowerCase().includes(q)) return false;
+      const min = parseFloat(priceMin);
+      const max = parseFloat(priceMax);
+      if (!isNaN(min) && s.price < min) return false;
+      if (!isNaN(max) && s.price > max) return false;
+      if (rarityFilter.length > 0 && !rarityFilter.includes(RARITY[s.rarity].label)) return false;
+      if (weaponFilter.length > 0 && !weaponFilter.includes(s.weapon)) return false;
+      if (exteriorFilter.length > 0 && !exteriorFilter.includes(s.wear)) return false;
+      if (s.float < floatMin || s.float > floatMax) return false;
+      if (filterStatTrak === "yes" && !s.statTrak) return false;
+      if (filterStatTrak === "no"  &&  s.statTrak) return false;
+      if (filterStickers === "yes" && s.stickers === 0) return false;
+      if (filterStickers === "no"  && s.stickers  >  0) return false;
+      if (filterCharms === "yes" && !s.charms) return false;
+      if (filterCharms === "no"  &&  s.charms) return false;
+      return true;
+    });
+
+    if (sort === "Discount") out = [...out].sort((a, b) => a.discount - b.discount);
+    if (sort === "Highest Price")    out = [...out].sort((a, b) => b.price - a.price);
+    if (sort === "Lowest Price")     out = [...out].sort((a, b) => a.price - b.price);
+    if (sort === "Oldest")           out = [...out].sort((a, b) => a.id - b.id);
+    if (sort === "Newest")           out = [...out].sort((a, b) => b.id - a.id);
+    if (sort === "Highest Float")    out = [...out].sort((a, b) => b.float - a.float);
+    if (sort === "Lowest Float")     out = [...out].sort((a, b) => a.float - b.float);
+    return out;
+  }, [search, priceMin, priceMax, floatMin, floatMax, rarityFilter, weaponFilter, exteriorFilter, filterStatTrak, filterStickers, filterCharms, sort]);
+
+  const hasActiveFilters = priceMin || priceMax || floatMin > 0 || floatMax < 1 || rarityFilter.length > 0 || weaponFilter.length > 0 || exteriorFilter.length > 0 || filterStatTrak || filterStickers || filterCharms || search;
+
+  return (
+    <div className="min-h-screen bg-background text-foreground" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <style>{`
+        .font-display { font-family: 'Rajdhani', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+      `}</style>
+
+      {/* ── Navigation ───────────────────────────────────────────── */}
+      <nav className="sticky top-0 z-40 border-b" style={{ background: "rgba(8,9,13,0.95)", borderColor: "rgba(255,255,255,0.07)", backdropFilter: "blur(12px)" }}>
+        <div className="w-full px-4 h-14 flex items-center gap-4">
+          {/* Logo */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-7 h-7 rounded flex items-center justify-center" style={{ background: "#f0c040" }}>
+              <Zap className="w-4 h-4 text-black" />
+            </div>
+            <span className="font-display text-xl font-bold tracking-wider" style={{ color: "#f0c040" }}>SKINDEX</span>
+          </div>
+
+          {/* Nav links */}
+          <div className="hidden md:flex items-center gap-1 ml-4">
+            {["Market", "Trade", "Sell"].map((n) => (
+              <button
+                key={n}
+                onClick={() => setActiveNav(n)}
+                className="px-3 py-1.5 rounded font-display text-sm font-semibold tracking-wide transition-colors"
+                style={{
+                  color: activeNav === n ? "#f0c040" : "#9da3c0",
+                  background: activeNav === n ? "rgba(240,192,64,0.1)" : "transparent",
+                }}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="flex-1 max-w-md mx-auto relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search skins, weapons..."
+              className="w-full pl-8 pr-3 py-2 rounded text-sm font-mono placeholder:text-muted-foreground focus:outline-none transition-colors"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
+            />
+          </div>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="hidden sm:flex items-center gap-2">
+              <NavDropdown value={language} onChange={setLanguage} options={LANGUAGES as unknown as { value: string; label: string; sub: string }[]} compactTrigger />
+              <NavDropdown value={currency} onChange={setCurrency} options={CURRENCIES as unknown as { value: string; label: string; sub: string }[]} />
+            </div>
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded border" style={{ borderColor: "rgba(240,192,64,0.3)", background: "rgba(240,192,64,0.08)" }}>
+              <span className="font-mono text-xs font-semibold" style={{ color: "#f0c040" }}>$2,847.50</span>
+            </div>
+            <button className="relative text-muted-foreground hover:text-foreground transition-colors">
+              <Bell className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-mono font-bold flex items-center justify-center" style={{ background: "#e84060", color: "#fff" }}>4</span>
+            </button>
+            <button
+              className="relative text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setCartCount((c) => c + 1)}
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-mono font-bold flex items-center justify-center" style={{ background: "#f0c040", color: "#08090d" }}>{cartCount}</span>
+              )}
+            </button>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
+              <User className="w-4 h-4 text-muted-foreground" />
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div className="w-full px-4 py-6">
+        {activeNav === "Trade" ? <TradePage /> : (
+        <div className="flex gap-6">
+
+          {/* ── Sidebar ─────────────────────────────────────────── */}
+          <aside className="hidden lg:flex flex-col w-64 flex-shrink-0" style={{ maxHeight: "calc(100vh - 56px)" }}>
+            <div className="flex-1 overflow-y-auto flex flex-col gap-4" style={{ scrollbarWidth: "none" }}>
+            {/* Rarity */}
+            {/* Price */}
+            <FilterSection title="Price" defaultOpen={false}>
+              <div className="px-2 pt-2 pb-1">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground mb-1">From</div>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={priceMin}
+                        onChange={(e) => setPriceMin(e.target.value)}
+                        placeholder="MIN"
+                        className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none transition-colors"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
+                      />
+                    </div>
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground mt-4">—</div>
+                  <div className="flex-1">
+                    <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground mb-1">To</div>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={priceMax}
+                        onChange={(e) => setPriceMax(e.target.value)}
+                        placeholder="MAX"
+                        className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none transition-colors"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </FilterSection>
+
+            <FilterSection title="Rarity" defaultOpen={false}>
+              <div className="space-y-0.5 pt-1">
+                {Object.entries(RARITY).map(([key, r]) => (
+                  <FilterOption
+                    key={key}
+                    active={rarityFilter.includes(r.label)}
+                    onClick={() => toggle(setRarity, r.label)}
+                    accentColor={r.color}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                      <span className="font-mono text-sm truncate" style={{ color: rarityFilter.includes(r.label) ? r.color : "#6b7194" }}>
+                        {r.label}
+                      </span>
+                    </div>
+                    {rarityFilter.includes(r.label) && <Check className="w-2.5 h-2.5 flex-shrink-0" style={{ color: r.color }} />}
+                  </FilterOption>
+                ))}
+              </div>
+            </FilterSection>
+
+            {/* Exterior */}
+            <FilterSection title="Exterior" defaultOpen={false}>
+              <div className="space-y-0.5 pt-1">
+                {["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"].map((wear) => (
+                  <FilterOption
+                    key={wear}
+                    active={exteriorFilter.includes(wear)}
+                    onClick={() => toggle(setExterior, wear)}
+                  >
+                    <span className="font-mono text-sm" style={{ color: exteriorFilter.includes(wear) ? "#e8eaf0" : "#6b7194" }}>{wear}</span>
+                    {exteriorFilter.includes(wear) && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
+                  </FilterOption>
+                ))}
+              </div>
+            </FilterSection>
+
+            {/* Weapon */}
+            <FilterSection title="Type" defaultOpen={false}>
+              <div className="pt-1 space-y-0.5">
+                {WEAPON_GROUPS.map((group) => (
+                  <WeaponGroup
+                    key={group.label}
+                    group={group}
+                    weaponFilter={weaponFilter}
+                    onToggle={(w) => toggle(setWeapon, w)}
+                  />
+                ))}
+              </div>
+            </FilterSection>
+
+            {/* Others */}
+            {/* Float */}
+            <FilterSection title="Float" defaultOpen={false}>
+              <div className="pt-3">
+                <DualRangeSlider
+                  min={floatMin}
+                  max={floatMax}
+                  onMinChange={setFloatMin}
+                  onMaxChange={setFloatMax}
+                />
+              </div>
+            </FilterSection>
+
+            <FilterSection title="Others" defaultOpen={false}>
+              <div className="space-y-1 pt-2">
+                {([
+                  { label: "StatTrak™", value: filterStatTrak, set: setFilterStatTrak },
+                  { label: "Stickers",  value: filterStickers, set: setFilterStickers },
+                  { label: "Charms",    value: filterCharms,   set: setFilterCharms   },
+                ] as { label: string; value: "yes" | "no" | null; set: (v: "yes" | "no" | null) => void }[]).map(({ label, value, set }) => (
+                  <div key={label} className="px-2 py-1.5">
+                    <div className="font-mono text-sm mb-1.5" style={{ color: value ? "#e8eaf0" : "#6b7194" }}>{label}</div>
+                    <div className="flex gap-1.5">
+                      {(["yes", "no"] as const).map((opt) => (
+                        <button
+                          key={opt}
+                          onClick={() => set(value === opt ? null : opt)}
+                          className="flex-1 py-1 rounded font-mono text-[10px] font-semibold uppercase tracking-wider transition-all duration-150"
+                          style={{
+                            background: value === opt ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.04)",
+                            color: value === opt ? "#f0c040" : "#6b7194",
+                            border: `1px solid ${value === opt ? "rgba(240,192,64,0.35)" : "rgba(255,255,255,0.07)"}`,
+                          }}
+                        >
+                          {opt === "yes" ? "With" : "Without"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </FilterSection>
+
+            </div>
+
+            {/* Market stats — fixed below filters */}
+            <div className="mt-4 p-3 rounded border flex-shrink-0" style={{ background: "#10121a", borderColor: "rgba(255,255,255,0.07)" }}>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Live Market</div>
+              <div className="space-y-2">
+                {[
+                  { label: "24h Volume",     val: "$1.4M",  up: true  },
+                  { label: "Active Listings", val: "48,392", up: false },
+                  { label: "Transactions",   val: "12,841", up: true  },
+                ].map(({ label, val, up }) => (
+                  <div key={label} className="flex justify-between items-center">
+                    <span className="font-mono text-[10px] text-muted-foreground">{label}</span>
+                    <span className="font-mono text-[10px] font-semibold" style={{ color: up ? "#4ade80" : "#e8eaf0" }}>{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          {/* ── Main content ────────────────────────────────────── */}
+          <div className="flex-1 min-w-0">
+
+            {/* Filter bar */}
+            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setFilters(!filtersOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-mono border hover:bg-white/5 transition-colors lg:hidden"
+                  style={{ borderColor: "rgba(255,255,255,0.08)", color: "#9da3c0" }}
+                >
+                  <SlidersHorizontal className="w-3 h-3" />
+                  Filters
+                </button>
+                <div className="font-mono text-sm text-muted-foreground">
+                  <span className="text-foreground font-semibold">{filtered.length}</span> listings
+                </div>
+                {hasActiveFilters && (
+                  <button
+                    onClick={() => { setPriceMin(""); setPriceMax(""); setFloatMin(0); setFloatMax(1); setRarity([]); setWeapon([]); setExterior([]); setFilterStatTrak(null); setFilterStickers(null); setFilterCharms(null); setSearch(""); }}
+                    className="font-mono text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  >
+                    <X className="w-2.5 h-2.5" /> clear
+                  </button>
+                )}
+              </div>
+              <SortDropdown sort={sort} setSort={setSort} />
+            </div>
+
+            {/* Skin grid */}
+            {filtered.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground font-mono text-sm">
+                No skins match your filters.
+              </div>
+            ) : (
+              <div className="overflow-y-auto" style={{ maxHeight: "956px", scrollbarWidth: "none" }}>
+                <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(175px, 1fr))" }}>
+                  {filtered.map((skin) => (
+                    <SkinCard key={skin.id} skin={skin} onClick={() => setSelected(skin)} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Right rail: activity ─────────────────────────────── */}
+          <aside className="hidden xl:flex flex-col gap-4 w-52 flex-shrink-0">
+            <div className="rounded-lg border overflow-hidden" style={{ background: "#10121a", borderColor: "rgba(255,255,255,0.07)" }}>
+              <div className="px-3 py-2.5 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                <Zap className="w-3 h-3 text-yellow-400" />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Live Sales</span>
+                <div className="ml-auto w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#4ade80" }} />
+              </div>
+              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                {RECENT_SALES.map((s, i) => (
+                  <div key={i} className="px-3 py-2.5 hover:bg-white/[0.02] transition-colors">
+                    <div className="font-mono text-[10px] text-foreground leading-tight mb-0.5 truncate">{s.name}</div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-semibold" style={{ color: "#f0c040" }}>
+                        ${s.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="font-mono text-[9px] text-muted-foreground">{s.time} ago</span>
+                    </div>
+                    <div className="font-mono text-[9px] text-muted-foreground truncate">{s.user}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Trending */}
+            <div className="rounded-lg border overflow-hidden" style={{ background: "#10121a", borderColor: "rgba(255,255,255,0.07)" }}>
+              <div className="px-3 py-2.5 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                <TrendingUp className="w-3 h-3" style={{ color: "#4ade80" }} />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Top Movers</span>
+              </div>
+              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                {SKINS.sort((a, b) => b.trend - a.trend).slice(0, 5).map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelected(s)}
+                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/[0.02] transition-colors text-left"
+                  >
+                    <div>
+                      <div className="font-mono text-[10px] text-foreground leading-tight truncate max-w-[110px]">
+                        {s.weapon} | {s.name}
+                      </div>
+                      <div className="font-mono text-[9px] text-muted-foreground">${s.price.toFixed(2)}</div>
+                    </div>
+                    <div className="flex items-center gap-0.5 font-mono text-[10px] font-semibold" style={{ color: s.trend >= 0 ? "#4ade80" : "#f87171" }}>
+                      {s.trend >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
+                      {s.trend > 0 ? "+" : ""}{s.trend}%
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sell CTA */}
+            <div className="rounded-lg p-4 border" style={{ background: "rgba(232,64,96,0.08)", borderColor: "rgba(232,64,96,0.2)" }}>
+              <Package className="w-5 h-5 mb-2" style={{ color: "#e84060" }} />
+              <div className="font-display text-sm font-bold text-foreground mb-1">List Your Skins</div>
+              <div className="font-mono text-[10px] text-muted-foreground mb-3 leading-relaxed">0% seller fees this week. Instant payouts.</div>
+              <button className="w-full py-2 rounded font-display font-bold text-xs tracking-wide hover:opacity-90 transition-opacity" style={{ background: "#e84060", color: "#fff" }}>
+                START SELLING
+              </button>
+            </div>
+          </aside>
+        </div>
+        )}
+      </div>
+
+      {/* Detail modal */}
+      {selectedSkin && <SkinDetail skin={selectedSkin} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}
+
