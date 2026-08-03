@@ -1,13 +1,483 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
+// No Prisma 7 a connection string vive em prisma.config.ts, não aqui.
 datasource db {
   provider = "postgresql"
+}
+
+// =========================
+// USER
+// =========================
+model User {
+  id String @id @default(uuid())
+
+  // Conta de sistema que representa a própria plataforma. Deve existir
+  // exatamente UMA linha com isPlatform = true (garantir no seed).
+  // É a dona dos itens comprados no fluxo rápido e a contraparte do ledger:
+  // o caixa da plataforma é o balance dessa conta.
+  // Toda query de "usuários reais" precisa filtrar isPlatform = false.
+  isPlatform Boolean @default(false)
+
+  // Steam
+  steamId        String    @unique
+  username       String
+  avatarUrl      String?
+  profileUrl     String?
+  steamCreatedAt DateTime?
+
+  // Carteira (sempre em USD internamente)
+  balance         Decimal @default(0) @db.Decimal(12, 2)
+  displayCurrency String  @default("USD")
+
+  // Contato / conta
+  email         String? @unique
+  emailVerified Boolean @default(false)
+
+  // Segurança / moderação
+  isBanned  Boolean @default(false)
+  banReason String?
+
+  // Trade
+  tradeUrl String?
+
+  // Relações
+  items        Item[]
+  listings     Listing[]
+  transactions Transaction[]
+  tradeOffers  TradeOffer[]
+  purchases    Order[]       @relation("OrderBuyer")
+  sales        Order[]       @relation("OrderSeller")
+
+  // Metadados
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+}
+
+// =========================
+// SKIN TEMPLATE
+// =========================
+model SkinTemplate {
+  id String @id @default(uuid())
+
+  // Identificação
+  marketHashName String  @unique // ex: "StatTrak™ AK-47 | Redline"
+  weapon         String // ex: "AK-47"
+  skinName       String // ex: "Redline"
+  rarity         String // ex: "Classified"
+  collection     String? // ex: "The Phoenix Collection"
+
+  variant SkinVariant @default(NORMAL)
+
+  // Exteriores possíveis (float range da skin, não do item)
+  minFloat Float @default(0)
+  maxFloat Float @default(1)
+
+  hasStickerSlots Boolean @default(false)
+
+  // Mídia
+  imageUrl    String?
+  inspectLink String?
+
+  // Cache do preço de referência externo (só exibição, sobrescrito periodicamente)
+  referencePrice   Decimal?  @db.Decimal(12, 2)
+  referencePriceAt DateTime?
+
+  items Item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SkinVariant {
+  NORMAL
+  STATTRAK
+  SOUVENIR
+}
+
+// =========================
+// ITEM (instância real)
+// =========================
+model Item {
+  id String @id @default(uuid())
+
+  templateId String
+  template   SkinTemplate @relation(fields: [templateId], references: [id])
+
+  ownerId String?
+  owner   User?   @relation(fields: [ownerId], references: [id])
+
+  // Dados vindos do GC/Steam
+  // ATENÇÃO: assetId MUDA a cada troca de inventário. É o endereço atual do
+  // item na Steam, não a identidade dele — por isso não é @unique.
+  // A identidade estável é a combinação das 4 propriedades imutáveis abaixo:
+  // float + paintSeed + paintIndex + defIndex.
+  assetId    String // ID atual do item na Steam (mutável)
+  float      Float
+  paintSeed  Int
+  paintIndex Int
+  defIndex   Int // define a arma em si (imutável)
+
+  // Onde o item está FISICAMENTE. Não confundir com quem é o dono (ownerId)
+  // nem com estar vendido (Order) — no nosso fluxo o item passa quase todo o
+  // ciclo de vida parado em BOT_CUSTODY, inclusive depois de vendido.
+  location ItemLocation @default(USER_INVENTORY)
+  botId    String? // se estiver custodiado por um bot
+  bot      Bot?         @relation(fields: [botId], references: [id])
+
+  // Trade Protection da Valve: 7 dias a cada vez que o item é RECEBIDO.
+  // Enquanto estiver no futuro, o bot não consegue enviar o item para ninguém.
+  // Preenchido quando o bot aceita a troca de depósito.
+  tradeLockUntil DateTime?
+
+  // Como o item entrou na custódia.
+  // PLATFORM_BUYOUT = estoque próprio: compramos com desconto para revender.
+  // Nesse caso acquisitionCost é obrigatório na prática — sem ele não há
+  // como calcular margem nem saber se o desconto está calibrado.
+  acquisitionType ItemAcquisition @default(USER_DEPOSIT)
+  acquisitionCost Decimal?        @db.Decimal(12, 2) // em USD, só em buyout
+  acquiredAt      DateTime?
+
+  stickers        ItemSticker[]
+  listing         Listing?
+  tradeOfferItems TradeOfferItem[]
+  orders          Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([templateId])
+  @@index([location])
+  @@index([botId])
+  @@index([assetId]) // lookup ao reconciliar inventário, mas não é único
+  @@index([acquisitionType]) // relatório de estoque próprio
+  // Identidade estável do item — usada para reencontrá-lo depois de uma troca
+  @@index([defIndex, paintIndex, paintSeed, float])
+  // Fila de entrega: itens liberáveis a partir de tal momento
+  @@index([location, tradeLockUntil])
+}
+
+enum ItemAcquisition {
+  USER_DEPOSIT // usuário depositou para vender — o item não é nosso
+  PLATFORM_BUYOUT // compramos do usuário no fluxo rápido — estoque próprio
+}
+
+// Só localização física. "Listado" virou Listing.active e "vendido" virou Order.
+enum ItemLocation {
+  USER_INVENTORY // ainda no inventário Steam do usuário, não depositado
+  INBOUND // troca de depósito enviada, aguardando o usuário aceitar
+  BOT_CUSTODY // em custódia — estado normal, inclusive após vendido
+  OUTBOUND // troca de entrega/devolução enviada, aguardando aceite
+  WITHDRAWN // saiu da plataforma, entregue a um inventário Steam
+}
+
+// =========================
+// ITEM STICKER
+// =========================
+model ItemSticker {
+  id String @id @default(uuid())
+
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  stickerName String // ex: "Katowice 2014 Titan (Holo)"
+  position    Int // 0 a 4
+  wear        Float? // desgaste do sticker (0 a 1)
+
+  createdAt DateTime @default(now())
+}
+
+// =========================
+// LISTING (anúncio de venda)
+// =========================
+model Listing {
+  id String @id @default(uuid())
+
+  itemId String @unique
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  sellerId String
+  seller   User   @relation(fields: [sellerId], references: [id])
+
+  price  Decimal @db.Decimal(12, 2) // preço definido pelo usuário — valor contratual
+  active Boolean @default(true)
+
+  transactions Transaction[]
+  orders       Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sellerId])
+  @@index([active, price])
+}
+
+// =========================
+// ORDER (venda fechada)
+// =========================
+// Nasce quando o comprador paga e morre quando o item é entregue.
+// No nosso fluxo essas duas coisas são separadas por dias (trade lock de 7
+// dias da Valve), então esse intervalo precisa de um dono explícito.
+// Regra de crédito: o vendedor NÃO recebe na compra — a Transaction de SALE
+// nasce PENDING e só vira COMPLETED quando status = DELIVERED.
+model Order {
+  id String @id @default(uuid())
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id])
+
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  buyerId String
+  buyer   User   @relation("OrderBuyer", fields: [buyerId], references: [id])
+
+  sellerId String
+  seller   User   @relation("OrderSeller", fields: [sellerId], references: [id])
+
+  status OrderStatus @default(PAID)
+
+  // Valores congelados no fechamento — não recalcular depois.
+  // A Listing pode ser reeditada; o pedido não.
+  // No estoque próprio (seller = conta plataforma) feeAmount é 0: o lucro
+  // é a diferença entre price e Item.acquisitionCost, não uma comissão.
+  price        Decimal @db.Decimal(12, 2) // o que o comprador pagou
+  feeAmount    Decimal @db.Decimal(12, 2) // comissão da plataforma
+  sellerPayout Decimal @db.Decimal(12, 2) // price - feeAmount
+
+  // Previsão de liberação: cópia de Item.tradeLockUntil no momento da compra.
+  // É o que alimenta o contador "faltam X dias para o dinheiro cair".
+  deliverableAt DateTime?
+  deliveredAt   DateTime?
+
+  // Troca de entrega ao comprador (só existe depois do lock expirar)
+  tradeOfferId String?     @unique
+  tradeOffer   TradeOffer? @relation(fields: [tradeOfferId], references: [id])
+
+  transactions Transaction[]
+
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
+  @@index([listingId])
+  @@index([itemId])
+  // Fila do worker: pedidos esperando o lock expirar
+  @@index([status, deliverableAt])
+}
+
+enum OrderStatus {
+  PAID // comprador pagou, saldo debitado, item já é dele no inventário virtual
+  AWAITING_UNLOCK // aguardando o trade lock do item expirar
+  READY_TO_DELIVER // lock expirou, na fila do bot
+  DELIVERING // troca enviada, aguardando o comprador aceitar
+  DELIVERED // entregue — é aqui que o vendedor é creditado
+  FAILED // entrega não foi possível (bot banido, usuário sumiu...)
+  REFUNDED // comprador estornado
+}
+
+// =========================
+// TRANSACTION (extrato / ledger)
+// =========================
+// Append-only: uma linha = um movimento no saldo do usuário.
+// Nunca editar valor depois de criada — estorno é uma nova linha (REFUND).
+// User.balance é o saldo materializado; só é atualizado na MESMA transação
+// de banco que insere a linha aqui.
+model Transaction {
+  id String @id @default(uuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type   TransactionType
+  status TransactionStatus @default(PENDING)
+
+  // Valor sempre em USD, com sinal: positivo credita, negativo debita.
+  // Taxa NÃO fica embutida aqui — vira uma linha FEE separada (auditoria/receita).
+  amount       Decimal  @db.Decimal(12, 2)
+  balanceAfter Decimal? @db.Decimal(12, 2) // snapshot pós-aplicação
+
+  // Câmbio: o que o usuário efetivamente pagou/recebeu na moeda dele.
+  // É daqui que sai a métrica de spread cambial.
+  // Precisão alta porque cripto usa casas decimais que BRL/EUR não usam
+  sourceAmount   Decimal? @db.Decimal(30, 10)
+  sourceCurrency String? // ex: "BRL", "BTC"
+  fxRate         Decimal? @db.Decimal(18, 8) // sourceCurrency -> USD aplicado
+
+  // Gateway externo (Stripe, EBANX, BitPay...)
+  provider       String?
+  providerRef    String? // id da cobrança/payout no gateway
+  // Chave de idempotência: protege contra webhook duplicado do gateway
+  idempotencyKey String? @unique
+
+  // Vínculos internos
+  listingId String?
+  listing   Listing?      @relation(fields: [listingId], references: [id])
+  orderId   String?
+  order     Order?        @relation(fields: [orderId], references: [id])
+  // Encadeia FEE/REFUND na transação que a originou
+  parentId  String?
+  parent    Transaction?  @relation("TransactionChain", fields: [parentId], references: [id])
+  children  Transaction[] @relation("TransactionChain")
+
+  description   String?
+  failureReason String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  settledAt DateTime?
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([type])
+  @@index([provider, providerRef])
+  @@index([listingId])
+  @@index([orderId])
+  // Saldo a liberar do vendedor: SALE ainda PENDING por usuário
+  @@index([userId, type, status])
+}
+
+enum TransactionType {
+  DEPOSIT // entrada de dinheiro (cartão/PIX/cripto)
+  WITHDRAWAL // saque
+  PURCHASE // débito do comprador ao fechar uma listing
+  SALE // crédito do vendedor ao fechar uma listing
+  BUYOUT // fluxo rápido: crédito ao usuário e débito da conta plataforma.
+  // Separado de SALE porque a margem sai do spread, não de FEE.
+  FEE // taxa da plataforma (comissão, taxa de saque)
+  REFUND // estorno de qualquer uma das acima
+  CHARGEBACK // contestação no cartão — débito forçado
+  ADJUSTMENT // ajuste manual (suporte/correção)
+}
+
+enum TransactionStatus {
+  PENDING // aguardando confirmação do gateway
+  COMPLETED // liquidada, saldo aplicado
+  FAILED
+  CANCELED
+  REVERSED // desfeita por REFUND/CHARGEBACK
+}
+
+// =========================
+// TRADE OFFER (troca Steam)
+// =========================
+model TradeOffer {
+  id String @id @default(uuid())
+
+  type   TradeOfferType
+  status TradeOfferStatus @default(CREATED)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  botId String
+  bot   Bot    @relation(fields: [botId], references: [id])
+
+  items TradeOfferItem[]
+
+  // Id da oferta na Steam — só existe depois de enviada com sucesso
+  steamOfferId String? @unique
+  // Snapshot da trade url no momento do envio (a do usuário pode mudar depois)
+  tradeUrl     String?
+
+  // Confirmação mobile (Steam Guard) do lado do bot
+  confirmedAt DateTime?
+
+  order Order?
+
+  attempts  Int     @default(0)
+  lastError String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  sentAt      DateTime?
+  expiresAt   DateTime?
+  completedAt DateTime?
+
+  @@index([userId, createdAt])
+  @@index([botId])
+  @@index([status])
+}
+
+enum TradeOfferType {
+  DEPOSIT // usuário -> bot (entrega do item para custódia)
+  WITHDRAW // bot -> usuário (entrega ao comprador ou devolução ao vendedor)
+}
+
+enum TradeOfferStatus {
+  CREATED // registrada internamente, ainda não enviada à Steam
+  PENDING_CONFIRMATION // criada na Steam, aguardando o bot confirmar no mobile
+  // authenticator. A oferta EXISTE mas o usuário ainda não a vê.
+  SENT // confirmada e visível, aguardando o usuário aceitar
+  ACCEPTED // aceita e itens trocados
+  DECLINED // recusada pelo usuário
+  CANCELED // cancelada pela plataforma
+  EXPIRED // usuário não respondeu a tempo
+  FAILED // erro na Steam / bot indisponível
+}
+
+// N:N entre TradeOffer e Item (uma oferta pode levar vários itens)
+model TradeOfferItem {
+  id String @id @default(uuid())
+
+  tradeOfferId String
+  tradeOffer   TradeOffer @relation(fields: [tradeOfferId], references: [id])
+
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([tradeOfferId, itemId])
+  @@index([itemId])
+}
+
+// =========================
+// BOT (conta Steam de custódia)
+// =========================
+// ATENÇÃO: senha, shared_secret e identity_secret NÃO ficam aqui.
+// Só a referência ao segredo no cofre (env/secret manager).
+model Bot {
+  id String @id @default(uuid())
+
+  steamId     String  @unique
+  username    String  @unique // login Steam do bot
+  displayName String?
+  tradeUrl    String?
+
+  credentialRef String @unique // chave no secret manager, ex: "bot/01/creds"
+
+  status BotStatus @default(OFFLINE)
+
+  // Capacidade: inventário Steam trava em 1000 itens
+  itemCount Int @default(0)
+  maxItems  Int @default(900)
+
+  // Bots novos ficam com trade hold de 7 dias / 15 dias sem Steam Guard mobile
+  tradeHoldUntil DateTime?
+
+  items       Item[]
+  tradeOffers TradeOffer[]
+
+  lastHeartbeat DateTime?
+  lastError     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+enum BotStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE // fora de rotação por escolha da plataforma
+  LOCKED // trade hold / limitação temporária da Steam
+  BANNED
 }
