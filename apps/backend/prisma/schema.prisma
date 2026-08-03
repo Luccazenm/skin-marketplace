@@ -85,10 +85,21 @@ model SkinTemplate {
   referencePrice   Decimal?  @db.Decimal(12, 2)
   referencePriceAt DateTime?
 
+  // ---- Whitelist do fluxo rápido (compra com desconto para revenda) ----
+  // Critério: liquidez + teto de preço. Item ilíquido fica 7 dias travado
+  // sem poder ser liquidado em outro mercado, então o risco de preço é real.
+  // buyoutEligible é calculado por job, não editado à mão.
+  buyoutEligible     Boolean   @default(false)
+  buyoutDiscountPct  Decimal?  @db.Decimal(5, 2) // desconto aplicado na compra
+  salesVolume30d     Int? // vendas observadas nos últimos 30 dias
+  liquidityUpdatedAt DateTime?
+
   items Item[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([buyoutEligible])
 }
 
 enum SkinVariant {
@@ -391,6 +402,14 @@ model TradeOffer {
 
   order Order?
 
+  // Motivo da saída. Devolução existe porque o vendedor pode cancelar o
+  // anúncio a qualquer momento, mas o item só sai depois do lock expirar.
+  reason TradeOfferReason @default(DELIVERY)
+
+  // Quando o worker pode tentar criar a oferta na Steam. Preenchido com o
+  // tradeLockUntil do item enquanto ele estiver travado.
+  scheduledFor DateTime?
+
   attempts  Int     @default(0)
   lastError String?
 
@@ -403,6 +422,8 @@ model TradeOffer {
   @@index([userId, createdAt])
   @@index([botId])
   @@index([status])
+  // Fila do worker: ofertas agendadas que já podem ser criadas
+  @@index([status, scheduledFor])
 }
 
 enum TradeOfferType {
@@ -410,7 +431,17 @@ enum TradeOfferType {
   WITHDRAW // bot -> usuário (entrega ao comprador ou devolução ao vendedor)
 }
 
+enum TradeOfferReason {
+  DEPOSIT_INTAKE // recolher o item do vendedor
+  DELIVERY // entregar ao comprador
+  RETURN // devolver ao vendedor (anúncio cancelado ou venda desfeita)
+  WITHDRAWAL // saque comum do inventário virtual
+}
+
 enum TradeOfferStatus {
+  SCHEDULED // aguardando o trade lock do item expirar para poder ser criada.
+  // Usado tanto na entrega ao comprador quanto na devolução de anúncio
+  // cancelado durante o lock.
   CREATED // registrada internamente, ainda não enviada à Steam
   PENDING_CONFIRMATION // criada na Steam, aguardando o bot confirmar no mobile
   // authenticator. A oferta EXISTE mas o usuário ainda não a vê.
