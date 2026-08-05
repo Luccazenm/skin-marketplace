@@ -29,7 +29,9 @@ export function validateEnv(config: Record<string, unknown>): Env {
 
   if (!result.success) {
     const detalhes = result.error.issues
-      .map((issue) => `  - ${issue.path.join('.') || '(raiz)'}: ${issue.message}`)
+      .map(
+        (issue) => `  - ${issue.path.join('.') || '(raiz)'}: ${issue.message}`,
+      )
       .join('\n');
 
     throw new Error(
