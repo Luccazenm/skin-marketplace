@@ -11,7 +11,7 @@ datasource db {
 // USER
 // =========================
 model User {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   // Conta de sistema que representa a própria plataforma. Deve existir
   // exatamente UMA linha com isPlatform = true (garantir no seed).
@@ -60,7 +60,7 @@ model User {
 // SKIN TEMPLATE
 // =========================
 model SkinTemplate {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   // Identificação
   marketHashName String  @unique // ex: "StatTrak™ AK-47 | Redline"
@@ -112,7 +112,7 @@ enum SkinVariant {
 // ITEM (instância real)
 // =========================
 model Item {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   templateId String
   template   SkinTemplate @relation(fields: [templateId], references: [id])
@@ -189,7 +189,7 @@ enum ItemLocation {
 // ITEM STICKER
 // =========================
 model ItemSticker {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   itemId String
   item   Item   @relation(fields: [itemId], references: [id])
@@ -205,7 +205,7 @@ model ItemSticker {
 // LISTING (anúncio de venda)
 // =========================
 model Listing {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   itemId String @unique
   item   Item   @relation(fields: [itemId], references: [id])
@@ -235,7 +235,7 @@ model Listing {
 // Regra de crédito: o vendedor NÃO recebe na compra — a Transaction de SALE
 // nasce PENDING e só vira COMPLETED quando status = DELIVERED.
 model Order {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   listingId String
   listing   Listing @relation(fields: [listingId], references: [id])
@@ -301,7 +301,7 @@ enum OrderStatus {
 // User.balance é o saldo materializado; só é atualizado na MESMA transação
 // de banco que insere a linha aqui.
 model Transaction {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
@@ -379,7 +379,7 @@ enum TransactionStatus {
 // TRADE OFFER (troca Steam)
 // =========================
 model TradeOffer {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   type   TradeOfferType
   status TradeOfferStatus @default(CREATED)
@@ -455,7 +455,7 @@ enum TradeOfferStatus {
 
 // N:N entre TradeOffer e Item (uma oferta pode levar vários itens)
 model TradeOfferItem {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   tradeOfferId String
   tradeOffer   TradeOffer @relation(fields: [tradeOfferId], references: [id])
@@ -475,7 +475,7 @@ model TradeOfferItem {
 // ATENÇÃO: senha, shared_secret e identity_secret NÃO ficam aqui.
 // Só a referência ao segredo no cofre (env/secret manager).
 model Bot {
-  id String @id @default(uuid())
+  id String @id @default(uuid(7))
 
   steamId     String  @unique
   username    String  @unique // login Steam do bot
