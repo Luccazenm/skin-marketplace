@@ -20,6 +20,13 @@ export const envSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+
+  // Endereço público desta API. A Steam usa como "realm": é o domínio que
+  // aparece para o usuário na tela de login dela.
+  API_URL: z.url().default('http://localhost:3000'),
+
+  // Para onde mandamos o usuário depois do login concluído.
+  FRONTEND_URL: z.url().default('http://localhost:5173'),
 });
 
 export type Env = z.infer<typeof envSchema>;
