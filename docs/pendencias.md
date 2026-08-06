@@ -85,6 +85,59 @@ Medalhas e itens não negociáveis devem ser **escondidos** da tela de
 depósito, não mostrados e recusados depois. O endpoint já suporta
 (`?depositable=true`); falta a tela usar.
 
+### Fonte de preço de mercado
+
+`SkinTemplate.referencePrice` existe e está vazio. Decisão pendente: de
+onde vem o número.
+
+**A Steam não serve**, por dois motivos independentes:
+
+- *Preço inflado*: o saldo do Steam Market não pode ser sacado, então as
+  pessoas aceitam pagar mais lá. Mercados onde o dinheiro sai ficam
+  consistentemente abaixo. Usar Steam como referência faria o site parecer
+  caro.
+- *Rate limit*: ~20 consultas por minuto. Com ~20 mil itens, uma
+  atualização completa passaria de 16 horas.
+
+Alternativas são serviços pagos que agregam vários mercados (Buff163,
+CSFloat, Skinport, Steam) e ponderam por vendas concluídas, não por
+anúncios: Pricempire, cs2.sh, SteamAnalyst, SteamWebAPI, CSGOSKINS.GG.
+
+Vira **custo recorrente** — decidir junto com o resto da conta de
+viabilidade. Escolher perto de construir a vitrine, quando dá para
+comparar assinatura com uso real.
+
+### Preço de skin com sticker: não automatizar
+
+O mercado chama de **SP%** — quanto do valor do sticker transfere para a
+arma depois de aplicado:
+
+| Tipo | Transfere |
+|---|---|
+| Comum de torneio | 2–5% |
+| Holo/foil popular | 5–15% |
+| Katowice 2014 holo | 15–50%+ |
+
+E varia com posição, alinhamento, combinação com a skin e demanda. O mesmo
+sticker vale o dobro ou a metade dependendo de onde foi colado. **Nenhuma
+API entrega isso com confiança.**
+
+Um exemplo concreto está no inventário de teste: uma AK-47 Blue Laminate
+com três Katowice 2014. A skin limpa custa poucos dólares; com esses
+stickers, ordens de grandeza mais.
+
+O que fazer: mostrar o **preço base da skin** e a **lista de stickers com o
+valor de cada** separadamente, deixando o vendedor definir o total. O
+comprador vê os mesmos dados e julga. Calcular um número único e
+apresentá-lo como "preço de mercado" seria errar com aparência de
+precisão.
+
+### Catálogo precisa acomodar itens que não são skins de arma
+
+`SkinTemplate` tem `weapon` e `skinName` — foi modelado para armas. Um
+sticker não tem arma. Para guardar preço de sticker (necessário para o
+item acima), o catálogo precisa acomodar esses casos.
+
 ### Reserva e limite de exposição por bot
 
 `Bot.maxItems` limita quantidade, não valor. 900 skins de $2 e 40 facas de
