@@ -35,9 +35,29 @@ model User {
   email         String? @unique
   emailVerified Boolean @default(false)
 
-  // Segurança / moderação
+  // Moderação NOSSA: nós suspendemos esta conta. Bloqueia o login.
   isBanned  Boolean @default(false)
   banReason String?
+
+  // ---- Restrições impostas pela STEAM ----
+  // Não confundir com isBanned. Quem é banido pela Steam continua sendo
+  // nosso cliente e continua com direito ao que está em custódia — só perde
+  // parte das operações. Tratar como banido nosso seria puni-lo duas vezes.
+  //
+  // Os dois campos abaixo bloqueiam coisas DIFERENTES:
+  //
+  // steamEconomyBan  BANNED    -> não envia nem recebe. Nada de depósito nem
+  //                              de saque; a única saída é vender aqui.
+  //                  PROBATION -> restrição temporária, tratar como bloqueado.
+  //
+  // steamVacBanned   -> não consegue ENVIAR, mas RECEBE normalmente.
+  //                     Ou seja: não deposita, mas o saque funciona.
+  //                     Registrado só como sinal, não bloqueia sozinho: a
+  //                     API da Steam não diz de qual jogo é o VAC, e um VAC
+  //                     em outro jogo não afeta os itens de CS2.
+  steamEconomyBan   SteamEconomyBan @default(NONE)
+  steamVacBanned    Boolean         @default(false)
+  steamBanCheckedAt DateTime?
 
   // Trade
   tradeUrl String?
@@ -54,6 +74,17 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   lastLoginAt DateTime?
+
+  @@index([steamEconomyBan])
+}
+
+/**
+ * Espelha o campo EconomyBan de GetPlayerBans da Steam.
+ */
+enum SteamEconomyBan {
+  NONE
+  PROBATION
+  BANNED
 }
 
 // =========================

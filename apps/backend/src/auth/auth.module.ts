@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { SteamBanService } from './steam-ban.service';
 import { SteamOpenIdService } from './steam-openid.service';
 import { SteamProfileService } from './steam-profile.service';
 import { TokenService } from './token.service';
@@ -25,6 +26,7 @@ import { TokenService } from './token.service';
     AuthService,
     SteamOpenIdService,
     SteamProfileService,
+    SteamBanService,
     TokenService,
     JwtAuthGuard,
   ],

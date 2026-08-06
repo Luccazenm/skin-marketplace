@@ -1,7 +1,9 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { SteamEconomyBan } from '@prisma/client';
 import { AuthService } from './auth.service';
+import { SteamBanService } from './steam-ban.service';
 import { SteamProfileService } from './steam-profile.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { validateEnv } from '../config/env.validation';
@@ -30,6 +32,13 @@ describe('AuthService.loginWithSteam', () => {
     fetchProfile: jest.fn().mockResolvedValue(perfilFalso),
   };
 
+  const steamBanMock = {
+    fetchBanStatus: jest.fn().mockResolvedValue({
+      economyBan: SteamEconomyBan.NONE,
+      vacBanned: false,
+    }),
+  };
+
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -37,11 +46,11 @@ describe('AuthService.loginWithSteam', () => {
       ],
       providers: [AuthService, PrismaService],
     })
-      .overrideProvider(SteamProfileService)
-      .useValue(steamProfileMock)
-      .useMocker((token) =>
-        token === SteamProfileService ? steamProfileMock : undefined,
-      )
+      .useMocker((token) => {
+        if (token === SteamProfileService) return steamProfileMock;
+        if (token === SteamBanService) return steamBanMock;
+        return undefined;
+      })
       .compile();
 
     authService = moduleRef.get(AuthService);
@@ -52,6 +61,10 @@ describe('AuthService.loginWithSteam', () => {
   beforeEach(async () => {
     await prisma.user.deleteMany({ where: { steamId: { in: TODOS } } });
     steamProfileMock.fetchProfile.mockResolvedValue(perfilFalso);
+    steamBanMock.fetchBanStatus.mockResolvedValue({
+      economyBan: SteamEconomyBan.NONE,
+      vacBanned: false,
+    });
   });
 
   afterAll(async () => {
@@ -111,6 +124,48 @@ describe('AuthService.loginWithSteam', () => {
 
     expect(depois.username).toBe('JogadorTeste');
     expect(depois.avatarUrl).toBe(perfilFalso.avatarUrl);
+  });
+
+  it('grava o status de ban vindo da Steam', async () => {
+    steamBanMock.fetchBanStatus.mockResolvedValue({
+      economyBan: SteamEconomyBan.BANNED,
+      vacBanned: true,
+    });
+
+    const user = await authService.loginWithSteam(STEAM_ID_NOVO);
+
+    expect(user.steamEconomyBan).toBe(SteamEconomyBan.BANNED);
+    expect(user.steamVacBanned).toBe(true);
+    expect(user.steamBanCheckedAt).not.toBeNull();
+  });
+
+  // Banido pela Steam continua entrando: ele ainda é dono do que está em
+  // custódia e precisa poder vender. Quem bloqueia login é só o isBanned.
+  it('deixa entrar quem foi banido pela Steam', async () => {
+    steamBanMock.fetchBanStatus.mockResolvedValue({
+      economyBan: SteamEconomyBan.BANNED,
+      vacBanned: false,
+    });
+
+    const user = await authService.loginWithSteam(STEAM_ID_NOVO);
+
+    expect(user.id).toBeDefined();
+    expect(user.isBanned).toBe(false);
+  });
+
+  it('preserva o último status quando a Steam não responde', async () => {
+    steamBanMock.fetchBanStatus.mockResolvedValue({
+      economyBan: SteamEconomyBan.BANNED,
+      vacBanned: false,
+    });
+    await authService.loginWithSteam(STEAM_ID_NOVO);
+
+    // Steam fora do ar no login seguinte
+    steamBanMock.fetchBanStatus.mockResolvedValue(null);
+    const depois = await authService.loginWithSteam(STEAM_ID_NOVO);
+
+    // Não pode "limpar" o ban só porque a checagem falhou
+    expect(depois.steamEconomyBan).toBe(SteamEconomyBan.BANNED);
   });
 
   it('recusa login de conta banida', async () => {

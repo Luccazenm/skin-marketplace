@@ -21,6 +21,7 @@ import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { SteamOpenIdService } from './steam-openid.service';
+import { capabilitiesFor } from './steam-restrictions';
 import { TokenService } from './token.service';
 
 @ApiTags('auth')
@@ -92,6 +93,11 @@ export class AuthController {
       avatarUrl: user.avatarUrl,
       balance: user.balance.toString(),
       displayCurrency: user.displayCurrency,
+
+      // O frontend precisa disso para desabilitar botões e explicar o
+      // motivo, em vez de deixar o usuário tentar e falhar sem entender.
+      capabilities: capabilitiesFor(user),
+      steamBanCheckedAt: user.steamBanCheckedAt,
     };
   }
 

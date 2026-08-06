@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SteamBanService } from './steam-ban.service';
 import { SteamProfileService } from './steam-profile.service';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly steamProfile: SteamProfileService,
+    private readonly steamBan: SteamBanService,
   ) {}
 
   /**
@@ -19,8 +21,23 @@ export class AuthService {
    * Nunca chamar com um steamId que não passou por SteamOpenIdService.
    */
   async loginWithSteam(steamId: string): Promise<User> {
-    const perfil = await this.steamProfile.fetchProfile(steamId);
+    const [perfil, ban] = await Promise.all([
+      this.steamProfile.fetchProfile(steamId),
+      this.steamBan.fetchBanStatus(steamId),
+    ]);
+
     const agora = new Date();
+
+    // Só gravamos o status de ban se conseguimos apurá-lo. Quando a Steam
+    // não responde, preservamos o último valor conhecido — sobrescrever com
+    // um palpite liberaria ou bloquearia operações por engano.
+    const dadosDeBan = ban
+      ? {
+          steamEconomyBan: ban.economyBan,
+          steamVacBanned: ban.vacBanned,
+          steamBanCheckedAt: agora,
+        }
+      : {};
 
     const user = await this.prisma.user.upsert({
       where: { steamId },
@@ -35,6 +52,7 @@ export class AuthService {
         profileUrl: perfil?.profileUrl,
         steamCreatedAt: perfil?.steamCreatedAt,
         lastLoginAt: agora,
+        ...dadosDeBan,
       },
 
       // Logins seguintes: só o que a Steam é dona.
@@ -51,6 +69,7 @@ export class AuthService {
             }
           : {}),
         lastLoginAt: agora,
+        ...dadosDeBan,
       },
     });
 
