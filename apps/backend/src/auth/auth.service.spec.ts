@@ -192,4 +192,43 @@ describe('AuthService.loginWithSteam', () => {
       authService.loginWithSteam(plataforma!.steamId),
     ).rejects.toThrow(ForbiddenException);
   });
+
+  // Regressão: a versão anterior fazia o upsert antes de checar isPlatform,
+  // então a tentativa de login sobrescrevia nome e avatar da conta de
+  // sistema com os dados de quem tentou entrar.
+  it('não altera a conta da plataforma numa tentativa de login', async () => {
+    const antes = await prisma.user.findFirst({ where: { isPlatform: true } });
+
+    await expect(authService.loginWithSteam(antes!.steamId)).rejects.toThrow(
+      ForbiddenException,
+    );
+
+    const depois = await prisma.user.findUnique({ where: { id: antes!.id } });
+
+    expect(depois!.username).toBe(antes!.username);
+    expect(depois!.avatarUrl).toBe(antes!.avatarUrl);
+    expect(depois!.lastLoginAt).toEqual(antes!.lastLoginAt);
+    expect(depois!.updatedAt).toEqual(antes!.updatedAt);
+  });
+
+  it('registra a tentativa de conta banida sem aceitar dados externos', async () => {
+    const user = await authService.loginWithSteam(STEAM_ID_BANIDO);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isBanned: true, username: 'NomeOriginal' },
+    });
+
+    await expect(authService.loginWithSteam(STEAM_ID_BANIDO)).rejects.toThrow(
+      ForbiddenException,
+    );
+
+    const depois = await prisma.user.findUnique({ where: { id: user.id } });
+
+    // lastLoginAt avança (queremos saber que tentou)...
+    expect(depois!.lastLoginAt!.getTime()).toBeGreaterThan(
+      user.lastLoginAt!.getTime(),
+    );
+    // ...mas nada vindo da Steam é gravado numa conta suspensa
+    expect(depois!.username).toBe('NomeOriginal');
+  });
 });

@@ -18,28 +18,52 @@ const prisma = new PrismaClient({
  * O steamId é sentinela — essa conta não existe na Steam.
  */
 const PLATFORM_STEAM_ID = 'PLATFORM';
+const PLATFORM_USERNAME = 'Plataforma';
 
 async function seedPlatformAccount() {
   const existente = await prisma.user.findFirst({
     where: { isPlatform: true },
   });
 
-  if (existente) {
+  if (!existente) {
+    const plataforma = await prisma.user.create({
+      data: {
+        isPlatform: true,
+        steamId: PLATFORM_STEAM_ID,
+        username: PLATFORM_USERNAME,
+        displayCurrency: 'USD',
+      },
+    });
+
+    console.log(`Conta da plataforma criada (id: ${plataforma.id})`);
+    return plataforma;
+  }
+
+  // Repara identidade divergente. O saldo NUNCA é tocado aqui: ele é o
+  // caixa da plataforma e zerá-lo por engano falsearia a contabilidade.
+  const precisaReparo =
+    existente.username !== PLATFORM_USERNAME ||
+    existente.avatarUrl !== null ||
+    existente.lastLoginAt !== null;
+
+  if (!precisaReparo) {
     console.log(`Conta da plataforma já existe (id: ${existente.id})`);
     return existente;
   }
 
-  const plataforma = await prisma.user.create({
+  const reparada = await prisma.user.update({
+    where: { id: existente.id },
     data: {
-      isPlatform: true,
-      steamId: PLATFORM_STEAM_ID,
-      username: 'Plataforma',
-      displayCurrency: 'USD',
+      username: PLATFORM_USERNAME,
+      avatarUrl: null,
+      profileUrl: null,
+      lastLoginAt: null,
+      steamBanCheckedAt: null,
     },
   });
 
-  console.log(`Conta da plataforma criada (id: ${plataforma.id})`);
-  return plataforma;
+  console.log(`Conta da plataforma reparada (id: ${reparada.id})`);
+  return reparada;
 }
 
 async function main() {

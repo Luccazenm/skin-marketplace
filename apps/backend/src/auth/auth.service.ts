@@ -21,12 +21,42 @@ export class AuthService {
    * Nunca chamar com um steamId que não passou por SteamOpenIdService.
    */
   async loginWithSteam(steamId: string): Promise<User> {
+    const agora = new Date();
+
+    // Barreiras que rodam ANTES de qualquer escrita.
+    //
+    // A ordem importa: uma tentativa de login numa conta protegida não pode
+    // modificar essa conta antes de ser recusada. Fazer o upsert primeiro
+    // deixava quem tentou entrar sobrescrever nome e avatar da conta alvo.
+    const existente = await this.prisma.user.findUnique({
+      where: { steamId },
+      select: { id: true, isPlatform: true, isBanned: true },
+    });
+
+    // Conta de sistema é intocável: nem escreve, nem responde nada útil.
+    if (existente?.isPlatform) {
+      this.logger.error(
+        `Tentativa de login na conta da plataforma via steamId ${steamId}`,
+      );
+      throw new ForbiddenException('Conta indisponível');
+    }
+
+    // Banido registra a tentativa — só o carimbo de horário, nada vindo de
+    // fora. Saber que um suspenso tentou entrar é informação útil.
+    if (existente?.isBanned) {
+      await this.prisma.user.update({
+        where: { id: existente.id },
+        data: { lastLoginAt: agora },
+      });
+
+      this.logger.warn(`Login recusado para conta banida: ${steamId}`);
+      throw new ForbiddenException('Esta conta está suspensa');
+    }
+
     const [perfil, ban] = await Promise.all([
       this.steamProfile.fetchProfile(steamId),
       this.steamBan.fetchBanStatus(steamId),
     ]);
-
-    const agora = new Date();
 
     // Só gravamos o status de ban se conseguimos apurá-lo. Quando a Steam
     // não responde, preservamos o último valor conhecido — sobrescrever com
@@ -72,23 +102,6 @@ export class AuthService {
         ...dadosDeBan,
       },
     });
-
-    // Checado depois do upsert de propósito: queremos o lastLoginAt
-    // registrado mesmo em tentativa de acesso de conta banida.
-    if (user.isBanned) {
-      this.logger.warn(`Login recusado para conta banida: ${steamId}`);
-      throw new ForbiddenException('Esta conta está suspensa');
-    }
-
-    // A conta da plataforma existe só como contraparte contábil e não tem
-    // dono. Um steamId real tem 17 dígitos e nunca colide com o sentinela,
-    // mas a checagem fica como rede de proteção.
-    if (user.isPlatform) {
-      this.logger.error(
-        `Tentativa de login na conta da plataforma via steamId ${steamId}`,
-      );
-      throw new ForbiddenException('Conta indisponível');
-    }
 
     return user;
   }
