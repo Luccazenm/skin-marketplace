@@ -31,6 +31,25 @@ export const envSchema = z.object({
   // Opcional de propósito: serve só para enriquecer o perfil (nome, avatar).
   // O login funciona sem ela — quem autentica é o OpenID, não esta chave.
   STEAM_API_KEY: z.string().min(1).optional(),
+
+  // Assina os tokens de sessão. Sem default de propósito: um segredo padrão
+  // que vaza para produção deixa qualquer um forjar sessão de qualquer conta.
+  // Gerar com: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+  JWT_SECRET: z.string().min(32, 'precisa de pelo menos 32 caracteres'),
+
+  // Em segundos. Vale para o token e para o cookie — uma fonte só, senão
+  // o cookie some antes do token expirar (ou o contrário).
+  JWT_EXPIRES_IN_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 24 * 7),
+
+  // Cookie de sessão em HTTPS apenas. Falso só faz sentido em dev local.
+  COOKIE_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 });
 
 export type Env = z.infer<typeof envSchema>;

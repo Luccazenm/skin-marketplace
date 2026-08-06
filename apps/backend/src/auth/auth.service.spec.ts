@@ -32,7 +32,9 @@ describe('AuthService.loginWithSteam', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot({ isGlobal: true, validate: validateEnv })],
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+      ],
       providers: [AuthService, PrismaService],
     })
       .overrideProvider(SteamProfileService)

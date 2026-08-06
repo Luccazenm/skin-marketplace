@@ -1,19 +1,27 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
+  ApiBearerAuth,
   ApiExcludeEndpoint,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { User } from '@prisma/client';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
+import { CurrentUser } from './current-user.decorator';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { SteamOpenIdService } from './steam-openid.service';
+import { TokenService } from './token.service';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -21,6 +29,8 @@ export class AuthController {
   constructor(
     private readonly steamOpenId: SteamOpenIdService,
     private readonly authService: AuthService,
+    private readonly tokens: TokenService,
+    private readonly config: ConfigService,
   ) {}
 
   @Get('steam')
@@ -48,7 +58,8 @@ export class AuthController {
   @ApiExcludeEndpoint()
   async handleSteamReturn(
     @Query() query: Record<string, unknown>,
-  ): Promise<{ id: string; steamId: string; username: string }> {
+    @Res() res: Response,
+  ): Promise<void> {
     const steamId = await this.steamOpenId.verifyReturn(query);
 
     if (!steamId) {
@@ -57,7 +68,44 @@ export class AuthController {
 
     const user = await this.authService.loginWithSteam(steamId);
 
-    // Parte 4: emitir o JWT e redirecionar para o FRONTEND_URL.
-    return { id: user.id, steamId: user.steamId, username: user.username };
+    const token = this.tokens.sign({ sub: user.id, steamId: user.steamId });
+
+    // O token vai por cookie httpOnly, não na URL. Token em query string
+    // fica no histórico do navegador, em log de proxy e no cabeçalho
+    // Referer enviado a terceiros — três lugares onde uma sessão válida
+    // não deveria estar.
+    res.cookie(TokenService.COOKIE_NAME, token, this.tokens.cookieOptions());
+
+    res.redirect(this.config.getOrThrow<string>('FRONTEND_URL'));
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Dados do usuário autenticado' })
+  @ApiResponse({ status: 401, description: 'Sem sessão válida' })
+  me(@CurrentUser() user: User) {
+    return {
+      id: user.id,
+      steamId: user.steamId,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+      balance: user.balance.toString(),
+      displayCurrency: user.displayCurrency,
+    };
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Encerra a sessão',
+    description:
+      'Apaga o cookie. O token em si continua válido até expirar — ' +
+      'JWT não é revogável.',
+  })
+  logout(@Res({ passthrough: true }) res: Response): { ok: boolean } {
+    res.clearCookie(TokenService.COOKIE_NAME, this.tokens.cookieOptions());
+    return { ok: true };
   }
 }
