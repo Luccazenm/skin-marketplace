@@ -13,6 +13,11 @@ export interface SteamBanStatus {
  * Isto NÃO é moderação nossa. Um usuário banido pela Steam continua sendo
  * cliente e continua dono do que está em custódia — ele só perde parte das
  * operações, e cada tipo de ban tira uma coisa diferente.
+ *
+ * ATENÇÃO: hoje só é chamado no login, então User.steamEconomyBan pode
+ * estar desatualizado para quem foi banido depois de entrar. O worker de
+ * trocas precisa reconsultar antes de tentar entregar, senão fica em retry
+ * infinito contra uma conta bloqueada. Ver apps/bot-service/README.md.
  */
 @Injectable()
 export class SteamBanService {
