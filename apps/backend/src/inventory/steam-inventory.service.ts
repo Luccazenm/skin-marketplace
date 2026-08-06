@@ -1,4 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ItemCategory } from '@prisma/client';
+import {
+  categoriaDe,
+  motivoBloqueio,
+  nuncaNegociavel,
+  temPadraoUnico,
+  type MotivoBloqueio,
+} from './item-category';
 
 /** Um item do inventário, já com asset e descrição combinados. */
 export interface InventoryItem {
@@ -7,13 +15,24 @@ export interface InventoryItem {
   instanceId: string;
   marketHashName: string;
   iconUrl: string | null;
-  /** Negociável agora. Item recém-recebido vem false por causa do trade lock. */
+  /** Categoria derivada da tag Type — não do nome do item. */
+  category: ItemCategory;
+  /** Negociável agora, segundo a Steam. */
   tradable: boolean;
   marketable: boolean;
-  /** Extraídas das tags: usadas depois para montar o SkinTemplate. */
+  /** Pode ser depositado aqui: negociável e não bloqueado para sempre. */
+  depositable: boolean;
+  /**
+   * Por que não pode ser depositado. 'permanente' para medalhas e afins,
+   * 'trade_lock' para item que só está esperando os 7 dias da Valve.
+   */
+  blockReason: MotivoBloqueio | null;
+  /** Tem float e paint seed próprios (arma, faca, luva). */
+  hasUniquePattern: boolean;
+  /** Rótulos traduzidos, só para exibição. */
   rarity: string | null;
   exterior: string | null;
-  type: string | null;
+  typeLabel: string | null;
   /**
    * Link de inspeção com os placeholders já resolvidos.
    * É por aqui que float e paint seed são obtidos mais tarde — eles NÃO
@@ -139,6 +158,16 @@ export class SteamInventoryService {
         continue;
       }
 
+      const tipoInterno = this.tagInterna(desc, 'Type');
+      const category = categoriaDe(tipoInterno);
+      const tradable = desc.tradable === 1;
+
+      if (category === ItemCategory.OTHER && tipoInterno) {
+        // Tipo novo da Valve ou algo que passou despercebido. Logamos para
+        // aparecer no mapeamento em vez de sumir silenciosamente.
+        this.logger.warn(`Tipo de item não mapeado: ${tipoInterno}`);
+      }
+
       itens.push({
         assetId: asset.assetid,
         classId: asset.classid,
@@ -147,11 +176,15 @@ export class SteamInventoryService {
         iconUrl: desc.icon_url
           ? `https://community.cloudflare.steamstatic.com/economy/image/${desc.icon_url}`
           : null,
-        tradable: desc.tradable === 1,
+        category,
+        tradable,
         marketable: desc.marketable === 1,
-        rarity: this.tag(desc, 'Rarity'),
-        exterior: this.tag(desc, 'Exterior'),
-        type: this.tag(desc, 'Type'),
+        depositable: tradable && !nuncaNegociavel(category),
+        blockReason: motivoBloqueio(category, tradable),
+        hasUniquePattern: temPadraoUnico(category),
+        rarity: this.tagExibicao(desc, 'Rarity'),
+        exterior: this.tagExibicao(desc, 'Exterior'),
+        typeLabel: this.tagExibicao(desc, 'Type'),
         inspectLink: this.inspectLink(desc, steamId, asset.assetid),
       });
     }
@@ -159,9 +192,27 @@ export class SteamInventoryService {
     return itens;
   }
 
-  private tag(desc: SteamDescription, categoria: string): string | null {
-    const achada = desc.tags?.find((t) => t.category === categoria);
-    return achada?.localized_tag_name ?? achada?.name ?? null;
+  /**
+   * Valor NÃO traduzido da tag — é o que serve para lógica.
+   * `localized_tag_name` muda com o idioma da requisição; `internal_name`
+   * não. Usar o traduzido faria a classificação quebrar em silêncio se o
+   * parâmetro `l=english` mudasse.
+   */
+  private tagInterna(desc: SteamDescription, categoria: string): string | null {
+    return (
+      desc.tags?.find((t) => t.category === categoria)?.internal_name ?? null
+    );
+  }
+
+  /** Valor traduzido — só para exibição. */
+  private tagExibicao(
+    desc: SteamDescription,
+    categoria: string,
+  ): string | null {
+    return (
+      desc.tags?.find((t) => t.category === categoria)?.localized_tag_name ??
+      null
+    );
   }
 
   /**
@@ -211,7 +262,9 @@ interface SteamDescription {
   marketable?: number;
   tags?: Array<{
     category: string;
-    name?: string;
+    /** Estável, não traduzido — ex: "CSGO_Type_Rifle". Use para lógica. */
+    internal_name?: string;
+    /** Traduzido — ex: "Rifle". Use apenas para exibir. */
     localized_tag_name?: string;
   }>;
   actions?: Array<{ link?: string; name?: string }>;

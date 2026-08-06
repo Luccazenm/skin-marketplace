@@ -1,5 +1,6 @@
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { ItemCategory } from '@prisma/client';
 import { validateEnv } from '../config/env.validation';
 import { RedisService } from '../redis/redis.service';
 import { InventoryCacheService } from './inventory-cache.service';
@@ -25,11 +26,15 @@ describe('InventoryService', () => {
     instanceId: '0',
     marketHashName: 'AK-47 | Redline (Field-Tested)',
     iconUrl: null,
+    category: ItemCategory.RIFLE,
     tradable: true,
     marketable: true,
+    depositable: true,
+    blockReason: null,
+    hasUniquePattern: true,
     rarity: 'Classified',
     exterior: 'Field-Tested',
-    type: 'Rifle',
+    typeLabel: 'Rifle',
     inspectLink: null,
   };
 

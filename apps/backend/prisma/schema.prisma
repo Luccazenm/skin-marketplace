@@ -151,16 +151,25 @@ model Item {
   ownerId String?
   owner   User?   @relation(fields: [ownerId], references: [id])
 
-  // Dados vindos do GC/Steam
+  // O que este item é. Vem da tag Type da Steam, não do nome.
+  category ItemCategory
+
   // ATENÇÃO: assetId MUDA a cada troca de inventário. É o endereço atual do
   // item na Steam, não a identidade dele — por isso não é @unique.
-  // A identidade estável é a combinação das 4 propriedades imutáveis abaixo:
+  assetId String // ID atual do item na Steam (mutável)
+
+  // Só armas, facas e luvas têm padrão único. Caixa, adesivo e agente são
+  // fungíveis: um exemplar é idêntico a outro, e estes campos ficam nulos.
+  // Um CHECK na migration garante que categoria com padrão único tenha os
+  // quatro preenchidos — nulo ali significaria item impossível de
+  // identificar depois de uma troca.
+  //
+  // Quando preenchidos, a identidade estável do item é a combinação
   // float + paintSeed + paintIndex + defIndex.
-  assetId    String // ID atual do item na Steam (mutável)
-  float      Float
-  paintSeed  Int
-  paintIndex Int
-  defIndex   Int // define a arma em si (imutável)
+  float      Float?
+  paintSeed  Int?
+  paintIndex Int?
+  defIndex   Int? // define a arma em si (imutável)
 
   // Onde o item está FISICAMENTE. Não confundir com quem é o dono (ownerId)
   // nem com estar vendido (Order) — no nosso fluxo o item passa quase todo o
@@ -196,6 +205,7 @@ model Item {
   @@index([botId])
   @@index([assetId]) // lookup ao reconciliar inventário, mas não é único
   @@index([acquisitionType]) // relatório de estoque próprio
+  @@index([category])
   // Identidade estável do item — usada para reencontrá-lo depois de uma troca
   @@index([defIndex, paintIndex, paintSeed, float])
   // Fila de entrega: itens liberáveis a partir de tal momento
@@ -205,6 +215,37 @@ model Item {
 enum ItemAcquisition {
   USER_DEPOSIT // usuário depositou para vender — o item não é nosso
   PLATFORM_BUYOUT // compramos do usuário no fluxo rápido — estoque próprio
+}
+
+/**
+ * Derivada da tag Type da Steam. Granular de propósito: além de decidir
+ * quais campos o item precisa, é por aqui que a vitrine filtra.
+ * As oito primeiras têm padrão único (float e paint seed). O resto é
+ * fungível — um exemplar é idêntico a outro.
+ */
+enum ItemCategory {
+  RIFLE
+  PISTOL
+  SMG
+  SNIPER_RIFLE
+  SHOTGUN
+  MACHINEGUN
+  KNIFE
+  GLOVES
+
+  STICKER
+  CONTAINER
+  KEY
+  GRAFFITI
+  MUSIC_KIT
+  AGENT
+  PATCH
+  CHARM
+  TOOL
+
+  COLLECTIBLE // medalhas e troféus: a Steam nunca deixa trocar
+  PASS
+  OTHER // tipo que ainda não mapeamos — logar quando aparecer
 }
 
 // Só localização física. "Listado" virou Listing.active e "vendido" virou Order.
