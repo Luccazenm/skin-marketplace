@@ -21,7 +21,9 @@ const POR_INTERNAL_NAME: Record<string, ItemCategory> = {
   CSGO_Type_Knife: ItemCategory.KNIFE,
   Type_Hands: ItemCategory.GLOVES,
 
-  // --- fungíveis: um exemplar é idêntico a outro ---
+  // --- sem padrão próprio ---
+  // Nem todos são fungíveis: agente aceita patch e deixa de ser
+  // intercambiável assim que recebe um.
   CSGO_Tool_Sticker: ItemCategory.STICKER,
   CSGO_Type_WeaponCase: ItemCategory.CONTAINER,
   CSGO_Tool_WeaponCase_KeyTag: ItemCategory.KEY,
@@ -38,9 +40,18 @@ const POR_INTERNAL_NAME: Record<string, ItemCategory> = {
 };
 
 /**
- * Categorias em que cada exemplar é único, com float e paint seed
- * próprios. São as únicas que exigem consulta ao inspect link — e as
- * únicas em que Item.float e companhia fazem sentido.
+ * Categorias com float e paint seed próprios. São as únicas em que
+ * Item.float e companhia fazem sentido.
+ *
+ * ATENÇÃO: isto NÃO é o mesmo que "categorias em que os exemplares se
+ * diferenciam". Um agente pode receber até 3 patches, e patch aplicado
+ * não volta para o inventário — só pode ser destruído. Então um agente
+ * com patches é permanentemente distinto de um agente limpo, mesmo sem
+ * ter float algum. O mesmo vale para chaveiro preso a uma arma.
+ *
+ * A segunda fonte de unicidade são as aplicações (sticker, patch,
+ * chaveiro), hoje modeladas de forma parcial em ItemSticker — que só
+ * cobre sticker de arma. Ver docs/pendencias.md.
  */
 const COM_PADRAO_UNICO = new Set<ItemCategory>([
   ItemCategory.RIFLE,

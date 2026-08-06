@@ -27,10 +27,36 @@ cobre tudo o que existe numa conta:
 O modelo já acomoda: `Item.category` existe e os campos de float são
 opcionais, com CHECK exigindo-os apenas para arma, faca e luva.
 
+### Agentes NÃO são fungíveis
+
+Cada agente aceita até 3 patches, e patch aplicado **não volta** para o
+inventário — só pode ser destruído. Um agente com patches é
+permanentemente distinto de um limpo, mesmo sem ter float.
+
+O mesmo raciocínio vale para chaveiro preso a uma arma: solto no
+inventário é fungível, aplicado deixa de ser.
+
+Ou seja, "pode ser diferenciado" tem duas fontes, e só cobrimos uma:
+
+| Fonte | Onde se aplica | Modelado? |
+|---|---|---|
+| float + paint seed | arma, faca, luva | sim |
+| aplicações | sticker e chaveiro em arma, **patch em agente** | parcial |
+
+`ItemSticker` só cobre sticker de arma: tem `stickerName`, `position`
+(0 a 4) e `wear`. Para cobrir o resto precisa virar genérico, com um tipo
+(`STICKER`, `PATCH`, `CHARM`), porque patch usa 3 posições e nem patch nem
+chaveiro têm desgaste.
+
+Fazer junto com o depósito, que é quando esses dados começam a ser lidos.
+
 ### Fungíveis: decisão tomada em 06/08/2026
 
 **Cada unidade é um anúncio próprio.** Nada muda no schema — é o
 comportamento que já existe.
+
+Motivo da escolha: agentes precisam ser diferenciados por causa dos
+patches, e agrupar por template os trataria como intercambiáveis.
 
 As alternativas avaliadas e descartadas por ora:
 
