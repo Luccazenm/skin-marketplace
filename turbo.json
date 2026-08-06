@@ -10,6 +10,12 @@
       "persistent": true
     },
     "lint": {},
-    "test": {}
+    "test": {
+      // Os testes tocam o Postgres, então o resultado não depende só dos
+      // arquivos. Cachear faria o turbo pular uma suíte que passaria a
+      // falhar depois de uma migration.
+      "cache": false
+    },
+    "typecheck": {}
   }
 }
