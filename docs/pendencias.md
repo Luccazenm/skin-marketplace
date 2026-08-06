@@ -24,16 +24,40 @@ cobre tudo o que existe numa conta:
 | Medalha, insígnia | **não** | — | nunca poderá ser depositada |
 | Faca/luva | sim | sim | skin normal para efeito de modelo |
 
-Decisões necessárias antes do depósito:
+O modelo já acomoda: `Item.category` existe e os campos de float são
+opcionais, com CHECK exigindo-os apenas para arma, faca e luva.
 
-1. O site aceita **só skins** ou também caixas e adesivos? Caixas têm
-   mercado ativo e liquidez alta — justamente o perfil do fluxo rápido.
-2. Se aceitar itens fungíveis, `Item` precisa mudar: ou os campos de float
-   viram opcionais, ou surge uma separação entre item único e item
-   fungível. Itens fungíveis também mudam a listagem — faz pouco sentido
-   anunciar 50 caixas idênticas separadamente.
-3. Medalhas e itens não negociáveis devem ser **escondidos** da tela de
-   depósito, não mostrados e recusados depois.
+### Fungíveis: decisão tomada em 06/08/2026
+
+**Cada unidade é um anúncio próprio.** Nada muda no schema — é o
+comportamento que já existe.
+
+As alternativas avaliadas e descartadas por ora:
+
+- *Listagem agrupada* ("Dreams & Nightmares — 50 disponíveis a partir de
+  $1,20"): exige quantidade em `Listing` e `Order`, mais lógica de
+  alocação e reserva quando alguém compra 3 de 50. É a experiência correta
+  a longo prazo e o que os sites grandes fazem.
+- *Só pelo fluxo rápido*: usuário vende a caixa para a plataforma, que
+  revende do estoque próprio. Evita alocação de item de terceiro, mas
+  consome caixa.
+- *Não aceitar fungíveis*: escopo mínimo, abre mão de um mercado líquido.
+
+**Quando revisitar:** ao construir a vitrine. Com poucos itens ninguém
+nota; com volume, cinquenta linhas idênticas tornam impossível saber o
+preço de mercado da caixa, e o vendedor precisa criar cinquenta anúncios à
+mão. O sinal de alerta é a primeira reclamação sobre isso — ou o primeiro
+usuário com estoque grande de caixas.
+
+Migrar para listagem agrupada depois não desfaz nada: `Item` continua uma
+linha por unidade física, porque o bot guarda cinquenta caixas de verdade.
+O que muda é a camada de anúncio.
+
+### Ainda em aberto
+
+Medalhas e itens não negociáveis devem ser **escondidos** da tela de
+depósito, não mostrados e recusados depois. O endpoint já suporta
+(`?depositable=true`); falta a tela usar.
 
 ### Reserva e limite de exposição por bot
 
