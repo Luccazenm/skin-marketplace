@@ -27,6 +27,10 @@ export const envSchema = z.object({
 
   // Para onde mandamos o usuário depois do login concluído.
   FRONTEND_URL: z.url().default('http://localhost:5173'),
+
+  // Opcional de propósito: serve só para enriquecer o perfil (nome, avatar).
+  // O login funciona sem ela — quem autentica é o OpenID, não esta chave.
+  STEAM_API_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

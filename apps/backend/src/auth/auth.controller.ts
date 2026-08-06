@@ -12,12 +12,16 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { AuthService } from './auth.service';
 import { SteamOpenIdService } from './steam-openid.service';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly steamOpenId: SteamOpenIdService) {}
+  constructor(
+    private readonly steamOpenId: SteamOpenIdService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Get('steam')
   @ApiOperation({
@@ -44,15 +48,16 @@ export class AuthController {
   @ApiExcludeEndpoint()
   async handleSteamReturn(
     @Query() query: Record<string, unknown>,
-  ): Promise<{ steamId: string }> {
+  ): Promise<{ id: string; steamId: string; username: string }> {
     const steamId = await this.steamOpenId.verifyReturn(query);
 
     if (!steamId) {
       throw new UnauthorizedException('Login pela Steam não pôde ser validado');
     }
 
-    // Parte 3 entra aqui: criar/atualizar o User.
+    const user = await this.authService.loginWithSteam(steamId);
+
     // Parte 4: emitir o JWT e redirecionar para o FRONTEND_URL.
-    return { steamId };
+    return { id: user.id, steamId: user.steamId, username: user.username };
   }
 }
