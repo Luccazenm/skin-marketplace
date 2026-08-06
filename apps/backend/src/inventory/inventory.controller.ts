@@ -16,14 +16,14 @@ import {
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { SteamInventoryService } from './steam-inventory.service';
+import { InventoryService } from './inventory.service';
 
 @ApiTags('inventory')
 @Controller('inventory')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class InventoryController {
-  constructor(private readonly steamInventory: SteamInventoryService) {}
+  constructor(private readonly inventory: InventoryService) {}
 
   @Get()
   @ApiOperation({
@@ -37,13 +37,18 @@ export class InventoryController {
   @ApiResponse({ status: 429, description: 'Limite da Steam atingido' })
   @ApiResponse({ status: 502, description: 'Steam indisponível' })
   async myInventory(@CurrentUser() user: User) {
-    const resultado = await this.steamInventory.fetchInventory(user.steamId);
+    const resultado = await this.inventory.getInventory(user.steamId);
 
     switch (resultado.status) {
       case 'ok':
         return {
           count: resultado.items.length,
           items: resultado.items,
+          // O frontend usa isto para avisar que o dado pode estar
+          // desatualizado, em vez de mostrar como se fosse ao vivo.
+          fetchedAt: resultado.fetchedAt,
+          cached: resultado.cached,
+          stale: resultado.stale,
         };
 
       case 'private':
