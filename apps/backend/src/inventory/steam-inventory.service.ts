@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ItemCategory } from '@prisma/client';
+import { extrairAplicados, type AppliedItem } from './applied-items';
 import {
   categoriaDe,
   motivoBloqueio,
@@ -29,6 +30,15 @@ export interface InventoryItem {
   blockReason: MotivoBloqueio | null;
   /** Tem float e paint seed próprios (arma, faca, luva). */
   hasUniquePattern: boolean;
+  /**
+   * Stickers, patches e chaveiros aplicados.
+   *
+   * Diferencia exemplares tanto quanto o float — e às vezes mais: uma AK
+   * com quatro Katowice 2014 vale ordens de grandeza acima do preço da
+   * skin limpa. Também é o que torna um agente com patches distinto de um
+   * agente comum, apesar de agente não ter float.
+   */
+  applied: AppliedItem[];
   /** Rótulos traduzidos, só para exibição. */
   rarity: string | null;
   exterior: string | null;
@@ -182,6 +192,7 @@ export class SteamInventoryService {
         depositable: tradable && !nuncaNegociavel(category),
         blockReason: motivoBloqueio(category, tradable),
         hasUniquePattern: temPadraoUnico(category),
+        applied: extrairAplicados(desc.descriptions),
         rarity: this.tagExibicao(desc, 'Rarity'),
         exterior: this.tagExibicao(desc, 'Exterior'),
         typeLabel: this.tagExibicao(desc, 'Type'),
@@ -267,5 +278,10 @@ interface SteamDescription {
     /** Traduzido — ex: "Rifle". Use apenas para exibir. */
     localized_tag_name?: string;
   }>;
+  /**
+   * Blocos de texto e HTML. É aqui que vêm os stickers, patches e
+   * chaveiros aplicados, embutidos em HTML — ver applied-items.ts.
+   */
+  descriptions?: Array<{ name?: string; value?: string; type?: string }>;
   actions?: Array<{ link?: string; name?: string }>;
 }

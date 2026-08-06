@@ -32,6 +32,7 @@ describe('InventoryService', () => {
     depositable: true,
     blockReason: null,
     hasUniquePattern: true,
+    applied: [],
     rarity: 'Classified',
     exterior: 'Field-Tested',
     typeLabel: 'Rifle',
