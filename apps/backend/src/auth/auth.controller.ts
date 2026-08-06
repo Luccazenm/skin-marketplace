@@ -98,6 +98,11 @@ export class AuthController {
       // motivo, em vez de deixar o usuário tentar e falhar sem entender.
       capabilities: capabilitiesFor(user),
       steamBanCheckedAt: user.steamBanCheckedAt,
+
+      // Sem trade URL o bot não consegue enviar oferta nenhuma, então a
+      // tela precisa pedi-la antes de deixar o usuário tentar depositar.
+      tradeUrl: user.tradeUrl,
+      hasTradeUrl: user.tradeUrl !== null,
     };
   }
 
