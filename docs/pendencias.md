@@ -138,6 +138,36 @@ precisão.
 sticker não tem arma. Para guardar preço de sticker (necessário para o
 item acima), o catálogo precisa acomodar esses casos.
 
+### Página pública com os bots oficiais
+
+Golpistas copiam bots de sites de trade: mesmo avatar, mesmo nome, mesma
+descrição, e mandam uma oferta que parece a real mas vai para a conta
+deles. O usuário aceita achando que é do site e perde as skins.
+
+A defesa é uma página pública listando os bots oficiais, e o dado que
+importa é o **steamID64** — nome, avatar e descrição são copiáveis; o
+steamID não.
+
+Duas consequências:
+
+- Os bots devem se identificar abertamente (nome com a marca, avatar do
+  site). Bot anônimo é indistinguível de bot falso.
+- A lista deve sair do banco (`Bot.steamId` + `Bot.status`), não de HTML
+  escrito à mão, senão desatualiza quando um bot entra ou sai de rotação.
+
+Também vale instruir na tela de depósito: confira o steamID de quem
+enviou a oferta antes de aceitar.
+
+### Concentração de risco nos e-mails dos bots
+
+Os e-mails das contas de bot ficam num domínio próprio
+(`tradebot<N>@nextskins.gg`). Isso organiza, mas concentra: quem
+comprometer o painel de e-mail alcança todas as contas de bot, e com elas
+todo o inventário custodiado.
+
+Mitigações: renovação automática do domínio, 2FA no provedor de e-mail e
+senhas distintas por conta.
+
 ### Reserva e limite de exposição por bot
 
 `Bot.maxItems` limita quantidade, não valor. 900 skins de $2 e 40 facas de
