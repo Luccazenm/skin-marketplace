@@ -482,6 +482,17 @@ model TradeOffer {
   // tradeLockUntil do item enquanto ele estiver travado.
   scheduledFor DateTime?
 
+  // Só em DEPOSIT: os assetIds que ESPERAMOS receber.
+  //
+  // No depósito ainda não existe Item nosso — ele exige float e paintSeed,
+  // que só conseguimos ler depois que a skin está em custódia. Então a
+  // oferta guarda apenas os endereços dos itens na Steam, e os Item e
+  // TradeOfferItem nascem quando a troca é aceita.
+  //
+  // Lembrando que assetId muda a cada troca: estes valores só valem
+  // enquanto os itens estiverem no inventário do usuário.
+  requestedAssetIds String[]
+
   attempts  Int     @default(0)
   lastError String?
 

@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
+import { DepositsModule } from './deposits/deposits.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
@@ -20,6 +21,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     InventoryModule,
+    DepositsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
