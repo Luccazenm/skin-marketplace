@@ -1,6 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { BotStatus, SteamEconomyBan } from '@prisma/client';
 import { AppModule } from '../app.module';
+import {
+  AUDIT_ACTIONS,
+  AuditActorType,
+  AuditOutcome,
+  AuditService,
+} from '../audit/audit.service';
 import { SteamBanService } from '../auth/steam-ban.service';
 import { SteamProfileService } from '../auth/steam-profile.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -117,6 +123,24 @@ async function main() {
         status: BotStatus.OFFLINE,
         tradeHoldUntil,
         ...(maxItems ? { maxItems: Number(maxItems) } : {}),
+      },
+    });
+
+    // Cadastro de bot define para onde vão as skins dos usuários. Fica
+    // registrado como SYSTEM: foi um operador com acesso ao servidor, não
+    // alguém autenticado pelo site.
+    await app.get(AuditService).record({
+      actorType: AuditActorType.SYSTEM,
+      action: AUDIT_ACTIONS.BOT_REGISTERED,
+      outcome: AuditOutcome.SUCCESS,
+      targetType: 'Bot',
+      targetId: bot.id,
+      metadata: {
+        steamId: bot.steamId,
+        credentialRef: bot.credentialRef,
+        perfil: perfil.username,
+        maxItems: bot.maxItems,
+        tradeHoldUntil: readyAt ?? null,
       },
     });
 

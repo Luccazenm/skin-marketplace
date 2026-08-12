@@ -120,6 +120,7 @@ export const AUDIT_ACTIONS = {
   LOGOUT_ALL: 'auth.logout_all',
   TRADE_URL_UPDATED: 'user.trade_url.updated',
   DEPOSIT_REQUESTED: 'deposit.requested',
+  BOT_REGISTERED: 'bot.registered',
 } as const;
 
 export { AuditActorType, AuditOutcome };

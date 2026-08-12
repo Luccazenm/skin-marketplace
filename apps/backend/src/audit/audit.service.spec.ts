@@ -110,7 +110,9 @@ describe('AuditService', () => {
         outcome: AuditOutcome.SUCCESS,
       });
 
-      const [log] = await prisma.auditLog.findMany({ where: { actorId: ATOR } });
+      const [log] = await prisma.auditLog.findMany({
+        where: { actorId: ATOR },
+      });
 
       await expect(
         prisma.auditLog.update({
@@ -128,7 +130,9 @@ describe('AuditService', () => {
         outcome: AuditOutcome.SUCCESS,
       });
 
-      const [log] = await prisma.auditLog.findMany({ where: { actorId: ATOR } });
+      const [log] = await prisma.auditLog.findMany({
+        where: { actorId: ATOR },
+      });
 
       await expect(
         prisma.auditLog.delete({ where: { id: log.id } }),
