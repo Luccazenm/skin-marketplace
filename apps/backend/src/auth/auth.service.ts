@@ -1,5 +1,12 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import type { User } from '@prisma/client';
+import {
+  AUDIT_ACTIONS,
+  AuditActorType,
+  AuditOutcome,
+  AuditService,
+  type AuditContext,
+} from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SteamBanService } from './steam-ban.service';
 import { SteamProfileService } from './steam-profile.service';
@@ -12,6 +19,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly steamProfile: SteamProfileService,
     private readonly steamBan: SteamBanService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -20,7 +28,7 @@ export class AuthService {
    *
    * Nunca chamar com um steamId que não passou por SteamOpenIdService.
    */
-  async loginWithSteam(steamId: string): Promise<User> {
+  async loginWithSteam(steamId: string, context?: AuditContext): Promise<User> {
     const agora = new Date();
 
     // Barreiras que rodam ANTES de qualquer escrita.
@@ -38,6 +46,17 @@ export class AuthService {
       this.logger.error(
         `Tentativa de login na conta da plataforma via steamId ${steamId}`,
       );
+
+      await this.audit.record({
+        actorType: AuditActorType.ANONYMOUS,
+        action: AUDIT_ACTIONS.LOGIN,
+        outcome: AuditOutcome.DENIED,
+        targetType: 'User',
+        targetId: existente.id,
+        metadata: { motivo: 'conta_da_plataforma', steamId },
+        context,
+      });
+
       throw new ForbiddenException('Conta indisponível');
     }
 
@@ -50,6 +69,18 @@ export class AuthService {
       });
 
       this.logger.warn(`Login recusado para conta banida: ${steamId}`);
+
+      await this.audit.record({
+        actorType: AuditActorType.USER,
+        actorId: existente.id,
+        action: AUDIT_ACTIONS.LOGIN,
+        outcome: AuditOutcome.DENIED,
+        targetType: 'User',
+        targetId: existente.id,
+        metadata: { motivo: 'conta_suspensa', steamId },
+        context,
+      });
+
       throw new ForbiddenException('Esta conta está suspensa');
     }
 
@@ -101,6 +132,23 @@ export class AuthService {
         lastLoginAt: agora,
         ...dadosDeBan,
       },
+    });
+
+    await this.audit.record({
+      actorType: AuditActorType.USER,
+      actorId: user.id,
+      action: AUDIT_ACTIONS.LOGIN,
+      outcome: AuditOutcome.SUCCESS,
+      targetType: 'User',
+      targetId: user.id,
+      // primeiroLogin distingue conta nova de retorno — útil quando
+      // alguém alega nunca ter usado o site.
+      metadata: {
+        steamId,
+        primeiroLogin: existente === null,
+        steamEconomyBan: user.steamEconomyBan,
+      },
+      context,
     });
 
     return user;

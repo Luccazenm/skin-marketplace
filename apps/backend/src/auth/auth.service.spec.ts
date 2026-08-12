@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { SteamEconomyBan } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { AuthService } from './auth.service';
 import { SteamBanService } from './steam-ban.service';
 import { SteamProfileService } from './steam-profile.service';
@@ -44,7 +45,9 @@ describe('AuthService.loginWithSteam', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
       ],
-      providers: [AuthService, PrismaService],
+      // AuditService entra de verdade, não mockado: auditoria faz parte do
+      // que precisa funcionar, e o teste deve quebrar se ela quebrar.
+      providers: [AuthService, PrismaService, AuditService],
     })
       .useMocker((token) => {
         if (token === SteamProfileService) return steamProfileMock;

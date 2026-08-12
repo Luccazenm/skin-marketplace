@@ -12,6 +12,7 @@ import {
   TradeOfferStatus,
   type User,
 } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { validateEnv } from '../config/env.validation';
 import { InventoryService } from '../inventory/inventory.service';
 import type { InventoryItem } from '../inventory/steam-inventory.service';
@@ -58,7 +59,9 @@ describe('DepositsService.requestDeposit', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
       ],
-      providers: [DepositsService, PrismaService],
+      // AuditService entra de verdade: registrar a recusa é parte do
+      // comportamento esperado, não um detalhe que pode ser mockado.
+      providers: [DepositsService, PrismaService, AuditService],
     })
       .useMocker((token) =>
         token === InventoryService ? inventoryMock : undefined,

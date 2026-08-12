@@ -308,6 +308,70 @@ enum ItemApplicationKind {
 }
 
 // =========================
+// AUDIT LOG
+// =========================
+// Registro do que aconteceu, para resolver disputa.
+//
+// Não confundir com log de aplicação: aquele existe para depurar problema
+// técnico, vive em arquivo e some no próximo restart. Este existe para
+// responder "essa pessoa está dizendo a verdade?" meses depois, e por isso
+// vive no banco, é consultável por usuário e NÃO PODE SER ALTERADO.
+//
+// A imutabilidade é garantida por trigger no Postgres, não só por
+// disciplina de código: um registro que a aplicação pode reescrever não
+// serve como prova de nada.
+//
+// Guarda tanto o que deu certo quanto o que foi recusado. Cinco tentativas
+// de cadastrar trade URL de terceiros é um padrão que só aparece se as
+// recusas forem registradas.
+model AuditLog {
+  id String @id @default(uuid(7))
+
+  actorType AuditActorType
+  // userId, botId ou nulo quando não há ator identificado
+  actorId   String?
+
+  // Convenção "dominio.acao": auth.login, user.trade_url.updated,
+  // deposit.requested. String e não enum de propósito — ação nova não
+  // deveria exigir migration.
+  action  String
+  outcome AuditOutcome
+
+  targetType String? // "User", "Item", "TradeOffer"...
+  targetId   String?
+
+  // Detalhes do fato. Para alteração, guardar antes e depois: é o que
+  // fecha o caso quando alguém troca a trade URL e depois alega não ter
+  // recebido o item.
+  metadata Json?
+
+  // Contexto da requisição — investigar golpe sem isso é adivinhação.
+  ip        String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
+  // Varredura de padrão suspeito: recusas recentes
+  @@index([outcome, createdAt])
+}
+
+enum AuditActorType {
+  USER
+  BOT
+  SYSTEM // jobs e rotinas automáticas
+  ANONYMOUS // sem sessão, como uma tentativa de login
+}
+
+enum AuditOutcome {
+  SUCCESS
+  DENIED // recusado por regra de negócio
+  FAILED // erro técnico
+}
+
+// =========================
 // LISTING (anúncio de venda)
 // =========================
 model Listing {

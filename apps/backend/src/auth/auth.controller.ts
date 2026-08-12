@@ -17,7 +17,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
+import {
+  AUDIT_ACTIONS,
+  AuditActorType,
+  AuditOutcome,
+  AuditService,
+  auditContext,
+} from '../audit/audit.service';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
 import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard';
@@ -35,6 +42,7 @@ export class AuthController {
     private readonly tokens: TokenService,
     private readonly config: ConfigService,
     private readonly revocation: SessionRevocationService,
+    private readonly audit: AuditService,
   ) {}
 
   @Get('steam')
@@ -62,15 +70,27 @@ export class AuthController {
   @ApiExcludeEndpoint()
   async handleSteamReturn(
     @Query() query: Record<string, unknown>,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
+    const contexto = auditContext(req);
     const steamId = await this.steamOpenId.verifyReturn(query);
 
     if (!steamId) {
+      // Sem steamId não há a quem atribuir, mas o registro importa:
+      // repetição aqui é tentativa de forjar retorno da Steam.
+      await this.audit.record({
+        actorType: AuditActorType.ANONYMOUS,
+        action: AUDIT_ACTIONS.LOGIN,
+        outcome: AuditOutcome.DENIED,
+        metadata: { motivo: 'openid_invalido' },
+        context: contexto,
+      });
+
       throw new UnauthorizedException('Login pela Steam não pôde ser validado');
     }
 
-    const user = await this.authService.loginWithSteam(steamId);
+    const user = await this.authService.loginWithSteam(steamId, contexto);
 
     const token = this.tokens.sign({ sub: user.id, steamId: user.steamId });
 
@@ -130,6 +150,17 @@ export class AuthController {
 
     res.clearCookie(TokenService.COOKIE_NAME, this.tokens.cookieOptions());
 
+    await this.audit.record({
+      actorType: AuditActorType.USER,
+      actorId: req.user.id,
+      action: AUDIT_ACTIONS.LOGOUT,
+      outcome: AuditOutcome.SUCCESS,
+      targetType: 'User',
+      targetId: req.user.id,
+      metadata: { jti },
+      context: auditContext(req),
+    });
+
     return { ok: true };
   }
 
@@ -145,11 +176,24 @@ export class AuthController {
   })
   async logoutAll(
     @CurrentUser() user: User,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ ok: boolean }> {
     await this.revocation.revokeAllForUser(user.id);
 
     res.clearCookie(TokenService.COOKIE_NAME, this.tokens.cookieOptions());
+
+    // Costuma vir depois de suspeita de invasão: registrar o momento
+    // ajuda a separar o que a pessoa fez do que o invasor fez.
+    await this.audit.record({
+      actorType: AuditActorType.USER,
+      actorId: user.id,
+      action: AUDIT_ACTIONS.LOGOUT_ALL,
+      outcome: AuditOutcome.SUCCESS,
+      targetType: 'User',
+      targetId: user.id,
+      context: auditContext(req),
+    });
 
     return { ok: true };
   }

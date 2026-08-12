@@ -59,12 +59,7 @@ export class SessionRevocationService {
 
     // Guardamos o instante do corte, não uma lista de tokens: não temos
     // como enumerar o que foi emitido, e não precisamos.
-    await this.redis.set(
-      `revoked:user:${userId}`,
-      corte.toString(),
-      'EX',
-      ttl,
-    );
+    await this.redis.set(`revoked:user:${userId}`, corte.toString(), 'EX', ttl);
   }
 
   /**
