@@ -8,6 +8,60 @@ Pendências específicas do worker de trocas estão em
 
 ---
 
+## O que depende das contas de bot
+
+Situação em 12/08/2026: as contas estão sendo criadas e o autenticador leva
+7 dias para maturar. Esta seção separa o que está bloqueado por isso do que
+não está.
+
+### Bloqueado até haver bot operante
+
+Nada aqui pode ser testado de verdade sem uma conta funcionando.
+
+- **`bot-service` inteiro** — enviar oferta, detectar aceite, criar `Item`
+  com o float lido do inspect link.
+- **Fila agendada pelo trade lock** — `SCHEDULED` e `scheduledFor` só
+  fazem sentido com alguém para executá-los.
+- **Retry com limite** — `TradeOffer.attempts` existe e ninguém respeita.
+- **Rechecar ban antes de entregar** — sem isso o retry roda infinito
+  contra conta bloqueada.
+- **Detectar ban do próprio bot** — o mais crítico da lista: conta banida
+  continua recebendo itens, então a perda cresce depois do incidente.
+- **Reconciliar `Bot.itemCount`** — comparar com inventário real exige
+  inventário real.
+- **Teto de valor por bot** — depende de preço e de bot.
+- **Preencher stickers e patches no `Item`** — só é lido quando a skin
+  entra em custódia.
+
+### Livre para fazer agora
+
+- **`ItemSticker` genérico** — o schema pode mudar antes do bot existir;
+  só o preenchimento espera.
+- **Catálogo para itens que não são armas** — bloqueia guardar preço de
+  sticker.
+- **Campo de URL personalizada em `Bot`** — só exibição.
+- **Revogação de sessão** — blacklist no Redis. A regra que definimos é
+  fazer antes de existir saque, e saque vem logo depois do depósito.
+- **Página pública de bots** — o endpoint dá para escrever; fica vazio até
+  haver bot cadastrado.
+- **Vitrine e anúncios** — `Listing` já existe no modelo; dá para
+  construir e testar com dados semeados.
+- **Todo o frontend** — preso à decisão de fronteira com o Figma, não aos
+  bots.
+- **Infraestrutura** — CI, banco de teste separado, `.gitattributes`,
+  chave da Steam de produção.
+
+### Decisões sem código envolvido
+
+| Decisão | Quando |
+|---|---|
+| Fonte de preço (serviço pago, custo recorrente) | perto de construir a vitrine |
+| Hospedagem | em avaliação |
+| Fronteira com o Figma Make | quando a primeira tela for ligada na API |
+| Reserva financeira proporcional ao custodiado | antes de haver volume real |
+
+---
+
 ## Domínio
 
 ### Tipos de item além de skins
