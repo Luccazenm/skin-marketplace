@@ -191,7 +191,7 @@ model Item {
   acquisitionCost Decimal?        @db.Decimal(12, 2) // em USD, só em buyout
   acquiredAt      DateTime?
 
-  stickers        ItemSticker[]
+  applications    ItemApplication[]
   listing         Listing?
   tradeOfferItems TradeOfferItem[]
   orders          Order[]
@@ -258,19 +258,53 @@ enum ItemLocation {
 }
 
 // =========================
-// ITEM STICKER
+// ITEM APPLICATION
 // =========================
-model ItemSticker {
+// O que está colado num item: sticker, patch ou chaveiro.
+//
+// UMA LINHA POR UNIDADE, sempre — nunca agrupar por nome com uma
+// contagem. Duas cópias do mesmo sticker podem ter raspagens diferentes,
+// e uma delas pode valer múltiplos da outra. Agrupar destruiria isso de
+// forma irreversível, já que depois da entrega o item sai do nosso
+// alcance e o inspect link antigo deixa de funcionar.
+//
+// É também o que diferencia exemplares que, sem isso, seriam
+// intercambiáveis: uma AK limpa e uma AK com três Katowice 2014 são o
+// mesmo SkinTemplate.
+model ItemApplication {
   id String @id @default(uuid(7))
 
   itemId String
-  item   Item   @relation(fields: [itemId], references: [id])
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
-  stickerName String // ex: "Katowice 2014 Titan (Holo)"
-  position    Int // 0 a 4
-  wear        Float? // desgaste do sticker (0 a 1)
+  kind ItemApplicationKind
+
+  name     String // ex: "Titan | Katowice 2014"
+  imageUrl String?
+
+  // Ordem em que a Steam devolve, começando em 0.
+  //
+  // NÃO é o lugar físico na arma: a própria Valve inverte posições entre
+  // o inventário web e o do jogo. Serve para reconstruir a lista na mesma
+  // ordem e para distinguir unidades de mesmo nome — não para dizer
+  // "está no cabo".
+  slot Int
+
+  // Só sticker tem raspagem; patch e chaveiro ficam nulos.
+  // Não vem no inventário: sai do inspect link, junto com float e paint
+  // seed, e por isso só é conhecido depois que o item entra em custódia.
+  wear Float?
 
   createdAt DateTime @default(now())
+
+  @@unique([itemId, kind, slot])
+  @@index([itemId])
+}
+
+enum ItemApplicationKind {
+  STICKER // arma, até 5, tem raspagem
+  PATCH // agente, até 3, sem raspagem e não sai depois de aplicado
+  CHARM // chaveiro em arma, sem raspagem
 }
 
 // =========================

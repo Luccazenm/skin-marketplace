@@ -35,13 +35,9 @@ Nada aqui pode ser testado de verdade sem uma conta funcionando.
 
 ### Livre para fazer agora
 
-- **`ItemSticker` genérico** — o schema pode mudar antes do bot existir;
-  só o preenchimento espera.
 - **Catálogo para itens que não são armas** — bloqueia guardar preço de
   sticker.
 - **Campo de URL personalizada em `Bot`** — só exibição.
-- **Revogação de sessão** — blacklist no Redis. A regra que definimos é
-  fazer antes de existir saque, e saque vem logo depois do depósito.
 - **Página pública de bots** — o endpoint dá para escrever; fica vazio até
   haver bot cadastrado.
 - **Vitrine e anúncios** — `Listing` já existe no modelo; dá para
@@ -97,12 +93,21 @@ Ou seja, "pode ser diferenciado" tem duas fontes, e só cobrimos uma:
 | float + paint seed | arma, faca, luva | sim |
 | aplicações | sticker e chaveiro em arma, **patch em agente** | parcial |
 
-`ItemSticker` só cobre sticker de arma: tem `stickerName`, `position`
-(0 a 4) e `wear`. Para cobrir o resto precisa virar genérico, com um tipo
-(`STICKER`, `PATCH`, `CHARM`), porque patch usa 3 posições e nem patch nem
-chaveiro têm desgaste.
+**Resolvido em 12/08/2026:** `ItemSticker` virou `ItemApplication`, com
+tipo (`STICKER`, `PATCH`, `CHARM`), imagem e limites de slot por tipo.
 
-Fazer junto com o depósito, que é quando esses dados começam a ser lidos.
+Uma linha por unidade, **nunca agrupada por nome com uma contagem**: duas
+cópias do mesmo sticker podem ter raspagens diferentes, e uma pode valer
+múltiplos da outra. Agrupar destruiria isso de forma irreversível, já que
+depois da entrega o item sai do nosso alcance e o inspect link antigo
+deixa de funcionar.
+
+O `slot` guarda a ordem em que a Steam devolve, não o lugar físico na arma
+— a própria Valve inverte posições entre o inventário web e o do jogo.
+Serve para reconstruir a lista e distinguir unidades de mesmo nome.
+
+Falta apenas o preenchimento, que é do worker: `wear` não vem no
+inventário, sai do inspect link junto com float e paint seed.
 
 ### Fungíveis: decisão tomada em 06/08/2026
 
@@ -241,14 +246,14 @@ devido aos usuários pode exceder o caixa.
 
 ## Autenticação
 
-### Revogação de sessão
+### Revogação de sessão — resolvido em 12/08/2026
 
-`POST /api/auth/logout` apaga o cookie, mas o JWT continua válido até
-expirar. Quem tiver copiado o token continua entrando.
+`POST /api/auth/logout` invalida o token atual e `POST /api/auth/logout-all`
+derruba todos os do usuário. As entradas ficam no Redis com TTL igual ao
+que resta de vida do token.
 
-O guard já consulta o banco a cada requisição e bloqueia conta banida, o
-que cobre o caso grave. Falta invalidar tokens individualmente — uma
-blacklist no Redis resolve. Vale fazer antes de existir saque de dinheiro.
+Se o Redis cair, a checagem deixa passar: o guard ainda consulta o banco e
+bloqueia conta banida, que é o caso grave.
 
 ---
 
