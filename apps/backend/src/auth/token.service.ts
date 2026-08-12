@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -13,6 +14,20 @@ import { JwtService } from '@nestjs/jwt';
 export interface JwtPayload {
   sub: string; // id do usuário
   steamId: string;
+  /**
+   * Identificador único deste token. É o que permite derrubar UMA sessão
+   * sem afetar as outras — sem ele, o logout num dispositivo teria que
+   * desconectar a pessoa de todos.
+   */
+  jti: string;
+}
+
+/** Payload como sai do verify, com os campos que o JWT acrescenta. */
+export interface JwtPayloadVerificado extends JwtPayload {
+  /** Emitido em (segundos). Comparado com o corte de "sair de todos". */
+  iat: number;
+  /** Expira em (segundos). Define o TTL da entrada de revogação. */
+  exp: number;
 }
 
 @Injectable()
@@ -22,16 +37,16 @@ export class TokenService {
     private readonly config: ConfigService,
   ) {}
 
-  sign(payload: JwtPayload): string {
-    return this.jwt.sign(payload);
+  sign(payload: Omit<JwtPayload, 'jti'>): string {
+    return this.jwt.sign({ ...payload, jti: randomUUID() });
   }
 
   /**
    * Retorna o payload ou null se o token for inválido/expirado.
    */
-  verify(token: string): JwtPayload | null {
+  verify(token: string): JwtPayloadVerificado | null {
     try {
-      return this.jwt.verify<JwtPayload>(token);
+      return this.jwt.verify<JwtPayloadVerificado>(token);
     } catch {
       return null;
     }

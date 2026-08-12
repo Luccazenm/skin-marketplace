@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { SessionRevocationService } from './session-revocation.service';
 import { SteamBanService } from './steam-ban.service';
 import { SteamOpenIdService } from './steam-openid.service';
 import { SteamProfileService } from './steam-profile.service';
@@ -28,9 +29,10 @@ import { TokenService } from './token.service';
     SteamProfileService,
     SteamBanService,
     TokenService,
+    SessionRevocationService,
     JwtAuthGuard,
   ],
   // Exportados para os módulos de domínio protegerem suas rotas
-  exports: [TokenService, JwtAuthGuard],
+  exports: [TokenService, SessionRevocationService, JwtAuthGuard],
 })
 export class AuthModule {}

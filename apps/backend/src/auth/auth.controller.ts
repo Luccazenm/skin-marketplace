@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Query,
+  Req,
   Res,
   UnauthorizedException,
   UseGuards,
@@ -19,7 +20,8 @@ import type { User } from '@prisma/client';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './current-user.decorator';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard';
+import { SessionRevocationService } from './session-revocation.service';
 import { SteamOpenIdService } from './steam-openid.service';
 import { capabilitiesFor } from './steam-restrictions';
 import { TokenService } from './token.service';
@@ -32,6 +34,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly tokens: TokenService,
     private readonly config: ConfigService,
+    private readonly revocation: SessionRevocationService,
   ) {}
 
   @Get('steam')
@@ -110,13 +113,44 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Encerra a sessão',
+    summary: 'Encerra esta sessão',
     description:
-      'Apaga o cookie. O token em si continua válido até expirar — ' +
-      'JWT não é revogável.',
+      'Apaga o cookie e invalida este token. Outros dispositivos ' +
+      'continuam conectados.',
   })
-  logout(@Res({ passthrough: true }) res: Response): { ok: boolean } {
+  async logout(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ ok: boolean }> {
+    const { jti, exp } = req.tokenPayload;
+
+    // Apagar o cookie basta para quem usa o navegador normalmente, mas
+    // não para um token que já tenha sido copiado.
+    await this.revocation.revokeToken(jti, exp);
+
     res.clearCookie(TokenService.COOKIE_NAME, this.tokens.cookieOptions());
+
+    return { ok: true };
+  }
+
+  @Post('logout-all')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Encerra a sessão em todos os dispositivos',
+    description:
+      'Invalida todos os tokens emitidos até agora. Use quando houver ' +
+      'suspeita de conta comprometida — não é preciso saber quantas ' +
+      'sessões existem nem onde.',
+  })
+  async logoutAll(
+    @CurrentUser() user: User,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ ok: boolean }> {
+    await this.revocation.revokeAllForUser(user.id);
+
+    res.clearCookie(TokenService.COOKIE_NAME, this.tokens.cookieOptions());
+
     return { ok: true };
   }
 }

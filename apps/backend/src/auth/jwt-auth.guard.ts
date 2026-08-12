@@ -7,11 +7,14 @@ import {
 import type { User } from '@prisma/client';
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
-import { TokenService } from './token.service';
+import { SessionRevocationService } from './session-revocation.service';
+import { TokenService, type JwtPayloadVerificado } from './token.service';
 
 /** Request com o usuário já resolvido pelo guard. */
 export interface AuthenticatedRequest extends Request {
   user: User;
+  /** Guardado para o logout conseguir revogar o token em uso. */
+  tokenPayload: JwtPayloadVerificado;
 }
 
 @Injectable()
@@ -19,6 +22,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly tokens: TokenService,
     private readonly prisma: PrismaService,
+    private readonly revocation: SessionRevocationService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -34,6 +38,12 @@ export class JwtAuthGuard implements CanActivate {
 
     if (!payload) {
       throw new UnauthorizedException('Sessão inválida ou expirada');
+    }
+
+    // Encerrada antes de expirar: logout neste dispositivo, ou o usuário
+    // mandou sair de todos.
+    if (await this.revocation.isRevoked(payload)) {
+      throw new UnauthorizedException('Sessão encerrada');
     }
 
     // Consultamos o banco em vez de confiar só no token.
@@ -52,6 +62,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     req.user = user;
+    req.tokenPayload = payload;
 
     return true;
   }
