@@ -155,6 +155,12 @@ Duas consequências:
 - A lista deve sair do banco (`Bot.steamId` + `Bot.status`), não de HTML
   escrito à mão, senão desatualiza quando um bot entra ou sai de rotação.
 
+Falta um campo em `Bot` para a URL personalizada do perfil, apenas para
+exibição. Ela não serve como identificador: pode ser imitada com um nome
+parecido e volta a ficar livre se o bot deixar de usá-la. A chave continua
+sendo `steamId`, que é imutável — se a URL personalizada fosse a
+referência, trocá-la no perfil quebraria os vínculos.
+
 Também vale instruir na tela de depósito: confira o steamID de quem
 enviou a oferta antes de aceitar.
 

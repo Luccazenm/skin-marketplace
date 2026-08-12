@@ -39,6 +39,15 @@ autenticador reinicia o prazo de 7 dias.
 - Avatar: o mesmo do site.
 - **Inventário público.** Se for privado, nem nós nem os usuários
   conseguimos verificar o que está em custódia.
+- **URL personalizada**: `nextskins-bot<N>`. Exige conta não limitada, por
+  isso o passo 2 vem antes.
+
+Sobre a URL personalizada: ela não substitui o SteamID64, que é imutável e
+sempre existe em `/profiles/<id>`. É só um apelido apontando para o mesmo
+perfil. Serve como sinal de conta cuidada — golpista apressado não
+configura — mas **não é verificação**: um nome parecido pode ser
+registrado por outra pessoa, e uma URL personalizada abandonada volta a
+ficar livre. A lista oficial de bots continua publicando o SteamID64.
 
 ### 5. Anotar o steamID64
 
