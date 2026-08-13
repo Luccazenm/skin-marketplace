@@ -3,7 +3,10 @@
 Atualizado em 12/08/2026. Branch `feat/modelagem-dominio-e-infra-backend`,
 37 commits, nada em `main` e nada enviado ao GitHub.
 
-**157 testes passando · cobertura 75,6% · typecheck, lint e build limpos.**
+**214 testes passando · cobertura 76,8% · typecheck, lint e build limpos.**
+
+Toda a integração com a Steam está em 100% de statements:
+`steam-inventory`, `steam-profile`, `steam-ban`, e `steam-openid` em 97%.
 
 ---
 
@@ -131,6 +134,19 @@ Detalhes em `apps/bot-service/README.md`.
 - Frontend — preso à decisão de fronteira com o Figma
 - CI, banco de teste separado, `.gitattributes`
 
+### Assim que a hospedagem for definida
+
+- **`docker-compose` de produção**, garantindo que os comandos de terminal
+  (`audit:user`, `audit:suspeitos`, `bot:add`, `bot:list`) tenham as
+  mesmas variáveis de ambiente da API. Rodando em container isso vem de
+  graça; direto na VM, o `.env` precisa estar acessível ao usuário que
+  executa.
+- **Testar os comandos no ambiente real**, não só aqui. Eles executam a
+  partir do `dist`, então o deploy precisa rodar `pnpm build`.
+- Documentar o acesso: `docker compose exec backend pnpm audit:user -- --id=...`
+  via SSH, ou túnel SSH (`ssh -L 5433:localhost:5432`) para consultar do
+  próprio computador. **Nunca expor a porta do Postgres na internet.**
+
 ### Decisões suas, sem código
 
 | Decisão | Quando |
@@ -147,15 +163,10 @@ Detalhes em `apps/bot-service/README.md`.
 - **Testes usam o banco de desenvolvimento.** Limpam o que criam, mas
   poluem a auditoria e obrigam o jest a rodar em série. Resolve com banco
   de teste isolado.
-- **Cobertura baixa em três serviços** que só fazem chamada externa:
-  `steam-inventory` (17%), `steam-profile` e `steam-ban` (~18%). A lógica
-  de decisão em volta deles está coberta; falta o parsing. O
-  `steam-inventory` é o mais relevante dos três: além da chamada, ele
-  combina `assets` com `descriptions` e resolve o inspect link.
 - **Logs de aplicação são texto solto**, não estruturados — não dá para
   filtrar por usuário. E não há identificador de correlação por
   requisição, então os logs de uma falha ficam espalhados entre os de
-  todo mundo.
+  todo mundo. É a última lacuna conhecida de observabilidade.
 - **`Bot.itemCount` é denormalizado** e vai divergir.
 - **Sem CI.**
 - **`.gitattributes` ausente** — o git avisa sobre LF/CRLF a cada commit.
