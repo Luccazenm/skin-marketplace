@@ -34,6 +34,12 @@ NextSkins.gg — Official Trade Bots
 Trocar pela versão de lançamento **no mesmo dia em que o site subir**.
 Ver a seção seguinte.
 
+**Atualizar a lista de steamID64 a cada Trade Bot criado.** Enquanto
+`nextskins.gg/bots` não existir, essa lista na descrição é a única âncora
+de verificação — o link para a página está lá para depois do lançamento,
+e hoje não responde. Conta criada e não listada é indistinguível de conta
+falsa.
+
 ## Resumo curto
 
 ```
@@ -58,6 +64,12 @@ NextSkins.gg is still being built. We are [b]not[/b] trading, not running giveaw
 Do not send items to anyone. There is nothing to deposit into yet.
 
 This group exists now so the Trade Bot accounts are on public record before launch. Anything that shows up in the meantime came from someone else.
+
+[b]Our Trade Bot accounts, by steamID64 — the only identifier that cannot be faked:[/b]
+[list]
+[*] 76561198659520305 — NextSkins.gg | Trade Bot 1
+[/list]
+Open a profile at steamcommunity.com/profiles/<steamID64>. A display name, an avatar and a custom URL can all be copied in minutes; the steamID64 cannot.
 
 [hr][/hr]
 
@@ -108,6 +120,12 @@ O NextSkins.gg está em construção. Nós [b]não[/b] estamos negociando, não 
 Não envie itens para ninguém. Ainda não existe onde depositar.
 
 Este grupo já existe para deixar as contas dos Trade Bots registradas publicamente antes do lançamento. O que aparecer nesse meio-tempo veio de outra pessoa.
+
+[b]Nossas contas de Trade Bot, por steamID64 — o único identificador que não dá para falsificar:[/b]
+[list]
+[*] 76561198659520305 — NextSkins.gg | Trade Bot 1
+[/list]
+Abra o perfil em steamcommunity.com/profiles/<steamID64>. Nome, avatar e URL personalizada qualquer um copia em minutos; o steamID64 não.
 
 [hr][/hr]
 
