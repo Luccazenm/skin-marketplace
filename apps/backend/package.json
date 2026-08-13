@@ -17,6 +17,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "bot:add": "node dist/scripts/add-bot.js",
     "bot:list": "node dist/scripts/list-bots.js",
+    "audit:user": "node dist/scripts/audit-user.js",
+    "audit:suspeitos": "node dist/scripts/audit-suspeitos.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

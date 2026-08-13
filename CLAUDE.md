@@ -205,6 +205,21 @@ realizada.
 recusados pelo banco. Corrigir registro errado é impossível por desenho:
 insere-se um novo.
 
+### Consultar
+
+```bash
+pnpm audit:user -- --id=<steamID64 ou id interno> [--dias=N]
+pnpm audit:suspeitos [-- --dias=7 --minimo=3]
+```
+
+O primeiro monta a linha do tempo de uma pessoa — é o que se abre quando
+chega uma reclamação. O segundo lista quem acumulou recusas: uma recusa
+isolada é engano comum, repetição é alguém testando o sistema.
+
+São comandos de terminal, não rotas: painel administrativo é a superfície
+mais perigosa do sistema e não há ganho enquanto a operação for de uma
+pessoa.
+
 ---
 
 ## Restrições — o que NÃO fazer

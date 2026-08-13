@@ -89,6 +89,11 @@ Integrada em login (sucesso e três recusas), logout, logout-all, trade URL
 (sucesso e cada recusa), depósito (sucesso e sete recusas) e cadastro de
 bot.
 
+Consulta por comando: `pnpm audit:user` monta a linha do tempo de uma
+pessoa (aceita steamId ou id interno, mostra antes/depois e IP);
+`pnpm audit:suspeitos` lista quem acumulou recusas no período. Há também
+busca por assetId no `AuditQueryService`.
+
 ---
 
 ## Em andamento
@@ -144,7 +149,13 @@ Detalhes em `apps/bot-service/README.md`.
   de teste isolado.
 - **Cobertura baixa em três serviços** que só fazem chamada externa:
   `steam-inventory` (17%), `steam-profile` e `steam-ban` (~18%). A lógica
-  de decisão em volta deles está coberta; falta o parsing.
+  de decisão em volta deles está coberta; falta o parsing. O
+  `steam-inventory` é o mais relevante dos três: além da chamada, ele
+  combina `assets` com `descriptions` e resolve o inspect link.
+- **Logs de aplicação são texto solto**, não estruturados — não dá para
+  filtrar por usuário. E não há identificador de correlação por
+  requisição, então os logs de uma falha ficam espalhados entre os de
+  todo mundo.
 - **`Bot.itemCount` é denormalizado** e vai divergir.
 - **Sem CI.**
 - **`.gitattributes` ausente** — o git avisa sobre LF/CRLF a cada commit.
