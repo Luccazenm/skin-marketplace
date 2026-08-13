@@ -114,6 +114,16 @@ localizado muda com o idioma e quebraria a classificação em silêncio.
 **Credenciais de bot nunca vão para o banco.** `Bot.credentialRef` aponta
 para o cofre.
 
+**O Trade Bot só envia ofertas, nunca aceita.** Nos dois sentidos: no
+depósito ele envia uma oferta pedindo os itens, na entrega envia uma
+oferta oferecendo os itens. Quem cria a oferta define o conteúdo dela —
+se o bot só envia, toda troca foi montada por nós a partir do que já
+estava no banco, em vez de a partir de um objeto construído por outra
+pessoa. Oferta recebida é **recusada explicitamente** e registrada na
+auditoria. Sem exceção nem para conta nossa: transferência entre Trade
+Bots é o bot de origem enviando. Detalhes em
+`apps/bot-service/README.md`.
+
 ---
 
 ## Convenções
@@ -262,6 +272,8 @@ pessoa.
 - **Não usar preço do Steam Market como referência.** É inflado, porque o
   saldo de lá não é sacável.
 - **Não chamar a Steam sem passar pelo cache e pelo limitador.**
+- **Não fazer o Trade Bot aceitar oferta de troca.** Ele só envia. Nem
+  para conta nossa, nem "só neste caso".
 - **Não bloquear venda por ban da Steam.**
 - **Não agrupar `ItemApplication` por nome com contagem.**
 - **Não criar painel administrativo** enquanto a operação for de uma

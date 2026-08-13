@@ -79,6 +79,7 @@ A Trade Bot is legitimate only if [b]all[/b] of these are true:
 [*] They never ask for your password, Steam Guard code, or API key
 [*] They never ask you to "hold", "verify", or "test" an item
 [*] They never contact you about a trade you did not start
+[*] [b]They never accept a trade offer you send them.[/b] We always send the offer; you accept it. An offer you send to one of our Trade Bots will be declined — always, with no exceptions. So "the bot accepted my offer" is never true.
 [/list]
 
 [b]Before you confirm any trade[/b]
@@ -128,6 +129,7 @@ Um Trade Bot só é legítimo se [b]todas[/b] estas condições forem verdadeira
 [*] Nunca pedem sua senha, código do Steam Guard ou API key
 [*] Nunca pedem para você "guardar", "verificar" ou "testar" um item
 [*] Nunca falam sobre uma troca que você não iniciou
+[*] [b]Nunca aceitam uma oferta que você enviar.[/b] Quem envia a oferta somos nós; você aceita. Oferta enviada para um Trade Bot nosso é recusada — sempre, sem exceção. Ou seja, "o bot aceitou minha oferta" nunca é verdade.
 [/list]
 
 [b]Antes de confirmar qualquer troca[/b]
