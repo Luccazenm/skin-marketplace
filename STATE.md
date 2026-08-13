@@ -155,7 +155,17 @@ Detalhes em `apps/bot-service/README.md`.
 - Catálogo para itens que não são armas (`SkinTemplate` tem `weapon` e
   `skinName`; sticker não tem arma) — bloqueia guardar preço de sticker
 - Campo de URL personalizada em `Bot`, só exibição
-- Página pública de bots, listando steamID64 (defesa contra bot falso)
+- Página pública de bots, listando steamID64 (defesa contra bot falso).
+  **A descrição do grupo da Steam já aponta para `nextskins.gg/bots`** —
+  enquanto a página não existir, o link quebra exatamente na hora em que
+  o usuário desconfiado vai conferir.
+- **Trocar a descrição do grupo da Steam quando o site subir.** Hoje ela
+  abre com "o site não está no ar, não negociamos, qualquer oferta em
+  nosso nome é golpe". Isso é proteção enquanto não há nada no ar, e vira
+  mentira perigosa no dia do lançamento: o usuário lê que não negociamos
+  bem quando começar a negociar de verdade. Os dois textos (inglês e
+  português) estão em `docs/grupo-steam.md`. **Fazer no mesmo dia do
+  lançamento, não depois.**
 - Vitrine e anúncios (`Listing` já existe no modelo)
 - Frontend — preso à decisão de fronteira com o Figma
 - CI, banco de teste separado, `.gitattributes`
