@@ -63,6 +63,17 @@ autenticador depois dispara 15 dias de restrição em vez de 7.
 Conta limitada não consegue trocar. Faça a compra antes de tudo — melhor
 descobrir um problema agora do que depois de esperar uma semana.
 
+**Como conferir se ainda está limitada**, já que nada no perfil deixa isso
+óbvio e a URL personalizada funciona mesmo assim:
+
+```
+https://steamcommunity.com/profiles/<steamID64>/?xml=1
+```
+
+`<isLimitedAccount>1</isLimitedAccount>` significa limitada; `0`,
+liberada. É o próprio endpoint da Steam — não precisa entregar o perfil
+do Trade Bot a site de terceiro.
+
 ### 3. Ativar o autenticador pelo Steam Desktop Authenticator
 
 **Não use o aplicativo normal do celular.** O Trade Bot precisa do
@@ -118,8 +129,10 @@ que devolve a conta se o autenticador se perder ou for comprometido.
 - Avatar: o mesmo do site.
 - **Inventário público.** Se for privado, nem nós nem os usuários
   conseguimos verificar o que está em custódia.
-- **URL personalizada**: `nextskins-tradebot<N>`. Exige conta não
-  limitada, por isso o passo 2 vem antes.
+- **URL personalizada**: `nextskins-tradebot<N>`. Funciona mesmo com a
+  conta ainda limitada — verificado na conta 1, que a configurou antes de
+  gastar os US$ 5. **Não use isso como sinal de que a conta saiu do estado
+  limitado.**
 - **Localização (País/Estado/Cidade): deixar em branco.** É o campo
   público, sem relação com o país do cadastro. Em branco nos cinco é
   consistente; preenchido em uns e vazio em outros é o tipo de diferença
