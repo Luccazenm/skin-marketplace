@@ -4,10 +4,20 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { configurarApp } from './app-setup';
 import { AppModule } from './app.module';
+import { StructuredLogger } from './observability/structured-logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // bufferLogs segura o que for emitido durante a inicialização até o
+  // logger definitivo assumir — sem isso, os logs do boot sairiam no
+  // formato antigo.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const config = app.get(ConfigService);
+
+  // JSON em produção, para dar para filtrar por usuário e requisição.
+  // Em desenvolvimento, texto legível vale mais.
+  app.useLogger(
+    new StructuredLogger(config.get<string>('NODE_ENV') === 'production'),
+  );
 
   // Mesma configuração usada pelos testes — ver app-setup.ts
   configurarApp(app);

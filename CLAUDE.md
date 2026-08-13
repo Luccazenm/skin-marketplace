@@ -205,6 +205,17 @@ realizada.
 recusados pelo banco. Corrigir registro errado é impossível por desenho:
 insere-se um novo.
 
+### Log é diferente de auditoria
+
+`AuditLog` é a prova, guardada no banco e imutável: responde "isso
+aconteceu?". O log de aplicação é o rastro técnico, volátil: responde
+"por que quebrou?". Um não substitui o outro.
+
+Todo log carrega o `requestId` da requisição automaticamente — não passar
+isso como parâmetro nem inventar outro identificador. **Nunca logar
+credencial, token ou cookie**; o mascaramento em
+`observability/structured-logger.ts` é rede de proteção, não permissão.
+
 ### Consultar
 
 ```bash

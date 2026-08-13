@@ -1,9 +1,9 @@
 # Estado atual
 
-Atualizado em 12/08/2026. Branch `feat/modelagem-dominio-e-infra-backend`,
-37 commits, nada em `main` e nada enviado ao GitHub.
+Atualizado em 13/08/2026. Branch `feat/modelagem-dominio-e-infra-backend`,
+nada em `main` e nada enviado ao GitHub.
 
-**214 testes passando · cobertura 76,8% · typecheck, lint e build limpos.**
+**236 testes passando · cobertura 77,9% · typecheck, lint e build limpos.**
 
 Toda a integração com a Steam está em 100% de statements:
 `steam-inventory`, `steam-profile`, `steam-ban`, e `steam-openid` em 97%.
@@ -97,6 +97,32 @@ pessoa (aceita steamId ou id interno, mostra antes/depois e IP);
 `pnpm audit:suspeitos` lista quem acumulou recusas no período. Há também
 busca por assetId no `AuditQueryService`.
 
+### Logs estruturados
+
+Toda requisição recebe um `requestId` e o carrega até o fim, inclusive
+atravessando `await` — é `AsyncLocalStorage`, ninguém precisa passar isso
+como parâmetro. O id vai no cabeçalho `x-request-id` da resposta, então o
+usuário que reclama pode informar o número da requisição que falhou.
+
+Em produção sai uma linha JSON por evento, com `requestId`, `userId`,
+`ip`, `method` e `path` — dá para filtrar tudo de uma pessoa ou de uma
+falha. Em desenvolvimento sai texto legível com os 8 primeiros caracteres
+do id como prefixo.
+
+Se o cliente mandar `x-request-id`, ele é reaproveitado (permite seguir a
+requisição desde o proxy) — mas só se casar com `/^[A-Za-z0-9._-]{8,128}$/`.
+Sem essa validação, bastaria mandar uma quebra de linha para **forjar
+entradas no log**, arruinando justamente a investigação que ele apoia.
+
+Campos cujo nome lembra credencial (`senha`, `password`, `secret`,
+`token`, `authorization`, `cookie`, `apiKey`, `credential`) saem como
+`[oculto]`, em qualquer profundidade. É rede de proteção: o certo é não
+passar credencial adiante, mas despejar um objeto inteiro num log de erro
+é acidente comum.
+
+`userId` só entra depois do guard autenticar. Os logs anteriores saem sem
+dono — o que é correto: ali ainda não se sabia quem era.
+
 ---
 
 ## Em andamento
@@ -143,6 +169,9 @@ Detalhes em `apps/bot-service/README.md`.
   executa.
 - **Testar os comandos no ambiente real**, não só aqui. Eles executam a
   partir do `dist`, então o deploy precisa rodar `pnpm build`.
+- **Destino dos logs**, porque hoje eles morrem com o container. Se houver
+  proxy na frente (nginx, Caddy, Cloudflare), configurar para gerar o
+  `x-request-id` — assim a correlação começa antes do backend.
 - Documentar o acesso: `docker compose exec backend pnpm audit:user -- --id=...`
   via SSH, ou túnel SSH (`ssh -L 5433:localhost:5432`) para consultar do
   próprio computador. **Nunca expor a porta do Postgres na internet.**
@@ -163,10 +192,10 @@ Detalhes em `apps/bot-service/README.md`.
 - **Testes usam o banco de desenvolvimento.** Limpam o que criam, mas
   poluem a auditoria e obrigam o jest a rodar em série. Resolve com banco
   de teste isolado.
-- **Logs de aplicação são texto solto**, não estruturados — não dá para
-  filtrar por usuário. E não há identificador de correlação por
-  requisição, então os logs de uma falha ficam espalhados entre os de
-  todo mundo. É a última lacuna conhecida de observabilidade.
+- **Log estruturado ainda não vai para lugar nenhum.** Sai em stdout e
+  fica na máquina. Sem coleta, um `docker compose restart` apaga a
+  investigação. Decidir o destino (arquivo rotacionado, Loki, serviço
+  gerenciado) junto com a hospedagem.
 - **`Bot.itemCount` é denormalizado** e vai divergir.
 - **Sem CI.**
 - **`.gitattributes` ausente** — o git avisa sobre LF/CRLF a cada commit.

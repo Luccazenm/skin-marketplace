@@ -1,6 +1,7 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
+import { requestContextMiddleware } from './observability/request-context.middleware';
 
 /**
  * Configuração aplicada ao app antes de ele atender qualquer requisição.
@@ -16,6 +17,11 @@ export function configurarApp(app: INestApplication): void {
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
+
+  // Primeiro de todos: abre o contexto para que qualquer log emitido
+  // durante a requisição — inclusive de erro em middleware seguinte —
+  // saia com o identificador dela.
+  app.use(requestContextMiddleware);
 
   // Necessário para o guard ler o cookie de sessão
   app.use(cookieParser());
