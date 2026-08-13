@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { BotStatus, SteamEconomyBan } from '@prisma/client';
+import { BotStatus } from '@prisma/client';
 import { AppModule } from '../app.module';
 import {
   AUDIT_ACTIONS,
@@ -7,9 +7,11 @@ import {
   AuditOutcome,
   AuditService,
 } from '../audit/audit.service';
+import { SteamAccountStateService } from '../auth/steam-account-state.service';
 import { SteamBanService } from '../auth/steam-ban.service';
 import { SteamProfileService } from '../auth/steam-profile.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { impedimentosParaOperar, perfilEstaPublico } from './bot-eligibility';
 
 /**
  * Cadastra um bot no sistema.
@@ -53,18 +55,50 @@ async function main() {
 
   try {
     const prisma = app.get(PrismaService);
+    const audit = app.get(AuditService);
+
+    /**
+     * Registra a recusa antes de sair.
+     *
+     * Tentativa recusada é sinal operacional: repetição aqui significa
+     * conta comprada, conta reaproveitada de outra finalidade, ou alguém
+     * tentando apontar depósito para uma conta que não é nossa. Sem
+     * gravar, o padrão só existiria na memória de quem rodou o comando.
+     */
+    const recusar = async (
+      motivo: string,
+      mensagem: string,
+      extra = {},
+    ): Promise<never> => {
+      console.error(mensagem);
+
+      await audit.record({
+        actorType: AuditActorType.SYSTEM,
+        action: AUDIT_ACTIONS.BOT_REGISTRATION_DENIED,
+        outcome: AuditOutcome.DENIED,
+        targetType: 'Bot',
+        metadata: { steamId, credentialRef, motivo, ...extra },
+      });
+
+      await app.close();
+      process.exit(1);
+    };
 
     const jaExiste = await prisma.bot.findFirst({
       where: { OR: [{ steamId }, { credentialRef }] },
     });
 
     if (jaExiste) {
-      const motivo =
+      const conflito =
         jaExiste.steamId === steamId
           ? `steamId ${steamId}`
           : `credentialRef ${credentialRef}`;
-      console.error(`Já existe um bot com ${motivo} (id ${jaExiste.id})`);
-      process.exit(1);
+
+      await recusar(
+        'duplicado',
+        `Já existe um Trade Bot com ${conflito} (id ${jaExiste.id})`,
+        { conflitoCom: jaExiste.id },
+      );
     }
 
     // A conta existe mesmo? Um dígito trocado no steamId passaria pela
@@ -72,36 +106,58 @@ async function main() {
     const perfil = await app.get(SteamProfileService).fetchProfile(steamId);
 
     if (!perfil) {
-      console.error(
+      await recusar(
+        'perfil_ilegivel',
         'Não foi possível ler o perfil na Steam. Confira o steamID64 e a ' +
           'STEAM_API_KEY antes de cadastrar.',
       );
-      process.exit(1);
+      // `recusar` encerra o processo; o return é só para o TypeScript
+      // enxergar que `perfil` não é null daqui para baixo.
+      return;
     }
 
-    const ban = await app.get(SteamBanService).fetchBanStatus(steamId);
+    const [ban, estado] = await Promise.all([
+      app.get(SteamBanService).fetchBanStatus(steamId),
+      app.get(SteamAccountStateService).fetchAccountState(steamId),
+    ]);
 
-    if (ban && ban.economyBan !== SteamEconomyBan.NONE) {
-      console.error(
-        `Esta conta está com restrição de negociação na Steam ` +
-          `(${ban.economyBan}) e não pode operar como bot.`,
+    // Mesma regra que o bot:check usa para informar. Ver bot-eligibility.ts.
+    const impedimentos = impedimentosParaOperar(ban, estado);
+
+    if (impedimentos.length > 0) {
+      const [primeiro] = impedimentos;
+
+      await recusar(
+        primeiro.motivo,
+        `Esta conta não pode operar como Trade Bot: ${impedimentos
+          .map((i) => i.rotulo)
+          .join(', ')}.\n\n${primeiro.comoResolver}\n\n` +
+          `Conferir em: https://steamcommunity.com/profiles/${steamId}/?xml=1`,
+        { impedimentos: impedimentos.map((i) => i.motivo) },
       );
-      process.exit(1);
     }
 
-    if (ban?.vacBanned) {
-      console.error(
-        'Esta conta tem VAC ban registrado. Se for de CS2, o inventário ' +
-          'está travado permanentemente e o bot nunca conseguirá enviar ' +
-          'itens. Cadastro cancelado.',
-      );
-      process.exit(1);
-    }
-
+    // Incerteza não barra o cadastro, mas o operador precisa saber que
+    // cadastrou sem confirmação.
     if (!ban) {
       console.warn(
         'Aviso: não foi possível verificar bans (STEAM_API_KEY ausente ou ' +
           'Steam indisponível). Cadastrando mesmo assim.',
+      );
+    }
+
+    if (!estado) {
+      console.warn(
+        'Aviso: não foi possível checar se a conta está limitada. ' +
+          'Cadastrando mesmo assim — confira antes de pôr em rotação.',
+      );
+    }
+
+    if (estado && !perfilEstaPublico(estado)) {
+      console.warn(
+        `Aviso: perfil está "${estado.privacyState ?? 'desconhecido'}". ` +
+          'Com o inventário fechado, ninguém consegue conferir o que está ' +
+          'em custódia — nem nós, nem o usuário.',
       );
     }
 

@@ -121,6 +121,7 @@ export const AUDIT_ACTIONS = {
   TRADE_URL_UPDATED: 'user.trade_url.updated',
   DEPOSIT_REQUESTED: 'deposit.requested',
   BOT_REGISTERED: 'bot.registered',
+  BOT_REGISTRATION_DENIED: 'bot.registration_denied',
 } as const;
 
 export { AuditActorType, AuditOutcome };

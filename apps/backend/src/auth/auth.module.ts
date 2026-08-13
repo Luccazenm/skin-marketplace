@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { SessionRevocationService } from './session-revocation.service';
+import { SteamAccountStateService } from './steam-account-state.service';
 import { SteamBanService } from './steam-ban.service';
 import { SteamOpenIdService } from './steam-openid.service';
 import { SteamProfileService } from './steam-profile.service';
@@ -28,6 +29,7 @@ import { TokenService } from './token.service';
     SteamOpenIdService,
     SteamProfileService,
     SteamBanService,
+    SteamAccountStateService,
     TokenService,
     SessionRevocationService,
     JwtAuthGuard,

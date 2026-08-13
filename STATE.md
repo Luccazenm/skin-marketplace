@@ -81,10 +81,30 @@ depositáveis, se já estão em outra troca, e escolhe o bot mais vazio.
 **Hoje responde 503 em qualquer depósito**, porque não há bot cadastrado.
 Isso é o comportamento correto, não um bug.
 
-### Bots
+### Trade Bots
 
-`pnpm bot:add` e `pnpm bot:list`. O cadastro confirma com a Steam que a
-conta existe e não tem restrição de negociação, e registra na auditoria.
+`pnpm bot:check`, `pnpm bot:add` e `pnpm bot:list`.
+
+`bot:check` é só leitura: responde "posso cadastrar esta conta?" sem
+gravar nada. Mostra todas as pendências de uma vez, para o operador não
+corrigir uma, rodar de novo e descobrir a seguinte.
+
+`bot:add` confirma com a Steam que a conta existe, que não tem restrição
+de economia nem VAC, e **que não está limitada** — conta limitada não é
+ban, a Web API não reporta esse estado, e conta recém-criada passaria por
+todas as outras barreiras sem conseguir negociar. A checagem vem do XML
+do perfil (`isLimitedAccount`).
+
+Os dois consomem a mesma regra (`scripts/bot-eligibility.ts`, pura e
+testada): o `check` informa, o `add` barra. Critérios separados
+discordariam, e a discordância só apareceria com item em custódia.
+
+Recusa registra na auditoria como `bot.registration_denied` com o motivo
+— inclusive duplicidade e perfil ilegível.
+
+**Trade Bot 1 cadastrado** (13/08): `OFFLINE`, libera em 20/08. Continua
+sem receber depósito, porque `escolherBot` só considera `ONLINE` e nada
+põe em rotação até o `bot-service` existir.
 
 ### Auditoria
 
@@ -199,9 +219,23 @@ Detalhes em `apps/bot-service/README.md`.
 
 ## Pendências conhecidas
 
-- **Testes usam o banco de desenvolvimento.** Limpam o que criam, mas
-  poluem a auditoria e obrigam o jest a rodar em série. Resolve com banco
-  de teste isolado.
+- **Testes usam o banco de desenvolvimento**, e isso já custou caro duas
+  vezes. Resolve com banco de teste isolado — subiu de prioridade.
+  - **Os testes desligam o trigger de imutabilidade do `AuditLog`** para
+    limpar o que criaram (`ALTER TABLE ... DISABLE TRIGGER`, em cinco
+    specs). Enquanto a janela está aberta, o trigger está desligado **para
+    a tabela inteira**, não só para aquela transação. Se um teste morrer
+    entre o DISABLE e o ENABLE, a proteção fica desligada em silêncio — e
+    a garantia de que "auditoria não pode ser apagada" deixa de existir
+    sem ninguém perceber. Pior: apontar os testes para o banco errado
+    desligaria a proteção lá.
+  - **`suspiciousActivity` varre a tabela inteira**, então recusas de
+    rodadas anteriores contam. O teste de ordenação afirmava quem era o
+    primeiro da lista global, passava por um tempo e quebrava sozinho
+    depois de algumas rodadas. Corrigido para comparar posições relativas
+    dos seus próprios atores (13/08). **O mesmo acúmulo afeta o
+    `pnpm audit:suspeitos` em produção**: sem `--dias` curto, tentativas
+    antigas inflam a contagem.
 - **Log estruturado ainda não vai para lugar nenhum.** Sai em stdout e
   fica na máquina. Sem coleta, um `docker compose restart` apaga a
   investigação. Decidir o destino (arquivo rotacionado, Loki, serviço

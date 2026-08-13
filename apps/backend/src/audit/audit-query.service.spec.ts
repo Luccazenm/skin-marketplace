@@ -221,7 +221,19 @@ describe('AuditQueryService', () => {
 
       const r = await query.suspiciousActivity({ minimoRecusas: 3 });
 
-      expect(r[0].steamId).toBe(STEAM_ID);
+      // Compara as posições relativas dos dois atores deste teste, e não
+      // quem é o primeiro da lista.
+      //
+      // A consulta varre a tabela inteira nos últimos 7 dias, e o banco é
+      // compartilhado com as outras suítes: recusas acumuladas de rodadas
+      // anteriores — inclusive as anônimas, que agrupam por IP — podem
+      // ocupar o topo. Afirmar `r[0]` fazia o teste passar por um tempo e
+      // quebrar sozinho depois de rodar a suíte algumas vezes.
+      const posUser = r.findIndex((s) => s.steamId === STEAM_ID);
+      const posOutro = r.findIndex((s) => s.steamId === STEAM_ID_OUTRO);
+
+      expect(posUser).toBeGreaterThanOrEqual(0);
+      expect(posOutro).toBeGreaterThan(posUser);
     });
 
     it('respeita o período', async () => {
