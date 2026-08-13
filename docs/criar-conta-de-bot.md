@@ -75,6 +75,40 @@ autenticador reinicia o prazo de 7 dias.
 
 É neste passo que o relógio começa a correr.
 
+**Baixe só do repositório oficial** (`Jessecar96/SteamDesktopAuthenticator`,
+aba Releases). Circulam forks e sites falsos com versões modificadas que
+enviam o `maFile` para terceiros, e quem tem o `maFile` confirma as
+trocas da conta — não é acesso parcial, é esvaziar o inventário sem
+precisar da senha. O golpe mira exatamente quem está montando bots pela
+primeira vez e procura o download no Google.
+
+**Defina a senha de criptografia** quando ele pedir ("Please enter an
+encryption passkey"). Em branco significa `maFile` em texto puro no
+disco. A senha vale para todas as contas daquela instalação, então guarde
+em entrada própria no cofre (`Steam Desktop Authenticator` →
+`encryption_passkey`), não dentro da entrada de um Trade Bot. Não há
+recuperação: perder essa senha torna os `maFiles` ilegíveis.
+
+#### O que a tela não conta
+
+**Não pede número de telefone.** Bom para nós — significa que não há
+limite de contas por número e os cinco Trade Bots não precisam de chip
+cada um.
+
+**A janela pede "SMS code", mas o código chega por e-mail.** O texto do
+SDA é antigo; a Steam mudou o fluxo e manda por e-mail quando a conta não
+tem telefone vinculado. Confira a caixa de `tradebot<N>@nextskins.gg`, e
+o spam. Não fique tentando códigos: erro repetido faz a Steam bloquear a
+tentativa por um tempo.
+
+Isso tem uma consequência que vale entender: **o e-mail é o caminho de
+recuperação do Trade Bot.** Quem controla a caixa consegue refazer o
+autenticador da conta. Por isso senha própria e forte em cada caixa, e
+2FA onde o provedor oferecer.
+
+**Guarde o código de revogação** (começa com `R`) assim que aparecer. É o
+que devolve a conta se o autenticador se perder ou for comprometido.
+
 ### 4. Configurar o perfil
 
 - Nome: `NextSkins.gg | Trade Bot <N>` — identificável de propósito. Ver
@@ -152,6 +186,7 @@ resto exposto na tela.
 | `pais_da_conta` | Texto — Brasil, define o meio de pagamento aceito |
 | `shared_secret` | **Oculto** — só aparece na ativação |
 | `identity_secret` | **Oculto** — só aparece na ativação |
+| `revocation_code` | **Oculto** — devolve a conta se o autenticador se perder |
 | `maFile` | **Oculto** — ver abaixo |
 
 E-mail e senha do e-mail em entrada própria, separada.
