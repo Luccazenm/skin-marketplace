@@ -117,7 +117,23 @@ Texto do grupo e o raciocínio de segurança em [grupo-steam.md](./grupo-steam.m
 
 Vai para o banco (`Bot.steamId`) e para a página pública de Trade Bots.
 
-## O que guardar no gerenciador de senhas
+## O cofre
+
+**Bitwarden**, com 2FA por aplicativo autenticador ativo.
+
+A escolha não foi por preferência: o `bot-service` vai precisar ler o
+`shared_secret` para confirmar as trocas sozinho, e o Bitwarden tem CLI.
+Cofre sem acesso programático levaria a copiar segredo à mão para
+variável de ambiente — exatamente o que o `credentialRef` existe para
+evitar. Trocar de cofre depois de cinco contas dentro é trabalhoso.
+
+O código 2FA do próprio Bitwarden **não** fica dentro do Bitwarden: se
+for preciso o cofre para abrir o cofre, um celular perdido tranca tudo,
+inclusive os Trade Bots. Senha mestra e código de recuperação ficam em
+papel, num lugar físico seguro. Não há recuperação pelo suporte, por
+desenho.
+
+## O que guardar no cofre
 
 Uma entrada por Trade Bot. O `Bot.credentialRef` no banco guarda só o
 identificador dessa entrada — senha e secrets nunca chegam ao Postgres.
@@ -130,7 +146,12 @@ steamID64
 E-mail e senha do e-mail
 Data da ativação do autenticador  (para saber quando libera)
 País da conta                     (Brasil — define o meio de pagamento aceito)
+Arquivo .maFile                   (anexo, ver abaixo)
 ```
+
+**Anexe o `.maFile` do Steam Desktop Authenticator.** Ele fica na sua
+máquina e contém os secrets. Perdê-lo sem ter copiado obriga a refazer o
+autenticador — e refazer reinicia os 7 dias de espera.
 
 ## Regras permanentes
 
