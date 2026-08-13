@@ -138,20 +138,31 @@ desenho.
 Uma entrada por Trade Bot. O `Bot.credentialRef` no banco guarda só o
 identificador dessa entrada — senha e secrets nunca chegam ao Postgres.
 
-```
-Login e senha da Steam            (o login não pode ser alterado depois)
-shared_secret                     (só aparece na ativação)
-identity_secret                   (só aparece na ativação)
-steamID64
-E-mail e senha do e-mail
-Data da ativação do autenticador  (para saber quando libera)
-País da conta                     (Brasil — define o meio de pagamento aceito)
-Arquivo .maFile                   (anexo, ver abaixo)
-```
+Use **campos personalizados**, não o bloco de anotações: campo tem nome,
+copia sozinho e aceita o tipo **Oculto**, que mantém os secrets
+mascarados. Assim, abrir a entrada para pegar o steamID64 não deixa o
+resto exposto na tela.
 
-**Anexe o `.maFile` do Steam Desktop Authenticator.** Ele fica na sua
-máquina e contém os secrets. Perdê-lo sem ter copiado obriga a refazer o
-autenticador — e refazer reinicia os 7 dias de espera.
+| Campo | Tipo |
+|---|---|
+| Login e senha da Steam | os campos padrão do item (o login não pode ser alterado depois) |
+| `steamID64` | Texto |
+| `credentialRef` | Texto — a chave que vai para o banco |
+| `autenticador_ativado_em` | Texto — data, para saber quando libera |
+| `pais_da_conta` | Texto — Brasil, define o meio de pagamento aceito |
+| `shared_secret` | **Oculto** — só aparece na ativação |
+| `identity_secret` | **Oculto** — só aparece na ativação |
+| `maFile` | **Oculto** — ver abaixo |
+
+E-mail e senha do e-mail em entrada própria, separada.
+
+**Guarde o conteúdo do `.maFile`.** Ele fica na sua máquina e contém os
+secrets; perdê-lo sem ter copiado obriga a refazer o autenticador — e
+refazer reinicia os 7 dias.
+
+Anexo de arquivo no Bitwarden é recurso pago. Como o `.maFile` é JSON em
+texto, abra no bloco de notas e cole o conteúdo inteiro no campo oculto.
+O que importa é o conteúdo estar no cofre, não o formato.
 
 ## Regras permanentes
 
