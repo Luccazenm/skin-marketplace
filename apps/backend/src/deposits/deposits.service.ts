@@ -291,7 +291,7 @@ export class DepositsService {
       // aqui significa frota subdimensionada ou bots fora de rotação.
       await this.registrarRecusa(user, 'sem_bot_disponivel', assetIds, context);
       throw new ServiceUnavailableException(
-        'Nenhum bot disponível para receber os itens no momento. ' +
+        'Nenhum Trade Bot disponível para receber os itens no momento. ' +
           'Tente novamente em alguns minutos.',
       );
     }

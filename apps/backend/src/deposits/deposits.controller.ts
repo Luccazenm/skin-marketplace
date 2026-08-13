@@ -34,7 +34,7 @@ export class DepositsController {
     description: 'Sem trade URL, item indisponível ou fora do inventário',
   })
   @ApiResponse({ status: 409, description: 'Item já está em outra troca' })
-  @ApiResponse({ status: 503, description: 'Sem bot disponível' })
+  @ApiResponse({ status: 503, description: 'Sem Trade Bot disponível' })
   async create(
     @CurrentUser() user: User,
     @Body() dto: CreateDepositDto,

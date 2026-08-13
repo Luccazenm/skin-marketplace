@@ -1,15 +1,19 @@
-# Grupo da Steam dos bots
+# Grupo da Steam dos Trade Bots
 
-Grupo fechado reunindo todas as contas de bot. Serve para o usuário
-conferir que um bot é realmente nosso antes de mandar um item.
+Grupo fechado reunindo todas as contas de Trade Bot. Serve para o usuário
+conferir que uma conta é realmente nossa antes de mandar um item.
+
+Sempre **Trade Bot** no texto voltado ao usuário, nunca só "bot" — ver
+CLAUDE.md. A URL `nextskins.gg/bots` fica curta de propósito: é endereço
+para digitar, não nome da conta.
 
 ## Por que grupo fechado não basta sozinho
 
 Fechado impede que o golpista entre no **nosso** grupo. Ele não precisa
-disso: cria um grupo com o mesmo nome e o mesmo avatar, coloca os bots
-falsos dentro, e a vítima abre o perfil do bot falso, vê "NextSkins
-Official" listado e confia. A associação ao grupo é dado real da Steam e
-não dá para forjar — mas o **grupo** dá.
+disso: cria um grupo com o mesmo nome e o mesmo avatar, coloca as contas
+falsas dentro, e a vítima abre o perfil falso, vê "NextSkins Official"
+listado e confia. A associação ao grupo é dado real da Steam e não dá
+para forjar — mas o **grupo** dá.
 
 A defesa é a direção da conferência: **o usuário sai do site para o
 grupo, nunca do grupo para o site.** Por isso o que precisa estar
@@ -33,13 +37,13 @@ Ver a seção seguinte.
 ## Resumo curto
 
 ```
-⚠ Site under construction — we are NOT trading yet. Any NextSkins trade offer or login page right now is a scam. This group is the public record of our official bot accounts ahead of launch.
+⚠ Site under construction — we are NOT trading yet. Any NextSkins trade offer or login page right now is a scam. This group is the public record of our official Trade Bot accounts ahead of launch.
 ```
 
 ## Descrição — inglês
 
 ```
-Official trade bot group of NextSkins.gg
+Official Trade Bot group of NextSkins.gg
 
 [h1]⚠ THE SITE IS NOT LIVE YET[/h1]
 NextSkins.gg is still being built. We are [b]not[/b] trading, not running giveaways, and not accepting deposits.
@@ -53,22 +57,22 @@ NextSkins.gg is still being built. We are [b]not[/b] trading, not running giveaw
 [/list]
 Do not send items to anyone. There is nothing to deposit into yet.
 
-This group exists now so the bot accounts are on public record before launch. Anything that shows up in the meantime came from someone else.
+This group exists now so the Trade Bot accounts are on public record before launch. Anything that shows up in the meantime came from someone else.
 
 [hr][/hr]
 
-[b]After launch: how to verify a bot[/b]
+[b]After launch: how to verify a Trade Bot[/b]
 Always start at [url=https://nextskins.gg/bots]nextskins.gg/bots[/url] and follow the link to this group. Never the other way around.
 Anyone can create a group with our name and avatar. They cannot create one with our URL. If you arrived here from a link someone sent you in chat, close it and type nextskins.gg yourself.
 
-A bot is legitimate only if [b]all[/b] of these are true:
+A Trade Bot is legitimate only if [b]all[/b] of these are true:
 [list]
 [*] Its steamID64 appears on nextskins.gg/bots
 [*] It is a member of this exact group
 [*] The trade offer arrived after [b]you[/b] started a trade on the site
 [/list]
 
-[b]What our bots never do[/b]
+[b]What our Trade Bots never do[/b]
 [list]
 [*] They never send friend requests
 [*] They never message you first — not on Steam, not anywhere
@@ -88,7 +92,7 @@ Trades are held for 7 days by Valve's trade lock. That wait is normal and applie
 ## Descrição — português
 
 ```
-Grupo oficial dos bots de negociação do NextSkins.gg
+Grupo oficial dos Trade Bots do NextSkins.gg
 
 [h1]⚠ O SITE AINDA NÃO ESTÁ NO AR[/h1]
 O NextSkins.gg está em construção. Nós [b]não[/b] estamos negociando, não fazemos sorteios e não aceitamos depósitos.
@@ -102,22 +106,22 @@ O NextSkins.gg está em construção. Nós [b]não[/b] estamos negociando, não 
 [/list]
 Não envie itens para ninguém. Ainda não existe onde depositar.
 
-Este grupo já existe para deixar as contas dos bots registradas publicamente antes do lançamento. O que aparecer nesse meio-tempo veio de outra pessoa.
+Este grupo já existe para deixar as contas dos Trade Bots registradas publicamente antes do lançamento. O que aparecer nesse meio-tempo veio de outra pessoa.
 
 [hr][/hr]
 
-[b]Depois do lançamento: como conferir um bot[/b]
+[b]Depois do lançamento: como conferir um Trade Bot[/b]
 Comece sempre por [url=https://nextskins.gg/bots]nextskins.gg/bots[/url] e siga o link até este grupo. Nunca o contrário.
 Qualquer um cria um grupo com o nosso nome e o nosso avatar. Ninguém cria um com a nossa URL. Se você chegou aqui por um link que alguém mandou no chat, feche e digite nextskins.gg você mesmo.
 
-Um bot só é legítimo se [b]todas[/b] estas condições forem verdadeiras:
+Um Trade Bot só é legítimo se [b]todas[/b] estas condições forem verdadeiras:
 [list]
 [*] O steamID64 dele aparece em nextskins.gg/bots
 [*] Ele é membro deste grupo exato
 [*] A oferta chegou depois de [b]você[/b] iniciar a troca no site
 [/list]
 
-[b]O que nossos bots nunca fazem[/b]
+[b]O que nossos Trade Bots nunca fazem[/b]
 [list]
 [*] Nunca enviam pedido de amizade
 [*] Nunca mandam mensagem primeiro — nem na Steam, nem em lugar nenhum
@@ -150,7 +154,7 @@ escrito para depois do lançamento.
 ## Resumo curto
 
 ```
-Official bot group of NextSkins.gg. Verify every bot at nextskins.gg/bots before trading. Our bots never add you, never message you first, and never ask for your password or Steam Guard code.
+Official Trade Bot group of NextSkins.gg. Verify every Trade Bot at nextskins.gg/bots before trading. Our Trade Bots never add you, never message you first, and never ask for your password or Steam Guard code.
 ```
 
 ## Pré-requisito

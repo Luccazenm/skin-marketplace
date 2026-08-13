@@ -126,6 +126,20 @@ para o cofre.
 - Nomes de domínio em português quando forem conceito de negócio
   (`registrarRecusa`, `motivoBloqueio`); nomes de framework em inglês.
 
+### "Trade Bot", nunca só "Bot"
+
+Em **tudo que o usuário lê** — nome de perfil na Steam, grupo, site,
+mensagens de erro, suporte, documentação: **Trade Bot**. "Bot" sozinho é
+o vocabulário de roleta, sorteio e conta de spam; o termo completo diz o
+que a conta faz e é o mesmo usado no grupo oficial (`NextSkins.gg —
+Official Trade Bots`) e nos e-mails (`tradebot<N>@nextskins.gg`).
+
+No **código** o modelo continua `Bot` — `Bot.steamId`, `bot:add`,
+`bot-service`. Não há segundo tipo de bot no sistema, então o nome curto
+não é ambíguo, e renomear custaria migration e refatoração sem ganho
+para ninguém. **Ao escrever texto voltado ao usuário a partir desses
+campos, escrever "Trade Bot".**
+
 ### Estrutura
 
 ```
