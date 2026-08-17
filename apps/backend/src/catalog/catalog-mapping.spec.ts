@@ -201,8 +201,10 @@ describe('mapearItem', () => {
       'CS:GO Weapon Case 2',
     ])('classifica %s pelo arquivo', (nome) => {
       expect(
-        mapearItem({ market_hash_name: nome }, ItemCategory.CONTAINER)!
-          .category,
+        mapearItem(
+          { market_hash_name: nome },
+          { categoriaPadrao: ItemCategory.CONTAINER },
+        )!.category,
       ).toBe(ItemCategory.CONTAINER);
     });
 
@@ -211,7 +213,7 @@ describe('mapearItem', () => {
     it('não deixa o arquivo sobrescrever o que o nome já resolveu', () => {
       const e = mapearItem(
         { market_hash_name: 'Sticker | Titan | Katowice 2014' },
-        ItemCategory.CONTAINER,
+        { categoriaPadrao: ItemCategory.CONTAINER },
       )!;
 
       expect(e.category).toBe(ItemCategory.STICKER);
@@ -250,6 +252,87 @@ describe('mapearItem', () => {
       expect(
         mapearItem({ market_hash_name: '★ StatTrak™ Talon Knife' })!.weapon,
       ).toBe('Talon Knife');
+    });
+  });
+
+  describe('Zeus x27', () => {
+    // Tem skin, exterior e float como qualquer arma, mas a Valve o
+    // classifica à parte. Sem categoria própria, ficava em OTHER — e
+    // OTHER não tem padrão único, então o float dele não apareceria.
+    // Regressão: o dataset traz weapon "Zeus x27", então o fluxo passa
+    // por categoriaDaArma antes de qualquer checagem por nome. A primeira
+    // versão só olhava o nome e o Zeus continuou em OTHER na importação
+    // real, apesar de o teste passar.
+    it('vira EQUIPMENT quando o dataset traz a arma', () => {
+      const e = mapearItem({
+        market_hash_name: 'Zeus x27 | Olympus (Factory New)',
+        weapon: { name: 'Zeus x27' },
+        pattern: { name: 'Olympus' },
+        min_float: 0,
+        max_float: 0.4,
+      })!;
+
+      expect(e.category).toBe(ItemCategory.EQUIPMENT);
+      expect(e.weapon).toBe('Zeus x27');
+    });
+
+    it('vira EQUIPMENT também sem o campo weapon', () => {
+      const e = mapearItem({
+        market_hash_name: 'Zeus x27 | Olympus (Factory New)',
+        pattern: { name: 'Olympus' },
+        min_float: 0,
+        max_float: 0.4,
+      })!;
+
+      expect(e.category).toBe(ItemCategory.EQUIPMENT);
+      expect(e.weapon).toBe('Zeus x27');
+      expect(e.skinName).toBe('Olympus');
+      expect(e.minFloat).toBe(0);
+      expect(e.maxFloat).toBe(0.4);
+    });
+
+    it.each([
+      'StatTrak™ Zeus x27 | Tosai (Minimal Wear)',
+      'Souvenir Zeus x27 | Dragon Snore (Well-Worn)',
+    ])('reconhece a variante em %s', (nome) => {
+      expect(mapearItem({ market_hash_name: nome })!.category).toBe(
+        ItemCategory.EQUIPMENT,
+      );
+    });
+  });
+
+  describe('coleção', () => {
+    // O arquivo de skins não traz coleção nenhuma: ela só existe do
+    // outro lado, em collections.json, e é cruzada pelo skin_id.
+    it('usa a coleção resolvida por fora', () => {
+      const e = mapearItem(
+        { ...ak, collections: undefined, skin_id: 'skin-abc' },
+        { colecao: 'The Kilowatt Collection' },
+      )!;
+
+      expect(e.collection).toBe('The Kilowatt Collection');
+    });
+
+    // Cruzamento por id é mais confiável que o campo do próprio item.
+    it('prefere a resolvida quando as duas existem', () => {
+      const e = mapearItem(ak, { colecao: 'The Kilowatt Collection' })!;
+
+      expect(e.collection).toBe('The Kilowatt Collection');
+    });
+
+    it('cai para a cápsula quando não há coleção', () => {
+      const e = mapearItem({
+        market_hash_name: 'Sticker | Titan | Katowice 2014',
+        crates: [{ name: 'EMS Katowice 2014 Legends' }],
+      })!;
+
+      expect(e.collection).toBe('EMS Katowice 2014 Legends');
+    });
+
+    it('fica nula quando nenhuma fonte informa', () => {
+      const e = mapearItem({ ...ak, collections: undefined })!;
+
+      expect(e.collection).toBeNull();
     });
   });
 

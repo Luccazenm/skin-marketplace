@@ -20,6 +20,8 @@ const POR_INTERNAL_NAME: Record<string, ItemCategory> = {
   CSGO_Type_Machinegun: ItemCategory.MACHINEGUN,
   CSGO_Type_Knife: ItemCategory.KNIFE,
   Type_Hands: ItemCategory.GLOVES,
+  // Zeus x27. Tem skin e float, mas a Valve o põe numa família própria.
+  CSGO_Type_Equipment: ItemCategory.EQUIPMENT,
 
   // --- sem padrão próprio ---
   // Nem todos são fungíveis: agente aceita patch e deixa de ser
@@ -62,6 +64,9 @@ const COM_PADRAO_UNICO = new Set<ItemCategory>([
   ItemCategory.MACHINEGUN,
   ItemCategory.KNIFE,
   ItemCategory.GLOVES,
+  // "Zeus x27 | Olympus (Factory New)" tem exterior no nome como
+  // qualquer skin — logo, tem float.
+  ItemCategory.EQUIPMENT,
 ]);
 
 /**

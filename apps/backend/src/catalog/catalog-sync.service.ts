@@ -7,6 +7,18 @@ import {
   type ItemBruto,
 } from './catalog-mapping';
 
+/** Só o necessário para o cruzamento; o resto do arquivo é ignorado. */
+interface ColecaoBruta {
+  name?: string;
+  contains?: Array<{ id?: string }>;
+  /**
+   * Onde ficam faca e luva numa caixa — são o "item raro especial", e
+   * não aparecem em `contains`. Sem ler este campo, as 3.898 facas e
+   * luvas do catálogo ficariam sem origem.
+   */
+  contains_rare?: Array<{ id?: string }>;
+}
+
 export interface ResultadoSync {
   lidos: number;
   criados: number;
@@ -67,9 +79,11 @@ export class CatalogSyncService {
       falhas: 0,
     };
 
+    const colecoes = await this.mapearColecoes();
+
     for (const [arquivo, categoria] of CatalogSyncService.ARQUIVOS) {
       const itens = await this.baixar(arquivo);
-      const r = await this.gravar(itens, categoria);
+      const r = await this.gravar(itens, categoria, colecoes);
 
       total.lidos += r.lidos;
       total.criados += r.criados;
@@ -81,6 +95,50 @@ export class CatalogSyncService {
     }
 
     return total;
+  }
+
+  /**
+   * Monta `skin_id -> nome da coleção`.
+   *
+   * O arquivo de skins não traz coleção nenhuma — a informação só existe
+   * do outro lado, em `collections.json`, onde cada coleção lista o que
+   * contém. A chave é o `skin_id`, que é a skin sem o exterior: as cinco
+   * entradas de "Redline" compartilham o mesmo, e todas pertencem à mesma
+   * coleção.
+   *
+   * Cruzar por id e não por nome é o que evita errar em skin cujo nome se
+   * repete entre armas diferentes.
+   */
+  private async mapearColecoes(): Promise<Map<string, string>> {
+    const mapa = new Map<string, string>();
+
+    // Caixas primeiro, coleções depois: quando os dois conhecem a mesma
+    // skin, a coleção é o nome mais útil ("The Huntsman Collection" diz
+    // mais que "Huntsman Weapon Case"), então ela sobrescreve.
+    for (const arquivo of ['crates', 'collections']) {
+      const grupos = (await this.baixar(arquivo)) as ColecaoBruta[];
+
+      for (const g of grupos) {
+        if (!g.name) {
+          continue;
+        }
+
+        // `contains_rare` é onde faca e luva ficam: são o item raro
+        // especial da caixa e não aparecem em `contains`.
+        for (const item of [
+          ...(g.contains ?? []),
+          ...(g.contains_rare ?? []),
+        ]) {
+          if (item.id) {
+            mapa.set(item.id, g.name);
+          }
+        }
+      }
+    }
+
+    this.logger.log(`Origem: ${mapa.size} itens mapeados`);
+
+    return mapa;
   }
 
   private async baixar(arquivo: string): Promise<ItemBruto[]> {
@@ -104,6 +162,7 @@ export class CatalogSyncService {
   private async gravar(
     itens: ItemBruto[],
     categoriaDoArquivo?: ItemCategory,
+    colecoes?: Map<string, string>,
   ): Promise<ResultadoSync> {
     const r: ResultadoSync = {
       lidos: itens.length,
@@ -118,7 +177,10 @@ export class CatalogSyncService {
     const porNome = new Map<string, EntradaCatalogo>();
 
     for (const bruto of itens) {
-      const entrada = mapearItem(bruto, categoriaDoArquivo);
+      const entrada = mapearItem(bruto, {
+        categoriaPadrao: categoriaDoArquivo,
+        colecao: bruto.skin_id ? colecoes?.get(bruto.skin_id) : undefined,
+      });
 
       if (!entrada) {
         r.descartados++;

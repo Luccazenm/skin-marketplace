@@ -280,14 +280,20 @@ diz nada. Foi o que classificou cápsulas de torneio como `CONTAINER` —
 "Katowice 2019 Legends (Holo-Foil)" não anuncia isso em lugar nenhum,
 mas veio de `crates.json`.
 
-**Pendência:** 80 itens em `OTHER`, todos **Zeus x27**. Tem skin, float e
-é negociável, mas não cabe em nenhuma categoria atual. O mapeamento do
-inventário também o deixa em `OTHER`, então os dois lados concordam —
-resolver exige valor novo no enum e tocar os dois.
+**`EQUIPMENT`** é categoria nova, criada para o **Zeus x27** (80 itens).
+Tem skin, exterior e float como qualquer arma, mas a Valve o classifica à
+parte (`CSGO_Type_Equipment`). Está mapeado nos dois lados — catálogo e
+inventário — e conta como categoria com padrão único, então o float dele
+aparece. **Nenhum item ficou em `OTHER`.**
 
-**Falta:** `collection` fica nula nas skins. O endpoint
-`skins_not_grouped` não traz coleção, e `crates.json`/`collections.json`
-teriam que ser cruzados para reconstruir. Não bloqueia preço.
+**Coleção: 91,6% preenchida** (31.115 de 33.950), cruzando por `skin_id`
+com `collections.json` e `crates.json`. Faca e luva estão em
+`contains_rare`, não em `contains` — sem ler esse campo, as 3.898 ficariam
+sem origem. Quando os dois arquivos conhecem a mesma skin, a coleção
+ganha da caixa: "The Phoenix Collection" diz mais que o nome do estojo.
+
+Os nulos restantes são, em maioria, corretos: caixa não pertence a
+coleção, e grafite não sai de coleção nenhuma.
 
 ### Preço: o lado neutro está pronto (17/08)
 

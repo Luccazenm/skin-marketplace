@@ -337,6 +337,11 @@ enum ItemCategory {
   KNIFE
   GLOVES
 
+  /// Zeus x27. Tem skin, float e paint seed como qualquer arma, mas a
+  /// Valve o classifica à parte ("CSGO_Type_Equipment") e ele não é de
+  /// nenhuma das famílias acima.
+  EQUIPMENT
+
   STICKER
   CONTAINER
   KEY

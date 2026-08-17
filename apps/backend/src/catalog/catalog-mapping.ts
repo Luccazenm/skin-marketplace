@@ -21,6 +21,12 @@ export interface EntradaCatalogo {
  */
 export interface ItemBruto {
   id?: string;
+  /**
+   * Identidade da skin sem o exterior: as cinco entradas de "Redline"
+   * compartilham o mesmo `skin_id`. É a chave que liga uma skin à sua
+   * coleção, já que `skins_not_grouped` não traz coleção nenhuma.
+   */
+  skin_id?: string;
   name?: string;
   /**
    * `null` explícito significa item que não existe no mercado — 701 dos
@@ -54,10 +60,21 @@ export interface ItemBruto {
  * aqui significaria ter preço pendurado num template que nenhum item real
  * jamais aponta.
  */
+export interface OpcoesMapeamento {
+  /** Tipo do arquivo de origem, usado quando o nome não resolve. */
+  categoriaPadrao?: ItemCategory;
+  /**
+   * Coleção resolvida por fora, cruzando `collections.json` pelo
+   * `skin_id`. O arquivo de skins não traz esse dado.
+   */
+  colecao?: string | null;
+}
+
 export function mapearItem(
   bruto: ItemBruto,
-  categoriaDoArquivo?: ItemCategory,
+  opcoes: OpcoesMapeamento = {},
 ): EntradaCatalogo | null {
+  const { categoriaPadrao: categoriaDoArquivo, colecao } = opcoes;
   // Nome de mercado nulo é item que não existe no mercado — adesivo de
   // evento antigo, item de teste. Não tem preço para pendurar, e criar
   // template para ele encheria o catálogo de linhas que nenhuma cotação
@@ -102,7 +119,14 @@ export function mapearItem(
     marketHashName,
     category,
     rarity: textoRaridade(bruto.rarity),
-    collection: bruto.collections?.[0]?.name ?? bruto.crates?.[0]?.name ?? null,
+    // Ordem de confiança: a coleção resolvida pelo cruzamento é a mais
+    // precisa; depois o campo do próprio item; por último a cápsula ou
+    // caixa de onde ele sai, que é o que serve para adesivo.
+    collection:
+      colecao ??
+      bruto.collections?.[0]?.name ??
+      bruto.crates?.[0]?.name ??
+      null,
     variant: varianteDe(marketHashName),
     weapon: temPadrao
       ? (bruto.weapon?.name ?? armaPeloNome(marketHashName))
@@ -145,6 +169,7 @@ const CATEGORIAS_COM_PADRAO = new Set<ItemCategory>([
   ItemCategory.MACHINEGUN,
   ItemCategory.KNIFE,
   ItemCategory.GLOVES,
+  ItemCategory.EQUIPMENT,
 ]);
 
 /**
@@ -223,6 +248,10 @@ function categoriaPeloNome(nome: string, bruto: ItemBruto): ItemCategory {
     return categoriaDaArma(bruto.weapon.name);
   }
 
+  if (nome.includes('Zeus x27')) {
+    return ItemCategory.EQUIPMENT;
+  }
+
   // Agente vem como "Nome | Facção", sem weapon. É o último caso com
   // barra, então só chega aqui o que não é arma.
   if (nome.includes('|')) {
@@ -259,6 +288,7 @@ function categoriaDaArma(arma: string): ItemCategory {
   if (SNIPERS.has(arma)) return ItemCategory.SNIPER_RIFLE;
   if (ESPINGARDAS.has(arma)) return ItemCategory.SHOTGUN;
   if (METRALHADORAS.has(arma)) return ItemCategory.MACHINEGUN;
+  if (EQUIPAMENTOS.has(arma)) return ItemCategory.EQUIPMENT;
 
   return ItemCategory.OTHER;
 }
@@ -301,3 +331,11 @@ const SNIPERS = new Set(['AWP', 'G3SG1', 'SCAR-20', 'SSG 08']);
 const ESPINGARDAS = new Set(['MAG-7', 'Nova', 'Sawed-Off', 'XM1014']);
 
 const METRALHADORAS = new Set(['M249', 'Negev']);
+
+/**
+ * Família própria da Valve. Precisa estar aqui, e não só na checagem por
+ * nome: o dataset traz `weapon: "Zeus x27"`, então o fluxo passa por
+ * `categoriaDaArma` antes de qualquer verificação textual — e saía de lá
+ * como OTHER.
+ */
+const EQUIPAMENTOS = new Set(['Zeus x27']);
