@@ -70,6 +70,32 @@ const COM_PADRAO_UNICO = new Set<ItemCategory>([
 ]);
 
 /**
+ * Categorias que aceitam adesivo.
+ *
+ * É função, e não coluna no catálogo, porque a informação já está na
+ * categoria — coluna que duplica outra é coluna que diverge, e essa
+ * nasceu errada: ficou `false` para 33.950 itens, inclusive para toda
+ * arma.
+ *
+ * Note que isto é do MODELO ("esta arma aceita adesivo?"), não do
+ * exemplar. Quais adesivos estão aplicados, e com que raspagem, é do
+ * `Item` — o catálogo guarda a skin limpa, e o preço de um exemplar
+ * adesivado é a skin base mais cada adesivo, exibidos em separado.
+ *
+ * Faca e luva não têm slot. O Zeus x27 tem, apesar de ser família
+ * própria da Valve — confirmado com quem opera.
+ */
+const ACEITA_ADESIVO = new Set<ItemCategory>([
+  ItemCategory.RIFLE,
+  ItemCategory.PISTOL,
+  ItemCategory.SMG,
+  ItemCategory.SNIPER_RIFLE,
+  ItemCategory.SHOTGUN,
+  ItemCategory.MACHINEGUN,
+  ItemCategory.EQUIPMENT,
+]);
+
+/**
  * Categorias que a Steam nunca deixa trocar. Serve para explicar ao
  * usuário que o bloqueio é definitivo, e não uma espera.
  */
@@ -92,6 +118,10 @@ export function temPadraoUnico(categoria: ItemCategory): boolean {
 
 export function nuncaNegociavel(categoria: ItemCategory): boolean {
   return NUNCA_NEGOCIAVEL.has(categoria);
+}
+
+export function aceitaAdesivo(categoria: ItemCategory): boolean {
+  return ACEITA_ADESIVO.has(categoria);
 }
 
 export type MotivoBloqueio = 'permanente' | 'indisponivel';

@@ -1,5 +1,6 @@
 import { ItemCategory } from '@prisma/client';
 import {
+  aceitaAdesivo,
   categoriaDe,
   motivoBloqueio,
   nuncaNegociavel,
@@ -40,6 +41,51 @@ describe('categoriaDe', () => {
   it('não aceita o rótulo traduzido', () => {
     expect(categoriaDe('Rifle')).toBe(ItemCategory.OTHER);
     expect(categoriaDe('Fuzil')).toBe(ItemCategory.OTHER);
+  });
+});
+
+/**
+ * Era coluna no catálogo (`hasStickerSlots`) e nunca foi preenchida:
+ * ficou `false` nos 33.950 itens, inclusive em toda arma. Virou função
+ * porque a informação já estava na categoria — coluna que duplica outra
+ * é coluna que diverge.
+ */
+describe('aceitaAdesivo', () => {
+  it('vale para armas', () => {
+    for (const c of [
+      ItemCategory.RIFLE,
+      ItemCategory.PISTOL,
+      ItemCategory.SMG,
+      ItemCategory.SNIPER_RIFLE,
+      ItemCategory.SHOTGUN,
+      ItemCategory.MACHINEGUN,
+    ]) {
+      expect(aceitaAdesivo(c)).toBe(true);
+    }
+  });
+
+  // Zeus é família própria da Valve, mas aceita adesivo como qualquer
+  // arma. Confirmado com quem opera.
+  it('vale para o Zeus', () => {
+    expect(aceitaAdesivo(ItemCategory.EQUIPMENT)).toBe(true);
+  });
+
+  // Têm float, mas não têm slot. É o que separa esta função de
+  // temPadraoUnico — e o motivo de não dar para derivar uma da outra.
+  it('não vale para faca e luva, apesar de terem padrão', () => {
+    expect(aceitaAdesivo(ItemCategory.KNIFE)).toBe(false);
+    expect(aceitaAdesivo(ItemCategory.GLOVES)).toBe(false);
+    expect(temPadraoUnico(ItemCategory.KNIFE)).toBe(true);
+  });
+
+  it.each([
+    ItemCategory.STICKER,
+    ItemCategory.CONTAINER,
+    ItemCategory.AGENT,
+    ItemCategory.CHARM,
+    ItemCategory.OTHER,
+  ])('não vale para %s', (c) => {
+    expect(aceitaAdesivo(c)).toBe(false);
   });
 });
 

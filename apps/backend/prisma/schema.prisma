@@ -146,7 +146,17 @@ model SkinTemplate {
   minFloat Float?
   maxFloat Float?
 
-  hasStickerSlots Boolean @default(false)
+  /// Texto descritivo do item, sem HTML.
+  ///
+  /// É do MODELO, e é por isso que fica aqui e não no exemplar: toda AK
+  /// Redline tem a mesma descrição. O que varia de uma para outra —
+  /// float, padrão, adesivos — vive em `Item`.
+  description String?
+
+  /// A frase em itálico que a Valve põe no fim da descrição ("Never be
+  /// afraid to push it to the limit"). Separada porque é sabor, não
+  /// informação: a vitrine pode querer destacá-la ou omiti-la.
+  flavorText String?
 
   // Mídia
   imageUrl    String?

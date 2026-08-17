@@ -370,6 +370,85 @@ describe('mapearItem', () => {
     });
   });
 
+  describe('descrição', () => {
+    const bruta =
+      'Powerful and reliable, the AK-47 is one of the most popular ' +
+      'assault rifles.\n\n<i>Never be afraid to push it to the limit</i>';
+
+    it('separa a descrição do texto de sabor', () => {
+      const e = mapearItem({ ...ak, description: bruta })!;
+
+      expect(e.description).toBe(
+        'Powerful and reliable, the AK-47 is one of the most popular assault rifles.',
+      );
+      expect(e.flavorText).toBe('Never be afraid to push it to the limit');
+    });
+
+    // Devolver marcação de terceiro para a tela obrigaria o frontend a
+    // sanitizar — e página de item é onde alguém decide vender algo caro.
+    it('não deixa passar HTML', () => {
+      const e = mapearItem({
+        ...ak,
+        description: 'Texto <b>com</b> <span style="x">marcação</span>.',
+      })!;
+
+      expect(e.description).toBe('Texto com marcação.');
+      expect(e.description).not.toContain('<');
+    });
+
+    it('converte <br> em quebra de linha', () => {
+      const e = mapearItem({ ...ak, description: 'Linha um<br>Linha dois' })!;
+
+      expect(e.description).toBe('Linha um\nLinha dois');
+    });
+
+    // Regressão: o dataset traz a quebra como os dois caracteres "\" e
+    // "n". Sem converter, o texto "\n\n" aparecia escrito na descrição
+    // gravada — apareceu na primeira importação real.
+    it('converte quebra escrita com barra invertida', () => {
+      const e = mapearItem({
+        ...ak,
+        description: 'Primeira parte.\\n\\nSegunda parte.',
+      })!;
+
+      expect(e.description).toBe('Primeira parte.\n\nSegunda parte.');
+      expect(e.description).not.toContain('\\n');
+    });
+
+    it('não deixa a quebra literal sobrar no fim', () => {
+      const e = mapearItem({
+        ...ak,
+        description: 'Texto da skin.\\n\\n<i>Sabor</i>',
+      })!;
+
+      expect(e.description).toBe('Texto da skin.');
+      expect(e.flavorText).toBe('Sabor');
+    });
+
+    it('decodifica entidades', () => {
+      const e = mapearItem({
+        ...ak,
+        description: 'Bolt &amp; Chain &quot;especial&quot;',
+      })!;
+
+      expect(e.description).toBe('Bolt & Chain "especial"');
+    });
+
+    it('aceita descrição sem sabor', () => {
+      const e = mapearItem({ ...ak, description: 'Só a descrição.' })!;
+
+      expect(e.description).toBe('Só a descrição.');
+      expect(e.flavorText).toBeNull();
+    });
+
+    it.each([undefined, '', '   '])('fica nula quando vem %p', (d) => {
+      const e = mapearItem({ ...ak, description: d })!;
+
+      expect(e.description).toBeNull();
+      expect(e.flavorText).toBeNull();
+    });
+  });
+
   describe('formato do dataset', () => {
     it('aceita raridade como texto solto', () => {
       expect(mapearItem({ ...ak, rarity: 'Covert' })!.rarity).toBe('Covert');

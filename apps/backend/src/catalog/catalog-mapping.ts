@@ -13,6 +13,60 @@ export interface EntradaCatalogo {
   minFloat: number | null;
   maxFloat: number | null;
   imageUrl: string | null;
+  description: string | null;
+  /** A frase em itálico do fim da descrição. */
+  flavorText: string | null;
+}
+
+/**
+ * Separa a descrição do texto de sabor.
+ *
+ * A Valve entrega os dois juntos, com o sabor em `<i>` no final:
+ *
+ *   "Powerful and reliable, the AK-47 ... a red pinstripe.
+ *    <i>Never be afraid to push it to the limit</i>"
+ *
+ * Guardamos separados e **sem HTML**. Sem tag porque devolver marcação
+ * de terceiro para a tela obrigaria o frontend a sanitizar — e página de
+ * item é onde alguém decide vender algo caro, não é lugar para injetar
+ * HTML de origem externa.
+ */
+export function separarDescricao(bruta: string | undefined): {
+  description: string | null;
+  flavorText: string | null;
+} {
+  if (!bruta?.trim()) {
+    return { description: null, flavorText: null };
+  }
+
+  const italico = /<i>([\s\S]*?)<\/i>/i.exec(bruta);
+  const flavorText = italico ? limpar(italico[1]) : null;
+  const description = limpar(bruta.replace(/<i>[\s\S]*?<\/i>/gi, ''));
+
+  return {
+    description: description || null,
+    flavorText: flavorText || null,
+  };
+}
+
+function limpar(texto: string): string {
+  return (
+    texto
+      // O dataset traz a quebra como os DOIS caracteres "\" e "n", não
+      // como quebra de verdade. Sem converter, o "\n\n" apareceria escrito
+      // na tela do usuário.
+      .replace(/\\r\\n|\\n|\\r/g, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#0?39;|&apos;/g, "'")
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
 }
 
 /**
@@ -22,6 +76,8 @@ export interface EntradaCatalogo {
  */
 export interface ItemBruto {
   id?: string;
+  /** Descrição e texto de sabor juntos, com HTML. Ver separarDescricao. */
+  description?: string;
   /**
    * Identidade da skin sem o exterior: as cinco entradas de "Redline"
    * compartilham o mesmo `skin_id`. É a chave que liga uma skin à sua
@@ -141,6 +197,7 @@ export function mapearItem(
     minFloat: pintado ? (bruto.min_float ?? 0) : null,
     maxFloat: pintado ? (bruto.max_float ?? 1) : null,
     imageUrl: bruto.image ?? null,
+    ...separarDescricao(bruto.description),
   };
 }
 

@@ -313,6 +313,21 @@ para "contém este valor" em coluna de lista; a consulta da vitrine
 Os vazios restantes são, em maioria, corretos: caixa não pertence a
 coleção, e grafite não sai de coleção nenhuma.
 
+**Descrição: 33.742 itens** (99,4%), com `flavorText` separado em 17.951 —
+a frase em itálico que a Valve põe no fim ("Never be afraid to push it to
+the limit"). Guardados **sem HTML**: devolver marcação de terceiro para a
+tela obrigaria o frontend a sanitizar, e página de item é onde alguém
+decide vender algo caro.
+
+**`hasStickerSlots` foi removido.** Era derivável da categoria e nunca
+foi preenchido — lia `false` nos 33.950, inclusive em toda arma. Virou
+`aceitaAdesivo(categoria)` em `item-category.ts`, junto de
+`temPadraoUnico`: função pura não diverge, coluna duplicada sim.
+
+Não confundir com faca e luva, que **têm padrão mas não têm slot** — é o
+que impede derivar uma função da outra. Zeus x27 aceita adesivo, apesar
+de ser família própria da Valve.
+
 ### Preço: o lado neutro está pronto (17/08)
 
 `PriceSnapshot` (append-only) + `PricingModule`, sem nenhum fornecedor
