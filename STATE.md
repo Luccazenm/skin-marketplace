@@ -248,11 +248,40 @@ Detalhes em `apps/bot-service/README.md`.
   via SSH, ou túnel SSH (`ssh -L 5433:localhost:5432`) para consultar do
   próprio computador. **Nunca expor a porta do Postgres na internet.**
 
+### Fonte de preço — levantamento de 17/08/2026
+
+| | cs2.sh | SteamWebAPI | CSGOSKINS.GG | SteamApis |
+|---|---|---|---|---|
+| Mercados | 6, com BUFF | 13, com BUFF | 37 | 6, com BUFF |
+| Atualização | ~5 min, declarado | não declara | 5 min + carimbo | não declara |
+| Preço | bid/ask | atual, mediana, menor venda, maior compra | só anúncio | atual |
+| Histórico | OHLC 4 intervalos; Steam 13 anos | 365 dias | 90–365 dias | 15–30 dias |
+| Liquidez | endpoint próprio | não | não | não |
+| Custo | US$ 75 (só atual) / US$ 200 (tudo) | € 25–50 | € 179–279 | ~€ 110 |
+| Uso comercial | **não publicado** | **permitido, explícito** | não publicado | não publicado |
+
+**Recomendado:** cs2.sh Developer (US$ 75) como referência de preço —
+BUFF163 é a âncora do mercado, bid/ask separados revelam o spread, e o
+endpoint de liquidez serve direto ao `buyoutEligible`. Opcionalmente
+SteamWebAPI Starter (€ 25) ao lado, para preço nos mercados ocidentais.
+
+**CSGOSKINS.GG está fora**: rastreia preço de anúncio, não de venda — o
+mesmo defeito do Steam Market, e o mais caro da lista.
+
+**Bloqueado em duas perguntas**, uma para cada fornecedor. Ver
+[docs/emails-e-fornecedores.md](docs/emails-e-fornecedores.md).
+
+**Regra ao juntar fontes:** BUFF manda no preço de referência; mercados
+ocidentais aparecem ao lado, nunca numa média. Média entre mercados de
+liquidez diferente produz número que não existe em lugar nenhum. Se duas
+fontes divergirem além de um limite, **não exibir preço recomendado** em
+vez de exibir um errado — mesmo critério da raspagem de adesivo.
+
 ### Decisões suas, sem código
 
 | Decisão | Quando |
 |---|---|
-| Fonte de preço (serviço pago, custo recorrente) | perto da vitrine |
+| Fonte de preço — ver abaixo, esperando resposta dos fornecedores | perto da vitrine |
 | Hospedagem | em avaliação — requisitos em `docs/` |
 | Fronteira com o Figma Make | quando a primeira tela usar a API |
 | Reserva financeira proporcional ao custodiado | antes de volume real |
