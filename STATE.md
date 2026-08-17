@@ -248,6 +248,31 @@ Detalhes em `apps/bot-service/README.md`.
   via SSH, ou túnel SSH (`ssh -L 5433:localhost:5432`) para consultar do
   próprio computador. **Nunca expor a porta do Postgres na internet.**
 
+### Preço: o lado neutro está pronto (17/08)
+
+`PriceSnapshot` (append-only) + `PricingModule`, sem nenhum fornecedor
+acoplado. Migration `20260817171329_price_snapshot`.
+
+- **`price-provider.ts`** — o contrato que qualquer fornecedor preenche.
+  Nenhuma tela ou regra conhece cs2.sh ou SteamWebAPI: conhecem
+  `CotacaoBruta`. Item sem cotação é omitido, nunca devolvido com preço
+  zero.
+- **`price-reconciliation.ts`** — regra pura, 19 testes. Não faz média
+  entre mercados; prefere BUFF163 e deixa Steam por último; descarta
+  cotação velha; **recusa quando as fontes divergem além de 40%.** Em
+  todos os casos duvidosos, não exibir preço em vez de exibir errado.
+- **`price-history.service.ts`** — grava o lote e lê o preço atual do
+  **nosso banco**, nunca do fornecedor. Repetição é ignorada, então o job
+  pode ser rodado de novo depois de uma queda.
+
+`quotedAt` (quando a fonte apurou) é separado de `capturedAt` (quando
+gravamos): fornecedor que serve dado de dez minutos atrás precisa ser
+distinguível de um que serve ao vivo.
+
+**Falta:** o adaptador do fornecedor escolhido, e o job que roda a
+captura. Nenhum dos dois depende de decisão nova — só de saber qual
+fornecedor.
+
 ### Fonte de preço — levantamento de 17/08/2026
 
 | | cs2.sh | SteamWebAPI | CSGOSKINS.GG | SteamApis |

@@ -125,12 +125,85 @@ model SkinTemplate {
   salesVolume30d     Int? // vendas observadas nos últimos 30 dias
   liquidityUpdatedAt DateTime?
 
-  items Item[]
+  items     Item[]
+  snapshots PriceSnapshot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([buyoutEligible])
+}
+
+// =========================
+// HISTÓRICO DE PREÇO
+// =========================
+// Append-only, como Transaction. Nunca editar linha existente: cada
+// leitura é um fato datado, e reescrever apagaria a prova do que foi
+// exibido ao usuário naquele momento.
+//
+// Existe por dois motivos que não se resolvem comprando dados:
+//
+// 1. Reclamação. "O site me mostrou US$ 340 e vocês pagaram US$ 290" só
+//    tem resposta se o preço exibido tiver sido gravado por nós. O
+//    fornecedor não guarda o que respondeu há três meses.
+// 2. Gráfico. Comprar arquivo histórico custa caro e recorrente;
+//    acumular o nosso custa nada. Só que não se recupera depois — ou
+//    começou, ou não existe.
+model PriceSnapshot {
+  id String @id @default(uuid(7))
+
+  skinTemplateId String
+  skinTemplate   SkinTemplate @relation(fields: [skinTemplateId], references: [id])
+
+  /// De onde veio. Fonte e mercado são coisas diferentes: o mesmo
+  /// fornecedor entrega preço de vários mercados.
+  source PriceSource
+  market PriceMarket
+
+  /// Sempre USD, como o resto do sistema. Precisão maior que o ledger
+  /// porque adesivo e chaveiro barato ficam abaixo de um centavo.
+  price Decimal @db.Decimal(14, 4)
+
+  /// Melhor oferta de compra e de venda, quando a fonte separa. O spread
+  /// entre elas é o que indica liquidez — média esconde isso.
+  bid Decimal? @db.Decimal(14, 4)
+  ask Decimal? @db.Decimal(14, 4)
+
+  /// Vendas observadas nas últimas 24h, quando a fonte informa.
+  volume24h Int?
+
+  /// Quando a FONTE apurou o preço, não quando nós gravamos. Fornecedor
+  /// que serve dado de dez minutos atrás precisa ser distinguível de um
+  /// que serve dado ao vivo.
+  quotedAt DateTime
+
+  capturedAt DateTime @default(now())
+
+  /// Uma leitura por template, fonte, mercado e instante apurado. Rodar
+  /// o job duas vezes não duplica a série.
+  @@unique([skinTemplateId, source, market, quotedAt])
+  /// Varredura do gráfico: um template, ordenado no tempo.
+  @@index([skinTemplateId, market, quotedAt])
+}
+
+enum PriceSource {
+  CS2SH
+  STEAMWEBAPI
+  /// Preço formado no nosso próprio marketplace, quando houver volume.
+  INTERNO
+}
+
+enum PriceMarket {
+  BUFF163
+  YOUPIN
+  CSFLOAT
+  SKINPORT
+  C5GAME
+  DMARKET
+  WAXPEER
+  BITSKINS
+  STEAM
+  NEXTSKINS
 }
 
 enum SkinVariant {

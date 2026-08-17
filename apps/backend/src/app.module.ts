@@ -7,6 +7,7 @@ import { validateEnv } from './config/env.validation';
 import { AuditModule } from './audit/audit.module';
 import { DepositsModule } from './deposits/deposits.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { PricingModule } from './pricing/pricing.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { UsersModule } from './users/users.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     InventoryModule,
     DepositsModule,
+    PricingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
