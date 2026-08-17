@@ -38,6 +38,8 @@ describe('DepositsController', () => {
     rarity: null,
     exterior: null,
     typeLabel: null,
+    float: 0.44,
+    paintSeed: 123,
     inspectLink: null,
   });
 

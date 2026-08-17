@@ -82,13 +82,22 @@ dedicada, Game Coordinator, fila, limite de 1 req/s. E float e padrão
 passam a estar disponíveis **antes** do depósito, o que muda o que a tela
 de depósito e a vitrine conseguem mostrar.
 
-**Ainda não confirmado:** o float por adesivo (`propertyid 4`) está na
-posição de ser a raspagem, mas não foi verificado contra um item de
-raspagem conhecida. Raspagem mexe direto no preço — confirmar antes de
-exibir.
+**Raspagem confirmada** contra dois itens conhecidos: AK-47 Blue Laminate
+com 4 adesivos intactos devolve `0 | 0 | 0 | 0`; a AK-47 Inheritance
+devolve `0,63 | 0,84 | 0,80 | 0,75 | 0,97`. `propertyid 4` é a raspagem,
+0 = intacto.
 
-**Falta implementar:** o `steam-inventory` hoje lê só `descriptions`.
-Precisa passar a ler `asset_properties` e `asset_accessories`.
+**Implementado** no `steam-inventory` (17/08): `float`, `paintSeed` e a
+raspagem de cada aplicação. Verificado contra o inventário real — 191
+itens, 24 com float, 11 com aplicação, 10 com raspagem. O décimo primeiro
+é um chaveiro, que não raspa e não aparece em `asset_accessories`.
+
+Nome e imagem da aplicação vêm do HTML; a raspagem vem de
+`asset_accessories`, que identifica cada peça só por `classid` — e esse
+`classid` não está em `descriptions`. **A única ligação entre as duas
+listas é a ordem**, então o casamento só acontece quando as quantidades
+batem. Divergiu, `wear` fica `null`: errar a raspagem mexe direto no
+preço, e mostrar nada é melhor que mostrar errado.
 
 ### Trade URL
 

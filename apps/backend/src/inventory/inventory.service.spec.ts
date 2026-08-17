@@ -36,6 +36,8 @@ describe('InventoryService', () => {
     rarity: 'Classified',
     exterior: 'Field-Tested',
     typeLabel: 'Rifle',
+    float: 0.25,
+    paintSeed: 661,
     inspectLink: null,
   };
 

@@ -81,7 +81,45 @@ describe('SteamInventoryService', () => {
   const inventarioCom = (
     assets: unknown[],
     descriptions: unknown[] = [descricaoAk],
-  ) => ({ assets, descriptions, total_inventory_count: assets.length });
+    asset_properties: unknown[] = [],
+  ) => ({
+    assets,
+    descriptions,
+    asset_properties,
+    total_inventory_count: assets.length,
+  });
+
+  /**
+   * Propriedades do exemplar. Os identificadores são números mágicos da
+   * Valve, apurados contra inventário real: 1 é paint seed, 2 é float, 6
+   * é o inspect auto-codificado, e 4 (dentro do acessório) é a raspagem.
+   */
+  const propriedadesDe = (
+    assetid: string,
+    opcoes: { float?: string; seed?: string; raspagens?: number[] } = {},
+  ) => ({
+    appid: 730,
+    contextid: '2',
+    assetid,
+    asset_properties: [
+      ...(opcoes.seed !== undefined
+        ? [{ propertyid: 1, int_value: opcoes.seed, name: 'Pattern Template' }]
+        : []),
+      ...(opcoes.float !== undefined
+        ? [{ propertyid: 2, float_value: opcoes.float, name: 'Wear Rating' }]
+        : []),
+    ],
+    ...(opcoes.raspagens
+      ? {
+          asset_accessories: opcoes.raspagens.map((r) => ({
+            classid: '5327976266',
+            parent_relationship_properties: [
+              { propertyid: 4, float_value: String(r) },
+            ],
+          })),
+        }
+      : {}),
+  });
 
   const asset = (assetid: string, desc: Descricao = descricaoAk) => ({
     appid: 730,
@@ -327,9 +365,201 @@ describe('SteamInventoryService', () => {
     });
   });
 
+  /**
+   * Float e paint seed vêm do próprio inventário, em `asset_properties`.
+   * É o que dispensa manter conta conectada ao jogo só para inspecionar —
+   * ver CLAUDE.md.
+   */
+  describe('float e paint seed', () => {
+    it('lê os dados do exemplar', async () => {
+      fetchMock.mockReturnValue(
+        resposta(
+          inventarioCom(
+            [asset('51981650519')],
+            [descricaoAk],
+            [
+              propriedadesDe('51981650519', {
+                float: '0.666114687919616699',
+                seed: '401',
+              }),
+            ],
+          ),
+        ),
+      );
+
+      const r = await service.fetchInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].float).toBeCloseTo(0.6661146879196167, 10);
+      expect(r.items[0].paintSeed).toBe(401);
+    });
+
+    // São do exemplar, não do modelo: duas cópias da mesma skin têm
+    // floats diferentes, e é isso que as torna itens distintos.
+    it('dá valores diferentes a assets da mesma description', async () => {
+      fetchMock.mockReturnValue(
+        resposta(
+          inventarioCom(
+            [asset('111'), asset('222')],
+            [descricaoAk],
+            [
+              propriedadesDe('111', { float: '0.01', seed: '1' }),
+              propriedadesDe('222', { float: '0.9', seed: '2' }),
+            ],
+          ),
+        ),
+      );
+
+      const r = await service.fetchInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].float).toBeCloseTo(0.01);
+      expect(r.items[1].float).toBeCloseTo(0.9);
+      expect(r.items[0].paintSeed).toBe(1);
+      expect(r.items[1].paintSeed).toBe(2);
+    });
+
+    it('fica nulo quando a Steam não manda as propriedades', async () => {
+      fetchMock.mockReturnValue(resposta(inventarioCom([asset('111')])));
+
+      const r = await service.fetchInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].float).toBeNull();
+      expect(r.items[0].paintSeed).toBeNull();
+    });
+
+    // NaN atravessaria o sistema em silêncio e apareceria numa tela de
+    // preço; nulo pelo menos é visível.
+    it('vira nulo, e não NaN, quando o valor não é numérico', async () => {
+      fetchMock.mockReturnValue(
+        resposta(
+          inventarioCom(
+            [asset('111')],
+            [descricaoAk],
+            [propriedadesDe('111', { float: 'sei lá', seed: '' })],
+          ),
+        ),
+      );
+
+      const r = await service.fetchInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].float).toBeNull();
+    });
+  });
+
+  describe('raspagem dos adesivos', () => {
+    const comAdesivos = (quantos: number) => ({
+      ...descricaoAk,
+      descriptions: [
+        {
+          name: 'sticker_info',
+          value:
+            '<div id="sticker_info"><center>' +
+            Array.from(
+              { length: quantos },
+              () =>
+                '<img src="https://cdn/gl_glitter.png" ' +
+                'title="Sticker: GamerLegion (Glitter) | Paris 2023">',
+            ).join('') +
+            '</center></div>',
+        },
+      ],
+    });
+
+    // Caso real: cinco cópias do mesmo adesivo, cada uma com raspagem
+    // diferente. É exatamente por isso que aplicações nunca são agrupadas
+    // por nome com contagem.
+    it('casa a raspagem de cada cópia do mesmo adesivo', async () => {
+      const desc = comAdesivos(5);
+
+      fetchMock.mockReturnValue(
+        resposta(
+          inventarioCom(
+            [asset('111', desc)],
+            [desc],
+            [
+              propriedadesDe('111', {
+                raspagens: [0.63, 0.84, 0.8, 0.75, 0.97],
+              }),
+            ],
+          ),
+        ),
+      );
+
+      const r = await service.fetchInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].applied.map((a) => a.wear)).toEqual([
+        0.63, 0.84, 0.8, 0.75, 0.97,
+      ]);
+    });
+
+    it('trata adesivo intacto como zero, não como ausente', async () => {
+      const desc = comAdesivos(4);
+
+      fetchMock.mockReturnValue(
+        resposta(
+          inventarioCom(
+            [asset('111', desc)],
+            [desc],
+            [propriedadesDe('111', { raspagens: [0, 0, 0, 0] })],
+          ),
+        ),
+      );
+
+      const r = await service.fetchInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].applied.map((a) => a.wear)).toEqual([0, 0, 0, 0]);
+    });
+
+    // A ligação entre as duas listas é só a ordem. Se as quantidades
+    // divergem, emparelhar atribuiria a raspagem de um adesivo a outro —
+    // e isso mexe direto no preço.
+    it('não adivinha quando as quantidades não batem', async () => {
+      const desc = comAdesivos(4);
+
+      fetchMock.mockReturnValue(
+        resposta(
+          inventarioCom(
+            [asset('111', desc)],
+            [desc],
+            [propriedadesDe('111', { raspagens: [0.5, 0.2] })],
+          ),
+        ),
+      );
+
+      const r = await service.fetchInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].applied.map((a) => a.wear)).toEqual([
+        null,
+        null,
+        null,
+        null,
+      ]);
+    });
+
+    it('fica nula quando a Steam não manda acessórios', async () => {
+      const desc = comAdesivos(2);
+
+      fetchMock.mockReturnValue(
+        resposta(inventarioCom([asset('111', desc)], [desc])),
+      );
+
+      const r = await service.fetchInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].applied).toHaveLength(2);
+      expect(r.items[0].applied.every((a) => a.wear === null)).toBe(true);
+    });
+  });
+
   describe('inspect link', () => {
-    // É por ele que float e paint seed são obtidos depois; com o
-    // placeholder por resolver, o link não serve para nada.
+    // Serve para abrir o item no jogo. Não é mais a fonte de float e
+    // paint seed — esses vêm em asset_properties.
     it('substitui os placeholders por steamId e assetId', async () => {
       fetchMock.mockReturnValue(resposta(inventarioCom([asset('98765')])));
 

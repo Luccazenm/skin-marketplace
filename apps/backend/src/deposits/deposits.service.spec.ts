@@ -47,6 +47,8 @@ describe('DepositsService.requestDeposit', () => {
     rarity: null,
     exterior: null,
     typeLabel: null,
+    float: 0.31,
+    paintSeed: 7,
     inspectLink: null,
   });
 

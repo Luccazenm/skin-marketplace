@@ -42,6 +42,8 @@ describe('InventoryController', () => {
     rarity: null,
     exterior: null,
     typeLabel: null,
+    float: depositable ? 0.18 : null,
+    paintSeed: depositable ? 42 : null,
     inspectLink: null,
   });
 

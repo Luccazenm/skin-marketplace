@@ -7,6 +7,48 @@ export interface AppliedItem {
   imageUrl: string | null;
   /** Slot, na ordem em que a Steam devolve. Começa em 0. */
   position: number;
+  /**
+   * Raspagem, de 0 (intacto) a 1 (quase apagado). `null` quando não foi
+   * possível determinar com segurança — ver `comRaspagem`.
+   *
+   * Duas cópias do mesmo sticker com raspagens diferentes valem valores
+   * diferentes, e é por isso que nunca agrupamos aplicações por nome.
+   */
+  wear: number | null;
+}
+
+/**
+ * Casa a raspagem que vem em `asset_accessories` com as aplicações lidas
+ * do HTML.
+ *
+ * São duas fontes separadas da Steam para a mesma coisa: o HTML traz nome
+ * e imagem, mas não a raspagem; `asset_accessories` traz a raspagem, mas
+ * identifica cada peça só por `classid` — que não aparece em
+ * `descriptions`, então não dá para resolver o nome por ali.
+ *
+ * A única ligação possível é a ordem. Por isso só casamos quando as
+ * quantidades batem: emparelhar listas de tamanhos diferentes atribuiria
+ * a raspagem de um sticker a outro, e raspagem mexe direto no preço —
+ * errar aqui é pior do que não mostrar.
+ *
+ * Chaveiro não raspa e não aparece em `asset_accessories`, então fica de
+ * fora da conta.
+ */
+export function comRaspagem(
+  aplicados: AppliedItem[],
+  raspagens: number[],
+): AppliedItem[] {
+  const raspaveis = aplicados.filter((a) => a.kind !== 'CHARM');
+
+  if (raspaveis.length !== raspagens.length) {
+    return aplicados;
+  }
+
+  let i = 0;
+
+  return aplicados.map((a) =>
+    a.kind === 'CHARM' ? a : { ...a, wear: raspagens[i++] },
+  );
 }
 
 interface DescriptionBlock {
@@ -83,6 +125,8 @@ export function extrairAplicados(
         name: decodificarEntidades(title.slice(separador + 1).trim()),
         imageUrl: src,
         position: aplicados.filter((a) => a.kind === kind).length,
+        // Preenchida depois, a partir de asset_accessories — ver comRaspagem
+        wear: null,
       });
     }
   }

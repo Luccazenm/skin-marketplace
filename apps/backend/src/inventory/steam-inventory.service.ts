@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ItemCategory } from '@prisma/client';
-import { extrairAplicados, type AppliedItem } from './applied-items';
+import {
+  comRaspagem,
+  extrairAplicados,
+  type AppliedItem,
+} from './applied-items';
 import {
   categoriaDe,
   motivoBloqueio,
@@ -44,9 +48,19 @@ export interface InventoryItem {
   exterior: string | null;
   typeLabel: string | null;
   /**
-   * Link de inspeção com os placeholders já resolvidos.
-   * É por aqui que float e paint seed são obtidos mais tarde — eles NÃO
-   * vêm no inventário.
+   * Desgaste real, de 0 a 1. `null` em item que não tem padrão próprio
+   * (caixa, cápsula, agente) ou quando a Steam não mandou.
+   *
+   * Vem do próprio inventário, não do inspect link: a Valve passou a
+   * entregar em `asset_properties`. É o que dispensa manter conta de
+   * inspeção conectada ao jogo.
+   */
+  float: number | null;
+  /** Semente do padrão. Define fase de Doppler, azul de Case Hardened. */
+  paintSeed: number | null;
+  /**
+   * Link de inspeção com os placeholders já resolvidos, para abrir no
+   * jogo. Não precisamos mais dele para obter float e padrão.
    */
   inspectLink: string | null;
 }
@@ -134,7 +148,12 @@ export class SteamInventoryService {
 
     return {
       status: 'ok',
-      items: this.combinar(corpo.assets, corpo.descriptions, steamId),
+      items: this.combinar(
+        corpo.assets,
+        corpo.descriptions,
+        corpo.asset_properties ?? [],
+        steamId,
+      ),
     };
   }
 
@@ -149,12 +168,21 @@ export class SteamInventoryService {
   private combinar(
     assets: SteamAsset[],
     descriptions: SteamDescription[],
+    propriedades: SteamAssetProperties[],
     steamId: string,
   ): InventoryItem[] {
     const porChave = new Map<string, SteamDescription>();
 
     for (const d of descriptions) {
       porChave.set(`${d.classid}_${d.instanceid ?? '0'}`, d);
+    }
+
+    // Estas vêm por assetid, não por classid: são do exemplar, não do
+    // modelo. Dois itens da mesma skin têm floats diferentes.
+    const porAsset = new Map<string, SteamAssetProperties>();
+
+    for (const p of propriedades) {
+      porAsset.set(p.assetid, p);
     }
 
     const itens: InventoryItem[] = [];
@@ -178,6 +206,8 @@ export class SteamInventoryService {
         this.logger.warn(`Tipo de item não mapeado: ${tipoInterno}`);
       }
 
+      const props = porAsset.get(asset.assetid);
+
       itens.push({
         assetId: asset.assetid,
         classId: asset.classid,
@@ -192,10 +222,15 @@ export class SteamInventoryService {
         depositable: tradable && !nuncaNegociavel(category),
         blockReason: motivoBloqueio(category, tradable),
         hasUniquePattern: temPadraoUnico(category),
-        applied: extrairAplicados(desc.descriptions),
+        applied: comRaspagem(
+          extrairAplicados(desc.descriptions),
+          this.raspagens(props),
+        ),
         rarity: this.tagExibicao(desc, 'Rarity'),
         exterior: this.tagExibicao(desc, 'Exterior'),
         typeLabel: this.tagExibicao(desc, 'Type'),
+        float: this.propriedadeNumerica(props, PROP.FLOAT),
+        paintSeed: this.propriedadeNumerica(props, PROP.PAINT_SEED),
         inspectLink: this.inspectLink(desc, steamId, asset.assetid),
       });
     }
@@ -227,6 +262,51 @@ export class SteamInventoryService {
   }
 
   /**
+   * Lê uma propriedade do exemplar.
+   *
+   * A Steam manda o número ora em `float_value`, ora em `int_value`, ora
+   * como texto — e sempre como string. Valor que não vira número devolve
+   * `null` em vez de `NaN`: `NaN` atravessaria o sistema em silêncio e
+   * apareceria numa tela de preço.
+   */
+  private propriedadeNumerica(
+    props: SteamAssetProperties | undefined,
+    propertyId: number,
+  ): number | null {
+    const p = props?.asset_properties?.find((x) => x.propertyid === propertyId);
+
+    if (!p) {
+      return null;
+    }
+
+    const bruto = p.float_value ?? p.int_value ?? p.string_value;
+    const n = Number(bruto);
+
+    return bruto !== undefined && Number.isFinite(n) ? n : null;
+  }
+
+  /**
+   * Raspagem de cada peça aplicada, na ordem em que a Steam devolve.
+   * Confirmado contra inventário real: 0 é intacto.
+   */
+  private raspagens(props: SteamAssetProperties | undefined): number[] {
+    const acessorios = props?.asset_accessories;
+
+    if (!acessorios?.length) {
+      return [];
+    }
+
+    return acessorios.map((a) => {
+      const p = a.parent_relationship_properties?.find(
+        (x) => x.propertyid === PROP.RASPAGEM,
+      );
+      const n = Number(p?.float_value);
+
+      return Number.isFinite(n) ? n : 0;
+    });
+  }
+
+  /**
    * O link vem com placeholders que a Steam espera que o cliente troque:
    *   ...+csgo_econ_action_preview S%owner_steamid%A%assetid%D123456
    */
@@ -251,10 +331,50 @@ export class SteamInventoryService {
 
 // ---- Formato cru devolvido pela Steam ----
 
+/**
+ * Identificadores das propriedades por exemplar.
+ *
+ * São números mágicos da Valve, sem documentação — apurados contra
+ * inventário real em 17/08/2026 e conferidos entre dois itens conhecidos.
+ * Se a Valve renumerar, os testes quebram; é o comportamento desejado.
+ */
+const PROP = {
+  PAINT_SEED: 1,
+  FLOAT: 2,
+  /** Inspect link auto-codificado. Guardado para uso futuro. */
+  CERTIFICADO: 6,
+  /** Raspagem, dentro de parent_relationship_properties do acessório. */
+  RASPAGEM: 4,
+} as const;
+
 interface SteamInventoryResponse {
   assets?: SteamAsset[];
   descriptions?: SteamDescription[];
+  /**
+   * Dados do exemplar, por assetid: float, paint seed e as peças
+   * aplicadas com a raspagem de cada uma.
+   */
+  asset_properties?: SteamAssetProperties[];
   total_inventory_count?: number;
+}
+
+interface SteamAssetProperties {
+  assetid: string;
+  asset_properties?: Array<{
+    propertyid: number;
+    float_value?: string;
+    int_value?: string;
+    string_value?: string;
+    name?: string;
+  }>;
+  /** Stickers e patches aplicados, na ordem dos slots. */
+  asset_accessories?: Array<{
+    classid?: string;
+    parent_relationship_properties?: Array<{
+      propertyid: number;
+      float_value?: string;
+    }>;
+  }>;
 }
 
 interface SteamAsset {
