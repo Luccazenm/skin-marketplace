@@ -28,7 +28,7 @@ describe('mapearItem', () => {
       expect(e.skinName).toBe('Redline');
       expect(e.minFloat).toBe(0.1);
       expect(e.maxFloat).toBe(0.7);
-      expect(e.collection).toBe('The Phoenix Collection');
+      expect(e.collections).toEqual(['The Phoenix Collection']);
     });
 
     // A constraint do banco exige os quatro campos em arma. Sem faixa no
@@ -301,38 +301,72 @@ describe('mapearItem', () => {
     });
   });
 
-  describe('coleção', () => {
+  describe('origem do item', () => {
     // O arquivo de skins não traz coleção nenhuma: ela só existe do
-    // outro lado, em collections.json, e é cruzada pelo skin_id.
-    it('usa a coleção resolvida por fora', () => {
+    // outro lado, em collections.json e crates.json, cruzada pelo
+    // skin_id.
+    it('usa as origens resolvidas por fora', () => {
       const e = mapearItem(
         { ...ak, collections: undefined, skin_id: 'skin-abc' },
-        { colecao: 'The Kilowatt Collection' },
+        { colecoes: ['The Kilowatt Collection'] },
       )!;
 
-      expect(e.collection).toBe('The Kilowatt Collection');
+      expect(e.collections).toEqual(['The Kilowatt Collection']);
     });
 
-    // Cruzamento por id é mais confiável que o campo do próprio item.
-    it('prefere a resolvida quando as duas existem', () => {
-      const e = mapearItem(ak, { colecao: 'The Kilowatt Collection' })!;
+    // O caso que motivou a lista: guardar só uma seria escolher
+    // arbitrariamente qual das três, por ordem de iteração. E a
+    // quantidade de origens importa — skin que cai de três caixas tem
+    // oferta muito maior que uma exclusiva.
+    it('guarda todas as caixas de onde a faca sai', () => {
+      const e = mapearItem(
+        {
+          market_hash_name: '★ Karambit | Doppler (Factory New)',
+          weapon: { name: 'Karambit' },
+          pattern: { name: 'Doppler' },
+          skin_id: 'skin-525ac56c082c',
+        },
+        { colecoes: ['Chroma Case', 'Chroma 2 Case', 'Chroma 3 Case'] },
+      )!;
 
-      expect(e.collection).toBe('The Kilowatt Collection');
+      expect(e.collections).toEqual([
+        'Chroma Case',
+        'Chroma 2 Case',
+        'Chroma 3 Case',
+      ]);
     });
 
-    it('cai para a cápsula quando não há coleção', () => {
+    it('junta o cruzamento com o que o próprio item traz', () => {
+      const e = mapearItem(
+        { ...ak, crates: [{ name: 'Alguma Caixa' }] },
+        { colecoes: ['The Phoenix Collection'] },
+      )!;
+
+      expect(e.collections.sort()).toEqual([
+        'Alguma Caixa',
+        'The Phoenix Collection',
+      ]);
+    });
+
+    it('não repete a mesma origem vinda de duas fontes', () => {
+      const e = mapearItem(ak, { colecoes: ['The Phoenix Collection'] })!;
+
+      expect(e.collections).toEqual(['The Phoenix Collection']);
+    });
+
+    it('cai para a cápsula quando o cruzamento não alcança', () => {
       const e = mapearItem({
         market_hash_name: 'Sticker | Titan | Katowice 2014',
         crates: [{ name: 'EMS Katowice 2014 Legends' }],
       })!;
 
-      expect(e.collection).toBe('EMS Katowice 2014 Legends');
+      expect(e.collections).toEqual(['EMS Katowice 2014 Legends']);
     });
 
-    it('fica nula quando nenhuma fonte informa', () => {
+    it('fica vazia quando nenhuma fonte informa', () => {
       const e = mapearItem({ ...ak, collections: undefined })!;
 
-      expect(e.collection).toBeNull();
+      expect(e.collections).toEqual([]);
     });
   });
 
@@ -352,7 +386,7 @@ describe('mapearItem', () => {
         crates: [{ name: 'Kilowatt Case' }],
       })!;
 
-      expect(e.collection).toBe('Kilowatt Case');
+      expect(e.collections).toEqual(['Kilowatt Case']);
     });
 
     it('usa name quando falta market_hash_name', () => {

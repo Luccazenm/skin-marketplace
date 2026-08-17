@@ -5,7 +5,8 @@ export interface EntradaCatalogo {
   marketHashName: string;
   category: ItemCategory;
   rarity: string;
-  collection: string | null;
+  /** Todas as origens. Vazia quando o item não sai de caixa nenhuma. */
+  collections: string[];
   variant: SkinVariant;
   weapon: string | null;
   skinName: string | null;
@@ -64,17 +65,17 @@ export interface OpcoesMapeamento {
   /** Tipo do arquivo de origem, usado quando o nome não resolve. */
   categoriaPadrao?: ItemCategory;
   /**
-   * Coleção resolvida por fora, cruzando `collections.json` pelo
-   * `skin_id`. O arquivo de skins não traz esse dado.
+   * Origens resolvidas por fora, cruzando `collections.json` e
+   * `crates.json` pelo `skin_id`. O arquivo de skins não traz esse dado.
    */
-  colecao?: string | null;
+  colecoes?: string[];
 }
 
 export function mapearItem(
   bruto: ItemBruto,
   opcoes: OpcoesMapeamento = {},
 ): EntradaCatalogo | null {
-  const { categoriaPadrao: categoriaDoArquivo, colecao } = opcoes;
+  const { categoriaPadrao: categoriaDoArquivo, colecoes } = opcoes;
   // Nome de mercado nulo é item que não existe no mercado — adesivo de
   // evento antigo, item de teste. Não tem preço para pendurar, e criar
   // template para ele encheria o catálogo de linhas que nenhuma cotação
@@ -119,14 +120,16 @@ export function mapearItem(
     marketHashName,
     category,
     rarity: textoRaridade(bruto.rarity),
-    // Ordem de confiança: a coleção resolvida pelo cruzamento é a mais
-    // precisa; depois o campo do próprio item; por último a cápsula ou
-    // caixa de onde ele sai, que é o que serve para adesivo.
-    collection:
-      colecao ??
-      bruto.collections?.[0]?.name ??
-      bruto.crates?.[0]?.name ??
-      null,
+    // Junta as três fontes e remove repetição: o cruzamento por skin_id
+    // é o que pega item que sai de várias caixas, e os campos do próprio
+    // item cobrem adesivo e cápsula, que o cruzamento não alcança.
+    collections: [
+      ...new Set([
+        ...(colecoes ?? []),
+        ...(bruto.collections ?? []).map((c) => c.name),
+        ...(bruto.crates ?? []).map((c) => c.name),
+      ]),
+    ].filter((n): n is string => typeof n === 'string' && n.length > 0),
     variant: varianteDe(marketHashName),
     weapon: temPadrao
       ? (bruto.weapon?.name ?? armaPeloNome(marketHashName))

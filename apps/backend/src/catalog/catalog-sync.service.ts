@@ -109,12 +109,9 @@ export class CatalogSyncService {
    * Cruzar por id e não por nome é o que evita errar em skin cujo nome se
    * repete entre armas diferentes.
    */
-  private async mapearColecoes(): Promise<Map<string, string>> {
-    const mapa = new Map<string, string>();
+  private async mapearColecoes(): Promise<Map<string, Set<string>>> {
+    const mapa = new Map<string, Set<string>>();
 
-    // Caixas primeiro, coleções depois: quando os dois conhecem a mesma
-    // skin, a coleção é o nome mais útil ("The Huntsman Collection" diz
-    // mais que "Huntsman Weapon Case"), então ela sobrescreve.
     for (const arquivo of ['crates', 'collections']) {
       const grupos = (await this.baixar(arquivo)) as ColecaoBruta[];
 
@@ -129,14 +126,26 @@ export class CatalogSyncService {
           ...(g.contains ?? []),
           ...(g.contains_rare ?? []),
         ]) {
-          if (item.id) {
-            mapa.set(item.id, g.name);
+          if (!item.id) {
+            continue;
           }
+
+          // Acumula, nunca sobrescreve. Um quarto do catálogo sai de mais
+          // de uma origem — Karambit | Doppler vem da Chroma, Chroma 2 e
+          // Chroma 3 — e `set` faria a última processada apagar as
+          // outras, por acidente de ordem de iteração.
+          const atual = mapa.get(item.id) ?? new Set<string>();
+          atual.add(g.name);
+          mapa.set(item.id, atual);
         }
       }
     }
 
-    this.logger.log(`Origem: ${mapa.size} itens mapeados`);
+    const varias = [...mapa.values()].filter((s) => s.size > 1).length;
+
+    this.logger.log(
+      `Origem: ${mapa.size} itens mapeados, ${varias} vindos de mais de uma`,
+    );
 
     return mapa;
   }
@@ -162,7 +171,7 @@ export class CatalogSyncService {
   private async gravar(
     itens: ItemBruto[],
     categoriaDoArquivo?: ItemCategory,
-    colecoes?: Map<string, string>,
+    colecoes?: Map<string, Set<string>>,
   ): Promise<ResultadoSync> {
     const r: ResultadoSync = {
       lidos: itens.length,
@@ -179,7 +188,9 @@ export class CatalogSyncService {
     for (const bruto of itens) {
       const entrada = mapearItem(bruto, {
         categoriaPadrao: categoriaDoArquivo,
-        colecao: bruto.skin_id ? colecoes?.get(bruto.skin_id) : undefined,
+        colecoes: bruto.skin_id
+          ? [...(colecoes?.get(bruto.skin_id) ?? [])]
+          : undefined,
       });
 
       if (!entrada) {

@@ -111,7 +111,20 @@ model SkinTemplate {
   // Identificação
   marketHashName String @unique /// ex: "StatTrak™ AK-47 | Redline (Field-Tested)"
   rarity         String /// ex: "Classified"
-  collection     String? /// ex: "The Phoenix Collection"
+
+  /// De onde o item sai: coleções e caixas. Lista porque **um quarto do
+  /// catálogo vem de mais de uma origem** — Karambit | Doppler sai da
+  /// Chroma, Chroma 2 e Chroma 3; Sport Gloves | Pandora's Box sai da
+  /// Glove Case e da Operation Hydra Case.
+  ///
+  /// Guardar só uma seria escolher arbitrariamente, e a informação
+  /// importa além da exibição: skin que cai de três caixas tem oferta
+  /// muito maior que uma exclusiva, e oferta é entrada do
+  /// `buyoutEligible`.
+  ///
+  /// Não existe "origem principal": o Karambit não vem mais da Chroma 3
+  /// do que da Chroma 1.
+  collections String[]
 
   /// Qual é o tipo do item. Mesma classificação do inventário, para que
   /// catálogo e leitura da Steam concordem.
@@ -159,10 +172,12 @@ model SkinTemplate {
   updatedAt DateTime @updatedAt
 
   @@index([buyoutEligible])
-  /// Vitrine: "todas as AK", "tudo da Kilowatt", "todos os adesivos".
+  /// Vitrine: "todas as AK", "todos os adesivos".
   @@index([category])
-  @@index([collection])
   @@index([weapon])
+  /// GIN, para "tudo que sai da Chroma 2" achar também o que vem de
+  /// outras caixas junto. Índice comum não serve em coluna de lista.
+  @@index([collections], type: Gin)
 }
 
 // =========================

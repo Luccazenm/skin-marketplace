@@ -286,13 +286,31 @@ parte (`CSGO_Type_Equipment`). Está mapeado nos dois lados — catálogo e
 inventário — e conta como categoria com padrão único, então o float dele
 aparece. **Nenhum item ficou em `OTHER`.**
 
-**Coleção: 91,6% preenchida** (31.115 de 33.950), cruzando por `skin_id`
-com `collections.json` e `crates.json`. Faca e luva estão em
-`contains_rare`, não em `contains` — sem ler esse campo, as 3.898 ficariam
-sem origem. Quando os dois arquivos conhecem a mesma skin, a coleção
-ganha da caixa: "The Phoenix Collection" diz mais que o nome do estojo.
+**Origem: `collections` é lista, não campo único** — 31.115 de 33.950
+preenchidos (91,6%), e **17.325 saem de mais de uma origem**, com máximo
+de 19.
 
-Os nulos restantes são, em maioria, corretos: caixa não pertence a
+```
+★ Karambit | Doppler        {Chroma Case, Chroma 2 Case, Chroma 3 Case}
+★ Sport Gloves | Pandora's  {Glove Case, Operation Hydra Case}
+AK-47 | Redline (FT)        {Operation Phoenix Weapon Case,
+                             The Phoenix Collection}
+```
+
+A primeira versão guardava só uma, e a última processada apagava as
+outras — por acidente de ordem de iteração, não por escolha. **Não existe
+"origem principal"**: o Karambit não vem mais da Chroma 3 do que da
+Chroma 1. E a quantidade de origens importa além da exibição: skin que
+cai de três caixas tem oferta muito maior que uma exclusiva, e oferta é
+entrada do `buyoutEligible`.
+
+Cruzamento por `skin_id` com `collections.json` e `crates.json`. Faca e
+luva estão em `contains_rare`, não em `contains` — sem ler esse campo, as
+3.898 ficariam sem origem. Índice **GIN**, porque índice comum não serve
+para "contém este valor" em coluna de lista; a consulta da vitrine
+(`'Chroma 2 Case' = ANY(collections)`) devolve 373 itens.
+
+Os vazios restantes são, em maioria, corretos: caixa não pertence a
 coleção, e grafite não sai de coleção nenhuma.
 
 ### Preço: o lado neutro está pronto (17/08)
