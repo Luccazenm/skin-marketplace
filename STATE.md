@@ -67,6 +67,29 @@ Classifica em 20 categorias pela tag `Type`; extrai stickers, patches e
 chaveiros aplicados (nome, imagem, ordem). Verificado contra inventário
 real: 192 itens, nenhum caiu em `OTHER`.
 
+### Dados de item: resolvido sem infraestrutura (17/08)
+
+O endpoint público de inventário já devolve, por item, em
+`asset_properties`: paint seed (`propertyid 1`), float (`propertyid 2`) e
+o inspect link auto-codificado (`propertyid 6`). Os adesivos aplicados
+vêm em `asset_accessories`, cada um com `classid` e um float próprio.
+
+Verificado contra inventário real: `StatTrak™ AK-47 | Inheritance
+(Battle-Scarred)`, seed 401, float 0,6661146879196167, 5 adesivos.
+
+**Consequência:** cai do plano toda a infraestrutura de inspect — conta
+dedicada, Game Coordinator, fila, limite de 1 req/s. E float e padrão
+passam a estar disponíveis **antes** do depósito, o que muda o que a tela
+de depósito e a vitrine conseguem mostrar.
+
+**Ainda não confirmado:** o float por adesivo (`propertyid 4`) está na
+posição de ser a raspagem, mas não foi verificado contra um item de
+raspagem conhecida. Raspagem mexe direto no preço — confirmar antes de
+exibir.
+
+**Falta implementar:** o `steam-inventory` hoje lê só `descriptions`.
+Precisa passar a ler `asset_properties` e `asset_accessories`.
+
 ### Trade URL
 
 `PUT /api/users/me/trade-url` — confere que o `partner` corresponde ao

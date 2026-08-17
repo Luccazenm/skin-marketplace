@@ -62,10 +62,23 @@ endpoint que dava o id original, então não há atalho.
 "vendido" é `Order`. No nosso fluxo o item fica em `BOT_CUSTODY` do
 depósito à entrega, inclusive depois de vendido.
 
-**O `Item` só nasce quando entra em custódia.** Ele exige float e paint
-seed, que só saem do inspect link. Por isso o depósito guarda apenas
+**Float, paint seed e adesivos vêm do próprio endpoint de inventário.**
+Verificado em 17/08/2026 contra inventário real: a resposta traz
+`asset_properties` por item — `propertyid 1` é o paint seed, `propertyid
+2` é o float, `propertyid 6` é o inspect link auto-codificado — e
+`asset_accessories` traz os adesivos aplicados.
+
+**Não existe infraestrutura de inspect neste projeto, e não deve
+existir.** Nada de conta dedicada, Game Coordinator ou fila de
+inspeção: a Valve passou a entregar esses dados na leitura pública de
+inventário, que já fazemos e já tem cache e limitador. Isso também é o
+que mantém de pé a regra de nunca abrir CS2 nas contas.
+
+**O `Item` só nasce quando entra em custódia.** O motivo é posse, não
+falta de dado: enquanto a skin está com o usuário, ela não é nossa para
+registrar. Por isso o depósito guarda apenas
 `TradeOffer.requestedAssetIds` — os endereços na Steam do que esperamos
-receber.
+receber. Float e padrão, porém, já podem ser exibidos antes disso.
 
 **Trade lock de 7 dias da Valve prende os dois lados.** Quem recebe fica
 travado, então o bot não entrega antes de 7 dias do depósito. É por isso
