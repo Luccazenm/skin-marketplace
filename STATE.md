@@ -102,9 +102,19 @@ discordariam, e a discordância só apareceria com item em custódia.
 Recusa registra na auditoria como `bot.registration_denied` com o motivo
 — inclusive duplicidade e perfil ilegível.
 
-**Trade Bot 1 cadastrado** (13/08): `OFFLINE`, libera em 20/08. Continua
-sem receber depósito, porque `escolherBot` só considera `ONLINE` e nada
-põe em rotação até o `bot-service` existir.
+**Dois Trade Bots cadastrados**, ambos `OFFLINE`:
+
+| | steamID64 | ref | libera |
+|---|---|---|---|
+| Trade Bot 1 | 76561198659520305 | `bot/01` | 20/08/2026 |
+| Trade Bot 2 | 76561198654117612 | `bot/02` | 24/08/2026 |
+
+Nenhum recebe depósito ainda: `escolherBot` só considera `ONLINE`, e nada
+põe em rotação até o `bot-service` existir. Os R$ 50 na carteira contaram
+para tirar a limitação mesmo sem serem gastos — confirmado nos dois.
+
+Falta em ambos: avatar (ainda o padrão da Steam), que espera a identidade
+visual e deve ser aplicado nos dois de uma vez.
 
 ### Auditoria
 

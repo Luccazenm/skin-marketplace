@@ -164,6 +164,20 @@ Texto do grupo e o raciocínio de segurança em [grupo-steam.md](./grupo-steam.m
 
 Vai para o banco (`Bot.steamId`) e para a página pública de Trade Bots.
 
+**O `?xml=1` pela URL personalizada não funciona logo depois de criá-la** —
+devolve "The specified profile could not be found" mesmo com o perfil no
+ar, porque esse endpoint demora a enxergar a URL nova. Caminhos que
+funcionam na hora:
+
+- O campo `SteamID` dentro do próprio `.maFile`
+- A barra de endereço do navegador, antes de configurar a URL
+  personalizada: `steamcommunity.com/profiles/<steamID64>`
+- Resolvendo pela Web API:
+  `ISteamUser/ResolveVanityURL/v1/?key=<chave>&vanityurl=nextskins-tradebot<N>`
+
+Com o número em mãos, `?xml=1` por `/profiles/<steamID64>` responde
+normalmente — é assim que se confere o `isLimitedAccount`.
+
 ## O cofre
 
 **Bitwarden**, com 2FA por aplicativo autenticador ativo.

@@ -68,6 +68,7 @@ This group exists now so the Trade Bot accounts are on public record before laun
 [b]Our Trade Bot accounts, by steamID64 — the only identifier that cannot be faked:[/b]
 [list]
 [*] 76561198659520305 — NextSkins.gg | Trade Bot 1
+[*] 76561198654117612 — NextSkins.gg | Trade Bot 2
 [/list]
 Open a profile at steamcommunity.com/profiles/<steamID64>. A display name, an avatar and a custom URL can all be copied in minutes; the steamID64 cannot.
 
@@ -124,6 +125,7 @@ Este grupo já existe para deixar as contas dos Trade Bots registradas publicame
 [b]Nossas contas de Trade Bot, por steamID64 — o único identificador que não dá para falsificar:[/b]
 [list]
 [*] 76561198659520305 — NextSkins.gg | Trade Bot 1
+[*] 76561198654117612 — NextSkins.gg | Trade Bot 2
 [/list]
 Abra o perfil em steamcommunity.com/profiles/<steamID64>. Nome, avatar e URL personalizada qualquer um copia em minutos; o steamID64 não.
 
