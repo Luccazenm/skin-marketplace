@@ -54,6 +54,19 @@ bloqueante:
    por preço?** Preço recomendado desatualizado na tela é o tipo de erro
    que vira reclamação com razão.
 
-Situação em 17/08/2026: o **cs2.sh** não publica os termos comerciais; o
-**SteamWebAPI** autoriza marketplace explicitamente mas não declara
-frequência. Cada um tem a resposta que falta no outro — ver STATE.md.
+### Respostas recebidas
+
+**cs2.sh — 17/08/2026, Alex (`hello@cs2.sh`).** Exibir os dados num
+marketplace comercial é permitido; a única restrição é **revender ou
+redistribuir** a API e os dados. Cachear e exibir é explicitamente aceito.
+Atribuição não é exigida, só apreciada. `/v1/liquidity/items` é exclusivo
+do plano Scale.
+
+> "Commercial usage and displaying the APIs data is fine, and often
+> necessary for our users' applications or websites. We just don't want
+> you to resell or redistribute it."
+
+**Guardar esta resposta em PDF.** É a autorização que sustenta exibir
+preço de terceiro na nossa vitrine.
+
+**SteamWebAPI** — aguardando.

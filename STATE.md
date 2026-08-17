@@ -358,7 +358,27 @@ SteamWebAPI Starter (€ 25) ao lado, para preço nos mercados ocidentais.
 **CSGOSKINS.GG está fora**: rastreia preço de anúncio, não de venda — o
 mesmo defeito do Steam Market, e o mais caro da lista.
 
-**Bloqueado em duas perguntas**, uma para cada fornecedor. Ver
+**cs2.sh respondeu em 17/08/2026** (Alex, `hello@cs2.sh`):
+
+1. **Exibir os dados num marketplace comercial é permitido.** A única
+   restrição é revender ou redistribuir a API e os dados — cachear e
+   exibir é explicitamente aceito ("often necessary for our users'
+   applications or websites"). Termos em
+   `cs2.sh/terms#fair-use-and-rate-limits`.
+2. **`/v1/liquidity/items` é exclusivo do plano Scale** (US$ 200).
+3. **Atribuição não é exigida**, só apreciada.
+
+**Decisão: começar no Developer (US$ 75).** O sinal de liquidez que o
+`buyoutEligible` precisa não tem que vir pronto: o **spread entre bid e
+ask** já indica liquidez e vem no Developer, e a série própria dá
+estabilidade de preço em ~3 meses. São US$ 1.500/ano de diferença antes
+de haver faturamento, e subir de plano depois é trivial.
+
+**Ainda em aberto:** se o Developer traz volume junto do preço. É o que
+decide se o Scale se paga. Resolver com a **chave gratuita de 2 dias**
+(pedida no Discord) antes de assinar.
+
+Falta a resposta do SteamWebAPI. Ver
 [docs/emails-e-fornecedores.md](docs/emails-e-fornecedores.md).
 
 **Regra ao juntar fontes:** BUFF manda no preço de referência; mercados
