@@ -140,9 +140,16 @@ model SkinTemplate {
 
   variant SkinVariant @default(NORMAL)
 
-  /// Faixa de float da SKIN, não do exemplar. É o que permite dizer se um
-  /// float é bom: 0,20 é Factory New numa skin e Field-Tested em outra.
-  /// Nulos em item sem float.
+  /// Faixa de float da SKIN, não do exemplar: 73,9% das skins não vão de
+  /// 0 a 1. `UMP-45 | Grand Prix` existe só entre 0,25 e 0,35 — ou seja,
+  /// só em Field-Tested. Nulos em item sem float.
+  ///
+  /// **Não é necessária para exibir o float**, e as faixas de exterior
+  /// (Factory New 0–0,07, Field-Tested 0,15–0,38…) são globais e não
+  /// ficam aqui. Guardamos por dois motivos modestos: valida float
+  /// impossível vindo do inventário, e destrava indicador de qualidade de
+  /// float caso um dia se queira. Custo zero — vem pronta do dataset, em
+  /// 100% das skins pintadas.
   minFloat Float?
   maxFloat Float?
 
