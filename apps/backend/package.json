@@ -15,6 +15,7 @@
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "catalog:sync": "node dist/scripts/sync-catalog.js",
     "bot:add": "node dist/scripts/add-bot.js",
     "bot:check": "node dist/scripts/check-bot.js",
     "bot:list": "node dist/scripts/list-bots.js",

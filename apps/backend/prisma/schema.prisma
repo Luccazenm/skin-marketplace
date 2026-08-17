@@ -90,21 +90,48 @@ enum SteamEconomyBan {
 // =========================
 // SKIN TEMPLATE
 // =========================
+/// O catálogo: um registro por item que existe no jogo.
+///
+/// É o MODELO, não o exemplar. "AK-47 | Redline (Field-Tested)" é um
+/// SkinTemplate; a AK específica com float 0,187 e quatro adesivos é um
+/// Item. Preço, liquidez e busca penduram aqui, porque o mercado cota o
+/// modelo — o float do exemplar ajusta em cima disso.
+///
+/// Cada exterior e cada variante é uma entrada própria, porque cada uma
+/// tem cotação própria: "AK-47 | Redline (Field-Tested)" e "StatTrak™
+/// AK-47 | Redline (Field-Tested)" são preços diferentes.
+///
+/// Entram TODOS os tipos negociáveis, não só armas: adesivo, cápsula,
+/// agente, chaveiro e caixa também têm preço próprio. Sem adesivo no
+/// catálogo é impossível mostrar "arma vale X, cada adesivo vale Y" —
+/// que é a regra de exibição do projeto.
 model SkinTemplate {
   id String @id @default(uuid(7))
 
   // Identificação
-  marketHashName String  @unique // ex: "StatTrak™ AK-47 | Redline"
-  weapon         String // ex: "AK-47"
-  skinName       String // ex: "Redline"
-  rarity         String // ex: "Classified"
-  collection     String? // ex: "The Phoenix Collection"
+  marketHashName String @unique /// ex: "StatTrak™ AK-47 | Redline (Field-Tested)"
+  rarity         String /// ex: "Classified"
+  collection     String? /// ex: "The Phoenix Collection"
+
+  /// Qual é o tipo do item. Mesma classificação do inventário, para que
+  /// catálogo e leitura da Steam concordem.
+  category ItemCategory @default(OTHER)
+
+  /// Só para o que tem padrão próprio: arma, faca, luva.
+  ///
+  /// Nulos em adesivo, cápsula, agente, chaveiro e caixa — esses não têm
+  /// arma nem nome de skin. Eram obrigatórios antes, o que impedia
+  /// cadastrar qualquer coisa que não fosse arma.
+  weapon   String? /// ex: "AK-47"
+  skinName String? /// ex: "Redline"
 
   variant SkinVariant @default(NORMAL)
 
-  // Exteriores possíveis (float range da skin, não do item)
-  minFloat Float @default(0)
-  maxFloat Float @default(1)
+  /// Faixa de float da SKIN, não do exemplar. É o que permite dizer se um
+  /// float é bom: 0,20 é Factory New numa skin e Field-Tested em outra.
+  /// Nulos em item sem float.
+  minFloat Float?
+  maxFloat Float?
 
   hasStickerSlots Boolean @default(false)
 
@@ -132,6 +159,10 @@ model SkinTemplate {
   updatedAt DateTime @updatedAt
 
   @@index([buyoutEligible])
+  /// Vitrine: "todas as AK", "tudo da Kilowatt", "todos os adesivos".
+  @@index([category])
+  @@index([collection])
+  @@index([weapon])
 }
 
 // =========================

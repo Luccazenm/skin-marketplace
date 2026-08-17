@@ -248,6 +248,47 @@ Detalhes em `apps/bot-service/README.md`.
   via SSH, ou túnel SSH (`ssh -L 5433:localhost:5432`) para consultar do
   próprio computador. **Nunca expor a porta do Postgres na internet.**
 
+### Catálogo (17/08)
+
+**33.950 itens importados**, com `pnpm catalog:sync` — idempotente,
+levando ~220s. Verificado rodando duas vezes: a segunda atualiza tudo e
+não cria nada.
+
+| | | | |
+|---|---|---|---|
+| STICKER | 10.433 | GRAFFITI | 1.812 |
+| PISTOL | 5.050 | MACHINEGUN | 597 |
+| RIFLE | 3.922 | GLOVES | 470 |
+| SMG | 3.534 | CONTAINER | 469 |
+| KNIFE | 3.428 | MUSIC_KIT | 183 |
+| SHOTGUN | 1.885 | PATCH | 112 |
+| SNIPER_RIFLE | 1.809 | CHARM / AGENT / KEY | 78 / 63 / 25 |
+
+Fonte: dataset público `ByMykel/CSGO-API`, espelhado no nosso banco.
+Descartados 1.032: medalha e passe (nunca negociáveis) e 701 adesivos com
+`market_hash_name` nulo, que não existem no mercado.
+
+`SkinTemplate` agora aceita item sem arma. `weapon`, `skinName`,
+`minFloat` e `maxFloat` viraram opcionais, com duas CHECK constraints no
+lugar: **arma exige `weapon`**, e **item com skin exige faixa de float**.
+A primeira versão exigia skin de toda arma e recusou 40 facas *vanilla*
+na importação real — item legítimo e caro que não tem skin nem desgaste.
+
+**Classificação:** o nome resolve o caso específico (prefixo `Sticker |`,
+`★`, nome da arma); o arquivo de origem resolve o tipo quando o nome não
+diz nada. Foi o que classificou cápsulas de torneio como `CONTAINER` —
+"Katowice 2019 Legends (Holo-Foil)" não anuncia isso em lugar nenhum,
+mas veio de `crates.json`.
+
+**Pendência:** 80 itens em `OTHER`, todos **Zeus x27**. Tem skin, float e
+é negociável, mas não cabe em nenhuma categoria atual. O mapeamento do
+inventário também o deixa em `OTHER`, então os dois lados concordam —
+resolver exige valor novo no enum e tocar os dois.
+
+**Falta:** `collection` fica nula nas skins. O endpoint
+`skins_not_grouped` não traz coleção, e `crates.json`/`collections.json`
+teriam que ser cruzados para reconstruir. Não bloqueia preço.
+
 ### Preço: o lado neutro está pronto (17/08)
 
 `PriceSnapshot` (append-only) + `PricingModule`, sem nenhum fornecedor

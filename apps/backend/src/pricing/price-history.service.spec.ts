@@ -1,6 +1,11 @@
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
-import { PriceMarket, PriceSource, type SkinTemplate } from '@prisma/client';
+import {
+  ItemCategory,
+  PriceMarket,
+  PriceSource,
+  type SkinTemplate,
+} from '@prisma/client';
 import { validateEnv } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
 import { PriceHistoryService } from './price-history.service';
@@ -46,9 +51,14 @@ describe('PriceHistoryService', () => {
     template = await prisma.skinTemplate.create({
       data: {
         marketHashName: NOME,
+        category: ItemCategory.RIFLE,
         weapon: 'AK-47',
         skinName: 'Teste Preço',
         rarity: 'Classified',
+        // Exigidos pela constraint: item pintado precisa de faixa de
+        // float, senão não dá para dizer se o float do exemplar é bom.
+        minFloat: 0.15,
+        maxFloat: 0.38,
       },
     });
   });

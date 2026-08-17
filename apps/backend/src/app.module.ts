@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
 import { AuditModule } from './audit/audit.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { DepositsModule } from './deposits/deposits.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PricingModule } from './pricing/pricing.module';
@@ -26,6 +27,7 @@ import { UsersModule } from './users/users.module';
     InventoryModule,
     DepositsModule,
     PricingModule,
+    CatalogModule,
   ],
   controllers: [AppController],
   providers: [AppService],
