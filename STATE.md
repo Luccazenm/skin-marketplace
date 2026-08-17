@@ -328,6 +328,20 @@ Não confundir com faca e luva, que **têm padrão mas não têm slot** — é o
 que impede derivar uma função da outra. Zeus x27 aceita adesivo, apesar
 de ser família própria da Valve.
 
+**`src/catalog` em 98,7% de cobertura.** O `CatalogSyncService` tinha
+zero: é a parte que fala com rede e banco, e a que pode estragar dado já
+gravado — o `upsert` passa por cima de 33.950 linhas a cada rodada.
+
+O teste que mais importa é o que garante que a sincronização **não toca**
+em `referencePrice`, `buyoutEligible`, `buyoutDiscountPct` nem
+`salesVolume30d`: são decisões nossas, e sobrescrevê-las tiraria uma skin
+do fluxo rápido — ou deixaria uma entrar — sem ninguém perceber.
+
+As fixtures usam o prefixo `TESTE-SYNC`, **inclusive os nomes de caixa**:
+o arquivo `crates` alimenta o cruzamento de origem e também vira template
+de `CONTAINER`, então caixa de teste sem prefixo escapa da limpeza e fica
+no catálogo real. Aconteceu na primeira versão do teste.
+
 ### Preço: o lado neutro está pronto (17/08)
 
 `PriceSnapshot` (append-only) + `PricingModule`, sem nenhum fornecedor
