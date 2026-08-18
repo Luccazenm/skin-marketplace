@@ -1,0 +1,31 @@
+# Fim de linha
+#
+# Sem isto, o git avisa "LF will be replaced by CRLF" em todo commit
+# feito no Windows, e o mesmo arquivo aparece como modificado dependendo
+# de quem o salvou. Aqui o repositório fica em LF e o disco também —
+# toda a cadeia (Node, TypeScript, Prisma, Docker) trabalha com LF, e
+# converter só criaria diferença onde não há mudança de conteúdo.
+* text=auto eol=lf
+
+# Scripts que o Windows executa precisam de CRLF para funcionar.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binários: converter fim de linha aqui corrompe o arquivo.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+*.maFile binary
+
+# Arquivo gerado: some da revisão de diff, mas continua versionado.
+pnpm-lock.yaml -diff linguist-generated

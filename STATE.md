@@ -214,17 +214,16 @@ Detalhes em `apps/bot-service/README.md`.
 
 ### Livre para fazer agora
 
-- **Página pública de Trade Bots**, listando steamID64 (defesa contra bot
-  falso). É a única coisa aqui que fecha uma promessa **já feita em
-  público**: a descrição do grupo da Steam aponta para
-  `nextskins.gg/bots`, e enquanto a página não existir o link quebra
-  exatamente na hora em que o usuário desconfiado vai conferir. Decisão
-  já tomada: HTML servido pelo backend, sem depender do frontend, com a
-  paleta do `theme.css`. Precisa junto: `retiredAt` e URL personalizada
-  no `Bot`.
-- **CI.** Ficou simples agora que o banco de teste se cria sozinho: um
-  workflow que roda typecheck, lint, test e build a cada push.
-- **`.gitattributes`** — o git avisa sobre LF/CRLF em todo commit.
+- **Página pública de Trade Bots** — só depois que **todos** os bots
+  estiverem cadastrados (decisão de 17/08). Fazer antes significaria
+  publicar uma lista incompleta, e conta nossa que não aparece na lista
+  é indistinguível de conta falsa: a página estaria acusando de falso
+  justamente o que ela existe para autenticar.
+  Enquanto isso, a âncora é a lista de steamID64 na descrição do grupo,
+  que precisa ser atualizada a cada bot criado.
+  Decisões já tomadas: HTML servido pelo backend, sem depender do
+  frontend, com a paleta do `theme.css`. Precisa junto: `retiredAt` e URL
+  personalizada no `Bot`.
 - **Paralelizar os testes** (um banco por worker). São 393 testes em
   série; agora é velocidade, não integridade.
 - **Trocar a descrição do grupo da Steam quando o site subir.** Hoje ela

@@ -1,0 +1,84 @@
+name: CI
+
+# Roda em toda branch, não só na principal: o valor está em descobrir a
+# quebra antes de ela virar merge, não depois.
+on:
+  push:
+  pull_request:
+
+jobs:
+  verificar:
+    name: typecheck, lint, testes e build
+    runs-on: ubuntu-latest
+
+    # Descartáveis, criados do zero a cada execução — é o que faz o CI
+    # pegar o que a máquina de desenvolvimento esconde: migration não
+    # commitada, dependência instalada só localmente, dado que "sempre
+    # esteve lá".
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          # O nome importa: a suíte deriva o banco de teste deste,
+          # acrescentando "_test", e precisa se conectar a este para
+          # criar aquele.
+          POSTGRES_DB: skin_marketplace
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/skin_marketplace
+      REDIS_URL: redis://localhost:6379
+      # Só precisa passar na validação de formato: nada aqui assina
+      # sessão de verdade nem é usado fora deste job.
+      JWT_SECRET: ci-secret-sem-valor-real-apenas-para-passar-na-validacao
+      CORS_ORIGIN: http://localhost:5173
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # --frozen-lockfile: se o lockfile não bater com os package.json, a
+      # execução falha em vez de resolver versões diferentes das suas.
+      - run: pnpm install --frozen-lockfile
+
+      # O preinstall do Prisma apaga o client gerado — ver CLAUDE.md.
+      - run: pnpm --filter backend exec prisma generate
+
+      - run: pnpm typecheck
+
+      # `--no-fix` porque em CI o lint deve reprovar, não corrigir: um
+      # arquivo corrigido aqui não volta para o seu computador.
+      - run: pnpm --filter backend exec eslint "{src,test}/**/*.ts" --no-fix
+
+      # O globalSetup cria skin_marketplace_test, aplica as migrations e
+      # roda o seed. Nada além disso precisa ser preparado aqui.
+      - run: pnpm test
+
+      - run: pnpm build
