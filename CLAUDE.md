@@ -143,11 +143,14 @@ Bots é o bot de origem enviando. Detalhes em
 
 ### Código
 
-- Comentários e mensagens ao usuário em **português**.
+- **Tudo em inglês: identificadores, comentários, descrições de teste,
+  mensagens ao usuário e documentação.** Sem exceção e sem mistura.
+  O vocabulário do domínio já é inglês (`marketHashName`, `trade lock`,
+  `float`, `paint seed`), e meio a meio obrigava a traduzir mentalmente a
+  cada linha. Decidido em 17/08/2026; até então a convenção era o
+  contrário, e o código foi migrado.
 - Comentário explica **por que**, não o que o código faz.
 - Mensagem de erro diz **o que fazer**, não só o que falhou.
-- Nomes de domínio em português quando forem conceito de negócio
-  (`registrarRecusa`, `motivoBloqueio`); nomes de framework em inglês.
 
 ### "Trade Bot", nunca só "Bot"
 

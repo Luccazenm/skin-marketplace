@@ -346,7 +346,7 @@ describe('SteamInventoryService', () => {
       if (r.status !== 'ok') return;
 
       expect(r.items[0].depositable).toBe(false);
-      expect(r.items[0].blockReason).toBe('permanente');
+      expect(r.items[0].blockReason).toBe('permanent');
     });
 
     // A Steam não distingue trade lock de bloqueio definitivo, então o
@@ -361,7 +361,7 @@ describe('SteamInventoryService', () => {
       const r = await service.fetchInventory(STEAM_ID);
       if (r.status !== 'ok') return;
 
-      expect(r.items[0].blockReason).toBe('indisponivel');
+      expect(r.items[0].blockReason).toBe('unavailable');
     });
   });
 

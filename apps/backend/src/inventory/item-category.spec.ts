@@ -1,57 +1,55 @@
 import { ItemCategory } from '@prisma/client';
 import {
-  aceitaAdesivo,
-  categoriaDe,
-  motivoBloqueio,
-  nuncaNegociavel,
-  temPadraoUnico,
+  acceptsSticker,
+  blockReason,
+  categoryOf,
+  hasUniquePattern,
+  neverTradable,
 } from './item-category';
 
-describe('categoriaDe', () => {
-  it('mapeia os tipos vistos num inventário real', () => {
-    expect(categoriaDe('CSGO_Type_Rifle')).toBe(ItemCategory.RIFLE);
-    expect(categoriaDe('CSGO_Type_Pistol')).toBe(ItemCategory.PISTOL);
-    expect(categoriaDe('CSGO_Type_SMG')).toBe(ItemCategory.SMG);
-    expect(categoriaDe('CSGO_Type_SniperRifle')).toBe(
-      ItemCategory.SNIPER_RIFLE,
-    );
-    expect(categoriaDe('CSGO_Type_Knife')).toBe(ItemCategory.KNIFE);
-    expect(categoriaDe('CSGO_Type_WeaponCase')).toBe(ItemCategory.CONTAINER);
-    expect(categoriaDe('CSGO_Tool_Sticker')).toBe(ItemCategory.STICKER);
-    expect(categoriaDe('CSGO_Type_Spray')).toBe(ItemCategory.GRAFFITI);
-    expect(categoriaDe('CSGO_Type_MusicKit')).toBe(ItemCategory.MUSIC_KIT);
-    expect(categoriaDe('CSGO_Type_Collectible')).toBe(ItemCategory.COLLECTIBLE);
+describe('categoryOf', () => {
+  it('maps the types that have float and paint seed', () => {
+    expect(categoryOf('CSGO_Type_Rifle')).toBe(ItemCategory.RIFLE);
+    expect(categoryOf('CSGO_Type_Knife')).toBe(ItemCategory.KNIFE);
+    expect(categoryOf('CSGO_Type_SniperRifle')).toBe(ItemCategory.SNIPER_RIFLE);
   });
 
-  // A Valve não segue o próprio padrão nas luvas: é Type_Hands, sem o
-  // prefixo CSGO_. Qualquer mapeamento por prefixo erraria justo nelas,
-  // que estão entre os itens mais caros do jogo.
-  it('reconhece luvas apesar do prefixo diferente', () => {
-    expect(categoriaDe('Type_Hands')).toBe(ItemCategory.GLOVES);
-    expect(temPadraoUnico(categoriaDe('Type_Hands'))).toBe(true);
+  it('maps the types without a pattern of their own', () => {
+    expect(categoryOf('CSGO_Tool_Sticker')).toBe(ItemCategory.STICKER);
+    expect(categoryOf('CSGO_Type_WeaponCase')).toBe(ItemCategory.CONTAINER);
+    expect(categoryOf('Type_CustomPlayer')).toBe(ItemCategory.AGENT);
   });
 
-  it('cai em OTHER para tipo desconhecido ou ausente', () => {
-    expect(categoriaDe('CSGO_Type_CoisaNova')).toBe(ItemCategory.OTHER);
-    expect(categoriaDe(null)).toBe(ItemCategory.OTHER);
+  // Valve's own inconsistency: gloves skip the `CSGO_Type_` prefix that
+  // everything else uses. Any mapping that infers from the prefix breaks
+  // exactly on gloves — which are among the most expensive items in the
+  // game.
+  it('recognises gloves despite the different prefix', () => {
+    expect(categoryOf('Type_Hands')).toBe(ItemCategory.GLOVES);
+    expect(hasUniquePattern(categoryOf('Type_Hands'))).toBe(true);
   });
 
-  // Nome traduzido nunca deve ser aceito: se alguém trocar l=english, a
-  // classificação inteira quebraria em silêncio.
-  it('não aceita o rótulo traduzido', () => {
-    expect(categoriaDe('Rifle')).toBe(ItemCategory.OTHER);
-    expect(categoriaDe('Fuzil')).toBe(ItemCategory.OTHER);
+  it('falls back to OTHER for unknown or missing type', () => {
+    expect(categoryOf('CSGO_Type_SomethingNew')).toBe(ItemCategory.OTHER);
+    expect(categoryOf(null)).toBe(ItemCategory.OTHER);
+  });
+
+  // The localized name must never be accepted: if someone changes
+  // l=english, the whole classification would break silently.
+  it('does not accept the localized label', () => {
+    expect(categoryOf('Rifle')).toBe(ItemCategory.OTHER);
+    expect(categoryOf('Fuzil')).toBe(ItemCategory.OTHER);
   });
 });
 
 /**
- * Era coluna no catálogo (`hasStickerSlots`) e nunca foi preenchida:
- * ficou `false` nos 33.950 itens, inclusive em toda arma. Virou função
- * porque a informação já estava na categoria — coluna que duplica outra
- * é coluna que diverge.
+ * This used to be a catalog column (`hasStickerSlots`) and was never
+ * populated: it read `false` for all 33,950 items, including every
+ * weapon. It became a function because the information was already in the
+ * category — a column duplicating another is a column that diverges.
  */
-describe('aceitaAdesivo', () => {
-  it('vale para armas', () => {
+describe('acceptsSticker', () => {
+  it('holds for weapons', () => {
     for (const c of [
       ItemCategory.RIFLE,
       ItemCategory.PISTOL,
@@ -60,22 +58,22 @@ describe('aceitaAdesivo', () => {
       ItemCategory.SHOTGUN,
       ItemCategory.MACHINEGUN,
     ]) {
-      expect(aceitaAdesivo(c)).toBe(true);
+      expect(acceptsSticker(c)).toBe(true);
     }
   });
 
-  // Zeus é família própria da Valve, mas aceita adesivo como qualquer
-  // arma. Confirmado com quem opera.
-  it('vale para o Zeus', () => {
-    expect(aceitaAdesivo(ItemCategory.EQUIPMENT)).toBe(true);
+  // Zeus is its own Valve family but takes stickers like any weapon.
+  // Confirmed with the operator.
+  it('holds for the Zeus', () => {
+    expect(acceptsSticker(ItemCategory.EQUIPMENT)).toBe(true);
   });
 
-  // Têm float, mas não têm slot. É o que separa esta função de
-  // temPadraoUnico — e o motivo de não dar para derivar uma da outra.
-  it('não vale para faca e luva, apesar de terem padrão', () => {
-    expect(aceitaAdesivo(ItemCategory.KNIFE)).toBe(false);
-    expect(aceitaAdesivo(ItemCategory.GLOVES)).toBe(false);
-    expect(temPadraoUnico(ItemCategory.KNIFE)).toBe(true);
+  // They have a float but no slots. That is what separates this function
+  // from hasUniquePattern — and why neither can be derived from the other.
+  it('does not hold for knives and gloves, despite their pattern', () => {
+    expect(acceptsSticker(ItemCategory.KNIFE)).toBe(false);
+    expect(acceptsSticker(ItemCategory.GLOVES)).toBe(false);
+    expect(hasUniquePattern(ItemCategory.KNIFE)).toBe(true);
   });
 
   it.each([
@@ -84,13 +82,13 @@ describe('aceitaAdesivo', () => {
     ItemCategory.AGENT,
     ItemCategory.CHARM,
     ItemCategory.OTHER,
-  ])('não vale para %s', (c) => {
-    expect(aceitaAdesivo(c)).toBe(false);
+  ])('does not hold for %s', (c) => {
+    expect(acceptsSticker(c)).toBe(false);
   });
 });
 
-describe('temPadraoUnico', () => {
-  it('vale para o que tem float e paint seed', () => {
+describe('hasUniquePattern', () => {
+  it('holds for what has float and paint seed', () => {
     for (const c of [
       ItemCategory.RIFLE,
       ItemCategory.PISTOL,
@@ -101,11 +99,11 @@ describe('temPadraoUnico', () => {
       ItemCategory.KNIFE,
       ItemCategory.GLOVES,
     ]) {
-      expect(temPadraoUnico(c)).toBe(true);
+      expect(hasUniquePattern(c)).toBe(true);
     }
   });
 
-  it('não vale para itens fungíveis', () => {
+  it('does not hold for fungible items', () => {
     for (const c of [
       ItemCategory.CONTAINER,
       ItemCategory.STICKER,
@@ -114,33 +112,33 @@ describe('temPadraoUnico', () => {
       ItemCategory.MUSIC_KIT,
       ItemCategory.COLLECTIBLE,
     ]) {
-      expect(temPadraoUnico(c)).toBe(false);
+      expect(hasUniquePattern(c)).toBe(false);
     }
   });
 });
 
-describe('motivoBloqueio', () => {
-  it('não bloqueia item negociável', () => {
-    expect(motivoBloqueio(ItemCategory.RIFLE, true)).toBeNull();
+describe('blockReason', () => {
+  it('does not block a tradable item', () => {
+    expect(blockReason(ItemCategory.RIFLE, true)).toBeNull();
   });
 
-  it('marca como permanente o que nunca poderá ser negociado', () => {
-    expect(motivoBloqueio(ItemCategory.COLLECTIBLE, false)).toBe('permanente');
-    expect(motivoBloqueio(ItemCategory.PASS, false)).toBe('permanente');
+  it('marks as permanent what can never be traded', () => {
+    expect(blockReason(ItemCategory.COLLECTIBLE, false)).toBe('permanent');
+    expect(blockReason(ItemCategory.PASS, false)).toBe('permanent');
   });
 
-  // A Steam entrega medalha e skin em trade lock exatamente iguais:
-  // tradable=0, market_tradable_restriction=7, sem data de liberação.
-  // Dizer "volta em 7 dias" seria chute, e há itens gratuitos que ficam
-  // bloqueados para sempre — o usuário esperaria por nada.
-  it('usa rótulo vago quando não dá para saber se é temporário', () => {
-    expect(motivoBloqueio(ItemCategory.RIFLE, false)).toBe('indisponivel');
-    expect(motivoBloqueio(ItemCategory.MUSIC_KIT, false)).toBe('indisponivel');
+  // Steam returns a medal and a trade-locked skin identically:
+  // tradable=0, market_tradable_restriction=7, no release date. Saying
+  // "back in 7 days" would be a guess, and there are free items locked
+  // forever — the user would wait for nothing.
+  it('uses the vague label when we cannot tell if it is temporary', () => {
+    expect(blockReason(ItemCategory.RIFLE, false)).toBe('unavailable');
+    expect(blockReason(ItemCategory.MUSIC_KIT, false)).toBe('unavailable');
   });
 
-  it('medalha continua permanente mesmo se a Steam disser negociável', () => {
-    // Não deveria acontecer, mas se acontecer preferimos não prometer
-    // depósito de algo que a Steam vai recusar depois.
-    expect(nuncaNegociavel(ItemCategory.COLLECTIBLE)).toBe(true);
+  it('keeps a medal permanent even if Steam says tradable', () => {
+    // Should not happen, but if it does we would rather not promise a
+    // deposit Steam will refuse later.
+    expect(neverTradable(ItemCategory.COLLECTIBLE)).toBe(true);
   });
 });

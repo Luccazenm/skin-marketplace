@@ -1,17 +1,18 @@
 import { ItemCategory } from '@prisma/client';
 
 /**
- * Traduz a tag `Type` da Steam para a nossa categoria.
+ * Translates Steam's `Type` tag into our category.
  *
- * Usamos `internal_name` e NUNCA o nome localizado: "Rifle" vira "Fuzil"
- * se o idioma da requisição mudar, enquanto `CSGO_Type_Rifle` é estável.
+ * We use `internal_name` and NEVER the localized name: "Rifle" becomes
+ * "Fuzil" if the request language changes, while `CSGO_Type_Rifle` is
+ * stable.
  *
- * Repare em `Type_Hands`: as luvas não seguem o prefixo `CSGO_Type_` que
- * todo o resto usa. É inconsistência da própria Valve, e qualquer
- * mapeamento que tente deduzir pelo prefixo erra justamente nelas.
+ * Note `Type_Hands`: gloves do not follow the `CSGO_Type_` prefix that
+ * everything else uses. That is Valve's own inconsistency, and any
+ * mapping that tries to infer from the prefix breaks precisely on them.
  */
-const POR_INTERNAL_NAME: Record<string, ItemCategory> = {
-  // --- têm float e paint seed ---
+const BY_INTERNAL_NAME: Record<string, ItemCategory> = {
+  // --- have float and paint seed ---
   CSGO_Type_Rifle: ItemCategory.RIFLE,
   CSGO_Type_Pistol: ItemCategory.PISTOL,
   CSGO_Type_SMG: ItemCategory.SMG,
@@ -20,12 +21,12 @@ const POR_INTERNAL_NAME: Record<string, ItemCategory> = {
   CSGO_Type_Machinegun: ItemCategory.MACHINEGUN,
   CSGO_Type_Knife: ItemCategory.KNIFE,
   Type_Hands: ItemCategory.GLOVES,
-  // Zeus x27. Tem skin e float, mas a Valve o põe numa família própria.
+  // Zeus x27. Has a skin and a float, but Valve puts it in its own family.
   CSGO_Type_Equipment: ItemCategory.EQUIPMENT,
 
-  // --- sem padrão próprio ---
-  // Nem todos são fungíveis: agente aceita patch e deixa de ser
-  // intercambiável assim que recebe um.
+  // --- no pattern of their own ---
+  // Not all are fungible: an agent takes patches and stops being
+  // interchangeable the moment it receives one.
   CSGO_Tool_Sticker: ItemCategory.STICKER,
   CSGO_Type_WeaponCase: ItemCategory.CONTAINER,
   CSGO_Tool_WeaponCase_KeyTag: ItemCategory.KEY,
@@ -36,26 +37,26 @@ const POR_INTERNAL_NAME: Record<string, ItemCategory> = {
   CSGO_Tool_Keychain: ItemCategory.CHARM,
   CSGO_Tool_Name_TagTag: ItemCategory.TOOL,
 
-  // --- normalmente intransferíveis ---
+  // --- normally non-transferable ---
   CSGO_Type_Collectible: ItemCategory.COLLECTIBLE,
   CSGO_Type_Ticket: ItemCategory.PASS,
 };
 
 /**
- * Categorias com float e paint seed próprios. São as únicas em que
- * Item.float e companhia fazem sentido.
+ * Categories with their own float and paint seed. These are the only ones
+ * where `Item.float` and friends make sense.
  *
- * ATENÇÃO: isto NÃO é o mesmo que "categorias em que os exemplares se
- * diferenciam". Um agente pode receber até 3 patches, e patch aplicado
- * não volta para o inventário — só pode ser destruído. Então um agente
- * com patches é permanentemente distinto de um agente limpo, mesmo sem
- * ter float algum. O mesmo vale para chaveiro preso a uma arma.
+ * CAREFUL: this is NOT the same as "categories whose units differ from one
+ * another". An agent can hold up to 3 patches, and an applied patch never
+ * returns to the inventory — it can only be destroyed. So an agent with
+ * patches is permanently distinct from a clean one, despite having no
+ * float at all. The same goes for a charm attached to a weapon.
  *
- * A segunda fonte de unicidade são as aplicações (sticker, patch,
- * chaveiro), hoje modeladas de forma parcial em ItemSticker — que só
- * cobre sticker de arma. Ver docs/pendencias.md.
+ * The second source of uniqueness is the applied items (sticker, patch,
+ * charm), today partially modelled in ItemSticker — which only covers
+ * weapon stickers. See docs/pendencias.md.
  */
-const COM_PADRAO_UNICO = new Set<ItemCategory>([
+const WITH_UNIQUE_PATTERN = new Set<ItemCategory>([
   ItemCategory.RIFLE,
   ItemCategory.PISTOL,
   ItemCategory.SMG,
@@ -64,28 +65,28 @@ const COM_PADRAO_UNICO = new Set<ItemCategory>([
   ItemCategory.MACHINEGUN,
   ItemCategory.KNIFE,
   ItemCategory.GLOVES,
-  // "Zeus x27 | Olympus (Factory New)" tem exterior no nome como
-  // qualquer skin — logo, tem float.
+  // "Zeus x27 | Olympus (Factory New)" carries an exterior in its name
+  // like any skin — therefore it has a float.
   ItemCategory.EQUIPMENT,
 ]);
 
 /**
- * Categorias que aceitam adesivo.
+ * Categories that accept stickers.
  *
- * É função, e não coluna no catálogo, porque a informação já está na
- * categoria — coluna que duplica outra é coluna que diverge, e essa
- * nasceu errada: ficou `false` para 33.950 itens, inclusive para toda
- * arma.
+ * A function, not a catalog column, because the information already lives
+ * in the category — a column duplicating another is a column that
+ * diverges, and this one was born wrong: it read `false` for all 33,950
+ * items, including every weapon.
  *
- * Note que isto é do MODELO ("esta arma aceita adesivo?"), não do
- * exemplar. Quais adesivos estão aplicados, e com que raspagem, é do
- * `Item` — o catálogo guarda a skin limpa, e o preço de um exemplar
- * adesivado é a skin base mais cada adesivo, exibidos em separado.
+ * Note this describes the MODEL ("does this weapon accept stickers?"),
+ * not the unit. Which stickers are applied, and how scraped, belongs to
+ * `Item` — the catalog holds the clean skin, and the price of a stickered
+ * unit is the base skin plus each sticker, shown separately.
  *
- * Faca e luva não têm slot. O Zeus x27 tem, apesar de ser família
- * própria da Valve — confirmado com quem opera.
+ * Knives and gloves have no slots. Zeus x27 does, despite being its own
+ * Valve family — confirmed with the operator.
  */
-const ACEITA_ADESIVO = new Set<ItemCategory>([
+const ACCEPTS_STICKER = new Set<ItemCategory>([
   ItemCategory.RIFLE,
   ItemCategory.PISTOL,
   ItemCategory.SMG,
@@ -96,62 +97,56 @@ const ACEITA_ADESIVO = new Set<ItemCategory>([
 ]);
 
 /**
- * Categorias que a Steam nunca deixa trocar. Serve para explicar ao
- * usuário que o bloqueio é definitivo, e não uma espera.
+ * Categories Steam never allows trading. Used to tell the user the block
+ * is permanent rather than a wait.
  */
-const NUNCA_NEGOCIAVEL = new Set<ItemCategory>([
+const NEVER_TRADABLE = new Set<ItemCategory>([
   ItemCategory.COLLECTIBLE,
   ItemCategory.PASS,
 ]);
 
-export function categoriaDe(internalName: string | null): ItemCategory {
+export function categoryOf(internalName: string | null): ItemCategory {
   if (!internalName) {
     return ItemCategory.OTHER;
   }
 
-  return POR_INTERNAL_NAME[internalName] ?? ItemCategory.OTHER;
+  return BY_INTERNAL_NAME[internalName] ?? ItemCategory.OTHER;
 }
 
-export function temPadraoUnico(categoria: ItemCategory): boolean {
-  return COM_PADRAO_UNICO.has(categoria);
+export function hasUniquePattern(category: ItemCategory): boolean {
+  return WITH_UNIQUE_PATTERN.has(category);
 }
 
-export function nuncaNegociavel(categoria: ItemCategory): boolean {
-  return NUNCA_NEGOCIAVEL.has(categoria);
+export function neverTradable(category: ItemCategory): boolean {
+  return NEVER_TRADABLE.has(category);
 }
 
-export function aceitaAdesivo(categoria: ItemCategory): boolean {
-  return ACEITA_ADESIVO.has(categoria);
+export function acceptsSticker(category: ItemCategory): boolean {
+  return ACCEPTS_STICKER.has(category);
 }
 
-export type MotivoBloqueio = 'permanente' | 'indisponivel';
+export type BlockReason = 'permanent' | 'unavailable';
 
 /**
- * Por que este item não pode ser depositado agora — ou null se pode.
+ * Why this item cannot be deposited right now — or null if it can.
  *
- * Aqui há um limite dos dados que a Steam entrega, e ele é importante:
- * ela NÃO diferencia bloqueio definitivo de trade lock temporário. Uma
- * medalha e uma skin recém-recebida chegam idênticas, ambas com
- * `tradable: 0` e `market_tradable_restriction: 7`, sem data de
- * liberação em lugar nenhum.
+ * There is a limit in the data Steam gives us, and it matters: Steam does
+ * NOT distinguish a permanent block from a temporary trade lock. A medal
+ * and a freshly received skin arrive identical, both with `tradable: 0`
+ * and `market_tradable_restriction: 7`, with no release date anywhere.
  *
- * Por categoria só dá para ter certeza de um lado: medalha e passe nunca
- * serão negociáveis. Para o resto seria chute — e chutar "volta em 7
- * dias" é pior que não dizer nada, porque existem itens gratuitos (music
- * kit da Valve, por exemplo) que ficam bloqueados para sempre e o usuário
- * esperaria por uma liberação que nunca vem.
- *
- * Então 'indisponivel' é deliberadamente vago: cobre os dois casos sem
- * prometer prazo. A data real do trade lock só aparece quando o item
- * entra em custódia e lemos Item.tradeLockUntil.
+ * So we only promise what we can prove: category tells us what is
+ * permanently non-tradable; everything else gets the vague label, because
+ * promising a deadline we cannot compute is worse than admitting we do
+ * not know.
  */
-export function motivoBloqueio(
-  categoria: ItemCategory,
+export function blockReason(
+  category: ItemCategory,
   tradable: boolean,
-): MotivoBloqueio | null {
-  if (tradable) {
-    return null;
+): BlockReason | null {
+  if (neverTradable(category)) {
+    return 'permanent';
   }
 
-  return nuncaNegociavel(categoria) ? 'permanente' : 'indisponivel';
+  return tradable ? null : 'unavailable';
 }

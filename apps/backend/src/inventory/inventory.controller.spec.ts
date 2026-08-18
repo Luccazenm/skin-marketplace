@@ -36,7 +36,7 @@ describe('InventoryController', () => {
     tradable: depositable,
     marketable: true,
     depositable,
-    blockReason: depositable ? null : 'permanente',
+    blockReason: depositable ? null : 'permanent',
     hasUniquePattern: depositable,
     applied: [],
     rarity: null,

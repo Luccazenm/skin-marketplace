@@ -1,99 +1,95 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ItemCategory } from '@prisma/client';
+import { extractApplied, withScrape, type AppliedItem } from './applied-items';
 import {
-  comRaspagem,
-  extrairAplicados,
-  type AppliedItem,
-} from './applied-items';
-import {
-  categoriaDe,
-  motivoBloqueio,
-  nuncaNegociavel,
-  temPadraoUnico,
-  type MotivoBloqueio,
+  blockReason,
+  categoryOf,
+  hasUniquePattern,
+  neverTradable,
+  type BlockReason,
 } from './item-category';
 
-/** Um item do inventário, já com asset e descrição combinados. */
+/** An inventory item, with asset and description already merged. */
 export interface InventoryItem {
   assetId: string;
   classId: string;
   instanceId: string;
   marketHashName: string;
   iconUrl: string | null;
-  /** Categoria derivada da tag Type — não do nome do item. */
+  /** Category derived from the Type tag — not from the item name. */
   category: ItemCategory;
-  /** Negociável agora, segundo a Steam. */
+  /** Tradable right now, according to Steam. */
   tradable: boolean;
   marketable: boolean;
-  /** Pode ser depositado aqui: negociável e não bloqueado para sempre. */
+  /** Can be deposited here: tradable and not permanently blocked. */
   depositable: boolean;
   /**
-   * Por que não pode ser depositado. 'permanente' para medalhas e afins,
-   * 'trade_lock' para item que só está esperando os 7 dias da Valve.
+   * Why it cannot be deposited. 'permanent' for medals and the like,
+   * 'unavailable' for an item merely waiting out Valve's 7 days.
    */
-  blockReason: MotivoBloqueio | null;
-  /** Tem float e paint seed próprios (arma, faca, luva). */
+  blockReason: BlockReason | null;
+  /** Has its own float and paint seed (weapon, knife, gloves). */
   hasUniquePattern: boolean;
   /**
-   * Stickers, patches e chaveiros aplicados.
+   * Stickers, patches and charms applied.
    *
-   * Diferencia exemplares tanto quanto o float — e às vezes mais: uma AK
-   * com quatro Katowice 2014 vale ordens de grandeza acima do preço da
-   * skin limpa. Também é o que torna um agente com patches distinto de um
-   * agente comum, apesar de agente não ter float.
+   * Distinguishes units as much as the float does — sometimes more: an AK
+   * with four Katowice 2014 stickers is worth orders of magnitude above
+   * the clean skin. It is also what makes a patched agent distinct from a
+   * plain one, despite agents having no float.
    */
   applied: AppliedItem[];
-  /** Rótulos traduzidos, só para exibição. */
+  /** Localized labels, for display only. */
   rarity: string | null;
   exterior: string | null;
   typeLabel: string | null;
   /**
-   * Desgaste real, de 0 a 1. `null` em item que não tem padrão próprio
-   * (caixa, cápsula, agente) ou quando a Steam não mandou.
+   * Real wear, from 0 to 1. `null` for items without a pattern of their
+   * own (case, capsule, agent) or when Steam did not send it.
    *
-   * Vem do próprio inventário, não do inspect link: a Valve passou a
-   * entregar em `asset_properties`. É o que dispensa manter conta de
-   * inspeção conectada ao jogo.
+   * Comes from the inventory itself, not from the inspect link: Valve
+   * started delivering it in `asset_properties`. That is what removes the
+   * need for an inspect account connected to the game.
    */
   float: number | null;
-  /** Semente do padrão. Define fase de Doppler, azul de Case Hardened. */
+  /** Pattern seed. Defines Doppler phase, Case Hardened blue. */
   paintSeed: number | null;
   /**
-   * Link de inspeção com os placeholders já resolvidos, para abrir no
-   * jogo. Não precisamos mais dele para obter float e padrão.
+   * Inspect link with placeholders already resolved, to open in game. We
+   * no longer need it to obtain float and pattern.
    */
   inspectLink: string | null;
 }
 
 export type InventoryResult =
   | { status: 'ok'; items: InventoryItem[] }
-  /** Inventário privado ou perfil restrito. */
+  /** Private inventory or restricted profile. */
   | { status: 'private' }
-  /** Estouro do limite por IP. Ver comentário na classe. */
+  /** Per-IP limit exceeded. See the class comment. */
   | { status: 'rate_limited' }
   | { status: 'error'; message: string };
 
 /**
- * Lê o inventário de CS2 de um usuário.
+ * Reads a user's CS2 inventory.
  *
- * ATENÇÃO — limite por IP:
- * Este endpoint é público e não usa API key. A Steam limita por endereço
- * IP, e o IP aqui é o do NOSSO servidor: um usuário insistindo em
- * recarregar pode fazer a Steam bloquear todos os outros por horas.
+ * CAREFUL — per-IP limit:
+ * This endpoint is public and uses no API key. Steam limits by IP
+ * address, and the IP here is OUR server's: one user hammering refresh
+ * can get Steam to block everyone else for hours.
  *
- * Este serviço faz a chamada crua e nada mais. Cache e controle de
- * frequência entram na camada acima — chamar isto direto em um handler de
- * requisição é pedir para tomar 429.
+ * This service makes the raw call and nothing else. Caching and rate
+ * control live in the layer above — calling this directly from a request
+ * handler is asking for a 429.
  */
 @Injectable()
 export class SteamInventoryService {
-  /** 730 = CS2. Contexto 2 é onde ficam os itens negociáveis. */
+  /** 730 = CS2. Context 2 is where tradable items live. */
   private static readonly APP_ID = 730;
   private static readonly CONTEXT_ID = 2;
 
   /**
-   * A comunidade convergiu para 2000 como teto seguro; acima disso o
-   * bloqueio vem mais rápido. Inventário maior exige paginação.
+   * The community settled on 2000 as a safe ceiling; above that the block
+   * comes faster. Bigger inventories require pagination.
    */
   private static readonly COUNT = 2000;
 
@@ -105,110 +101,108 @@ export class SteamInventoryService {
       `/${SteamInventoryService.APP_ID}/${SteamInventoryService.CONTEXT_ID}` +
       `?l=english&count=${SteamInventoryService.COUNT}`;
 
-    let resposta: Response;
+    let response: Response;
 
     try {
-      resposta = await fetch(url, {
+      response = await fetch(url, {
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(15_000),
       });
-    } catch (erro) {
-      this.logger.warn(`Falha de rede ao ler inventário: ${String(erro)}`);
-      return { status: 'error', message: 'Steam não respondeu a tempo' };
+    } catch (error) {
+      this.logger.warn(`Network failure reading inventory: ${String(error)}`);
+      return { status: 'error', message: 'Steam did not respond in time' };
     }
 
-    if (resposta.status === 429) {
-      // Não é erro do usuário: é o nosso IP que estourou a cota.
-      this.logger.error(
-        'Steam retornou 429 — limite de inventário por IP atingido',
-      );
+    if (response.status === 429) {
+      // Not the user's fault: it is our IP that blew the quota.
+      this.logger.error('Steam returned 429 — per-IP inventory limit reached');
       return { status: 'rate_limited' };
     }
 
-    // Perfil ou inventário privado devolve 403. A Steam também usa 401
-    // quando o perfil está restrito de outras formas.
-    if (resposta.status === 403 || resposta.status === 401) {
+    // A private profile or inventory returns 403. Steam also uses 401
+    // when the profile is restricted in other ways.
+    if (response.status === 403 || response.status === 401) {
       return { status: 'private' };
     }
 
-    if (!resposta.ok) {
-      this.logger.warn(`Steam respondeu ${resposta.status} no inventário`);
+    if (!response.ok) {
+      this.logger.warn(`Steam returned ${response.status} for the inventory`);
       return {
         status: 'error',
-        message: `Steam respondeu ${resposta.status}`,
+        message: `Steam returned ${response.status}`,
       };
     }
 
-    const corpo = (await resposta.json()) as SteamInventoryResponse | null;
+    const body = (await response.json()) as SteamInventoryResponse | null;
 
-    // Inventário vazio devolve success sem os arrays — não é erro.
-    if (!corpo?.assets || !corpo.descriptions) {
+    // An empty inventory returns success without the arrays — not an error.
+    if (!body?.assets || !body.descriptions) {
       return { status: 'ok', items: [] };
     }
 
     return {
       status: 'ok',
-      items: this.combinar(
-        corpo.assets,
-        corpo.descriptions,
-        corpo.asset_properties ?? [],
+      items: this.merge(
+        body.assets,
+        body.descriptions,
+        body.asset_properties ?? [],
         steamId,
       ),
     };
   }
 
   /**
-   * A Steam devolve duas listas separadas: `assets` são as instâncias que a
-   * pessoa possui, `descriptions` são os metadados compartilhados. Vários
-   * assets apontam para a mesma description — é assim que 50 caixas iguais
-   * não repetem 50 vezes nome, imagem e tags.
+   * Steam returns two separate lists: `assets` are the units the person
+   * owns, `descriptions` are the shared metadata. Several assets point at
+   * the same description — that is how 50 identical cases avoid repeating
+   * name, image and tags 50 times.
    *
-   * A ligação é feita por classid + instanceid.
+   * The link is made by classid + instanceid.
    */
-  private combinar(
+  private merge(
     assets: SteamAsset[],
     descriptions: SteamDescription[],
-    propriedades: SteamAssetProperties[],
+    properties: SteamAssetProperties[],
     steamId: string,
   ): InventoryItem[] {
-    const porChave = new Map<string, SteamDescription>();
+    const byKey = new Map<string, SteamDescription>();
 
     for (const d of descriptions) {
-      porChave.set(`${d.classid}_${d.instanceid ?? '0'}`, d);
+      byKey.set(`${d.classid}_${d.instanceid ?? '0'}`, d);
     }
 
-    // Estas vêm por assetid, não por classid: são do exemplar, não do
-    // modelo. Dois itens da mesma skin têm floats diferentes.
-    const porAsset = new Map<string, SteamAssetProperties>();
+    // These come keyed by assetid, not classid: they belong to the unit,
+    // not the model. Two items of the same skin have different floats.
+    const byAsset = new Map<string, SteamAssetProperties>();
 
-    for (const p of propriedades) {
-      porAsset.set(p.assetid, p);
+    for (const p of properties) {
+      byAsset.set(p.assetid, p);
     }
 
-    const itens: InventoryItem[] = [];
+    const items: InventoryItem[] = [];
 
     for (const asset of assets) {
-      const desc = porChave.get(`${asset.classid}_${asset.instanceid ?? '0'}`);
+      const desc = byKey.get(`${asset.classid}_${asset.instanceid ?? '0'}`);
 
-      // Sem descrição não há como identificar a skin; ignorar é melhor do
-      // que devolver um item pela metade.
+      // Without a description there is no way to identify the skin;
+      // skipping is better than returning half an item.
       if (!desc) {
         continue;
       }
 
-      const tipoInterno = this.tagInterna(desc, 'Type');
-      const category = categoriaDe(tipoInterno);
+      const internalType = this.internalTag(desc, 'Type');
+      const category = categoryOf(internalType);
       const tradable = desc.tradable === 1;
 
-      if (category === ItemCategory.OTHER && tipoInterno) {
-        // Tipo novo da Valve ou algo que passou despercebido. Logamos para
-        // aparecer no mapeamento em vez de sumir silenciosamente.
-        this.logger.warn(`Tipo de item não mapeado: ${tipoInterno}`);
+      if (category === ItemCategory.OTHER && internalType) {
+        // A new Valve type, or something we missed. We log it so it shows
+        // up in the mapping instead of disappearing silently.
+        this.logger.warn(`Unmapped item type: ${internalType}`);
       }
 
-      const props = porAsset.get(asset.assetid);
+      const props = byAsset.get(asset.assetid);
 
-      itens.push({
+      items.push({
         assetId: asset.assetid,
         classId: asset.classid,
         instanceId: asset.instanceid ?? '0',
@@ -219,57 +213,54 @@ export class SteamInventoryService {
         category,
         tradable,
         marketable: desc.marketable === 1,
-        depositable: tradable && !nuncaNegociavel(category),
-        blockReason: motivoBloqueio(category, tradable),
-        hasUniquePattern: temPadraoUnico(category),
-        applied: comRaspagem(
-          extrairAplicados(desc.descriptions),
-          this.raspagens(props),
+        depositable: tradable && !neverTradable(category),
+        blockReason: blockReason(category, tradable),
+        hasUniquePattern: hasUniquePattern(category),
+        applied: withScrape(
+          extractApplied(desc.descriptions),
+          this.scrapeLevels(props),
         ),
-        rarity: this.tagExibicao(desc, 'Rarity'),
-        exterior: this.tagExibicao(desc, 'Exterior'),
-        typeLabel: this.tagExibicao(desc, 'Type'),
-        float: this.propriedadeNumerica(props, PROP.FLOAT),
-        paintSeed: this.propriedadeNumerica(props, PROP.PAINT_SEED),
+        rarity: this.displayTag(desc, 'Rarity'),
+        exterior: this.displayTag(desc, 'Exterior'),
+        typeLabel: this.displayTag(desc, 'Type'),
+        float: this.numericProperty(props, PROP.FLOAT),
+        paintSeed: this.numericProperty(props, PROP.PAINT_SEED),
         inspectLink: this.inspectLink(desc, steamId, asset.assetid),
       });
     }
 
-    return itens;
+    return items;
   }
 
   /**
-   * Valor NÃO traduzido da tag — é o que serve para lógica.
-   * `localized_tag_name` muda com o idioma da requisição; `internal_name`
-   * não. Usar o traduzido faria a classificação quebrar em silêncio se o
-   * parâmetro `l=english` mudasse.
+   * The tag's UNTRANSLATED value — this is what logic should use.
+   * `localized_tag_name` changes with the request language;
+   * `internal_name` does not. Using the translated one would break
+   * classification silently if the `l=english` parameter ever changed.
    */
-  private tagInterna(desc: SteamDescription, categoria: string): string | null {
+  private internalTag(desc: SteamDescription, category: string): string | null {
     return (
-      desc.tags?.find((t) => t.category === categoria)?.internal_name ?? null
+      desc.tags?.find((t) => t.category === category)?.internal_name ?? null
     );
   }
 
-  /** Valor traduzido — só para exibição. */
-  private tagExibicao(
-    desc: SteamDescription,
-    categoria: string,
-  ): string | null {
+  /** Translated value — display only. */
+  private displayTag(desc: SteamDescription, category: string): string | null {
     return (
-      desc.tags?.find((t) => t.category === categoria)?.localized_tag_name ??
+      desc.tags?.find((t) => t.category === category)?.localized_tag_name ??
       null
     );
   }
 
   /**
-   * Lê uma propriedade do exemplar.
+   * Reads a per-unit property.
    *
-   * A Steam manda o número ora em `float_value`, ora em `int_value`, ora
-   * como texto — e sempre como string. Valor que não vira número devolve
-   * `null` em vez de `NaN`: `NaN` atravessaria o sistema em silêncio e
-   * apareceria numa tela de preço.
+   * Steam sends the number sometimes in `float_value`, sometimes in
+   * `int_value`, sometimes as text — and always as a string. A value that
+   * does not become a number returns `null` rather than `NaN`: `NaN` would
+   * travel silently through the system and surface on a price screen.
    */
-  private propriedadeNumerica(
+  private numericProperty(
     props: SteamAssetProperties | undefined,
     propertyId: number,
   ): number | null {
@@ -279,26 +270,26 @@ export class SteamInventoryService {
       return null;
     }
 
-    const bruto = p.float_value ?? p.int_value ?? p.string_value;
-    const n = Number(bruto);
+    const raw = p.float_value ?? p.int_value ?? p.string_value;
+    const n = Number(raw);
 
-    return bruto !== undefined && Number.isFinite(n) ? n : null;
+    return raw !== undefined && Number.isFinite(n) ? n : null;
   }
 
   /**
-   * Raspagem de cada peça aplicada, na ordem em que a Steam devolve.
-   * Confirmado contra inventário real: 0 é intacto.
+   * Scrape level of each applied piece, in the order Steam returns them.
+   * Confirmed against a real inventory: 0 is intact.
    */
-  private raspagens(props: SteamAssetProperties | undefined): number[] {
-    const acessorios = props?.asset_accessories;
+  private scrapeLevels(props: SteamAssetProperties | undefined): number[] {
+    const accessories = props?.asset_accessories;
 
-    if (!acessorios?.length) {
+    if (!accessories?.length) {
       return [];
     }
 
-    return acessorios.map((a) => {
+    return accessories.map((a) => {
       const p = a.parent_relationship_properties?.find(
-        (x) => x.propertyid === PROP.RASPAGEM,
+        (x) => x.propertyid === PROP.SCRAPE,
       );
       const n = Number(p?.float_value);
 
@@ -307,7 +298,7 @@ export class SteamInventoryService {
   }
 
   /**
-   * O link vem com placeholders que a Steam espera que o cliente troque:
+   * The link arrives with placeholders Steam expects the client to swap:
    *   ...+csgo_econ_action_preview S%owner_steamid%A%assetid%D123456
    */
   private inspectLink(
@@ -329,30 +320,31 @@ export class SteamInventoryService {
   }
 }
 
-// ---- Formato cru devolvido pela Steam ----
+// ---- Raw shape returned by Steam ----
 
 /**
- * Identificadores das propriedades por exemplar.
+ * Per-unit property identifiers.
  *
- * São números mágicos da Valve, sem documentação — apurados contra
- * inventário real em 17/08/2026 e conferidos entre dois itens conhecidos.
- * Se a Valve renumerar, os testes quebram; é o comportamento desejado.
+ * These are Valve's magic numbers, undocumented — determined against a
+ * real inventory on 2026-08-17 and cross-checked between two known items.
+ * If Valve renumbers them, the tests break; that is the desired
+ * behaviour.
  */
 const PROP = {
   PAINT_SEED: 1,
   FLOAT: 2,
-  /** Inspect link auto-codificado. Guardado para uso futuro. */
-  CERTIFICADO: 6,
-  /** Raspagem, dentro de parent_relationship_properties do acessório. */
-  RASPAGEM: 4,
+  /** Self-encoded inspect link. Kept for future use. */
+  CERTIFICATE: 6,
+  /** Scrape level, inside the accessory's parent_relationship_properties. */
+  SCRAPE: 4,
 } as const;
 
 interface SteamInventoryResponse {
   assets?: SteamAsset[];
   descriptions?: SteamDescription[];
   /**
-   * Dados do exemplar, por assetid: float, paint seed e as peças
-   * aplicadas com a raspagem de cada uma.
+   * Per-unit data, keyed by assetid: float, paint seed and the applied
+   * pieces with each one's scrape level.
    */
   asset_properties?: SteamAssetProperties[];
   total_inventory_count?: number;
@@ -367,7 +359,7 @@ interface SteamAssetProperties {
     string_value?: string;
     name?: string;
   }>;
-  /** Stickers e patches aplicados, na ordem dos slots. */
+  /** Stickers and patches applied, in slot order. */
   asset_accessories?: Array<{
     classid?: string;
     parent_relationship_properties?: Array<{
@@ -393,14 +385,14 @@ interface SteamDescription {
   marketable?: number;
   tags?: Array<{
     category: string;
-    /** Estável, não traduzido — ex: "CSGO_Type_Rifle". Use para lógica. */
+    /** Stable, untranslated — e.g. "CSGO_Type_Rifle". Use for logic. */
     internal_name?: string;
-    /** Traduzido — ex: "Rifle". Use apenas para exibir. */
+    /** Translated — e.g. "Rifle". Use for display only. */
     localized_tag_name?: string;
   }>;
   /**
-   * Blocos de texto e HTML. É aqui que vêm os stickers, patches e
-   * chaveiros aplicados, embutidos em HTML — ver applied-items.ts.
+   * Blocks of text and HTML. This is where applied stickers, patches and
+   * charms arrive, embedded in HTML — see applied-items.ts.
    */
   descriptions?: Array<{ name?: string; value?: string; type?: string }>;
   actions?: Array<{ link?: string; name?: string }>;

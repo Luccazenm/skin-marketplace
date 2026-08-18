@@ -41,7 +41,7 @@ describe('DepositsService.requestDeposit', () => {
     tradable: depositable,
     marketable: true,
     depositable,
-    blockReason: depositable ? null : 'indisponivel',
+    blockReason: depositable ? null : 'unavailable',
     hasUniquePattern: true,
     applied: [],
     rarity: null,

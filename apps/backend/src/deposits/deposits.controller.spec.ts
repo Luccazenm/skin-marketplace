@@ -33,7 +33,7 @@ describe('DepositsController', () => {
     tradable: depositable,
     marketable: true,
     depositable,
-    blockReason: depositable ? null : 'permanente',
+    blockReason: depositable ? null : 'permanent',
     hasUniquePattern: true,
     applied: [],
     rarity: null,
