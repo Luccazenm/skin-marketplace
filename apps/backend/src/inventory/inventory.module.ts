@@ -6,7 +6,7 @@ import { InventoryService } from './inventory.service';
 import { SteamInventoryService } from './steam-inventory.service';
 
 @Module({
-  // Precisa do AuthModule pelo JwtAuthGuard. RedisModule é global.
+  // Needs AuthModule for JwtAuthGuard. RedisModule is global.
   imports: [AuthModule],
   controllers: [InventoryController],
   providers: [InventoryService, SteamInventoryService, InventoryCacheService],

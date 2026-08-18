@@ -2,7 +2,7 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// No Prisma 7 a connection string vive em prisma.config.ts, não aqui.
+// In Prisma 7 the connection string lives in prisma.config.ts, not here.
 datasource db {
   provider = "postgresql"
 }
@@ -13,11 +13,11 @@ datasource db {
 model User {
   id String @id @default(uuid(7))
 
-  // Conta de sistema que representa a própria plataforma. Deve existir
-  // exatamente UMA linha com isPlatform = true (garantir no seed).
-  // É a dona dos itens comprados no fluxo rápido e a contraparte do ledger:
-  // o caixa da plataforma é o balance dessa conta.
-  // Toda query de "usuários reais" precisa filtrar isPlatform = false.
+  // The system account representing the platform itself. There must be
+  // exactly ONE row with isPlatform = true (guaranteed by the seed).
+  // It owns the items bought through the fast flow and is the ledger's
+  // counterparty: the platform's cash is this account's balance.
+  // Every "real users" query has to filter isPlatform = false.
   isPlatform Boolean @default(false)
 
   // Steam
@@ -27,34 +27,38 @@ model User {
   profileUrl     String?
   steamCreatedAt DateTime?
 
-  // Carteira (sempre em USD internamente)
+  // Wallet (always USD internally)
   balance         Decimal @default(0) @db.Decimal(12, 2)
   displayCurrency String  @default("USD")
 
-  // Contato / conta
+  // Contact / account
   email         String? @unique
   emailVerified Boolean @default(false)
 
-  // Moderação NOSSA: nós suspendemos esta conta. Bloqueia o login.
+  // OUR moderation: we suspended this account. It blocks login.
   isBanned  Boolean @default(false)
   banReason String?
 
-  // ---- Restrições impostas pela STEAM ----
-  // Não confundir com isBanned. Quem é banido pela Steam continua sendo
-  // nosso cliente e continua com direito ao que está em custódia — só perde
-  // parte das operações. Tratar como banido nosso seria puni-lo duas vezes.
+  // ---- Restrictions imposed by STEAM ----
+  // Not to be confused with isBanned. Someone banned by Steam is still
+  // our customer and still owns what is in custody — they only lose part
+  // of the operations. Treating them as banned by us would punish them
+  // twice.
   //
-  // Os dois campos abaixo bloqueiam coisas DIFERENTES:
+  // The two fields below block DIFFERENT things:
   //
-  // steamEconomyBan  BANNED    -> não envia nem recebe. Nada de depósito nem
-  //                              de saque; a única saída é vender aqui.
-  //                  PROBATION -> restrição temporária, tratar como bloqueado.
+  // steamEconomyBan  BANNED    -> neither sends nor receives. No deposit
+  //                              and no withdrawal; selling here is the
+  //                              only way out.
+  //                  PROBATION -> a temporary restriction, treat as
+  //                              blocked.
   //
-  // steamVacBanned   -> não consegue ENVIAR, mas RECEBE normalmente.
-  //                     Ou seja: não deposita, mas o saque funciona.
-  //                     Registrado só como sinal, não bloqueia sozinho: a
-  //                     API da Steam não diz de qual jogo é o VAC, e um VAC
-  //                     em outro jogo não afeta os itens de CS2.
+  // steamVacBanned   -> cannot SEND, but RECEIVES normally. That is: no
+  //                     deposits, but withdrawals work.
+  //                     Recorded as a signal only, it blocks nothing on
+  //                     its own: Steam's API does not say which game the
+  //                     VAC is from, and a VAC in another game does not
+  //                     affect CS2 items.
   steamEconomyBan   SteamEconomyBan @default(NONE)
   steamVacBanned    Boolean         @default(false)
   steamBanCheckedAt DateTime?
@@ -62,7 +66,7 @@ model User {
   // Trade
   tradeUrl String?
 
-  // Relações
+  // Relations
   items        Item[]
   listings     Listing[]
   transactions Transaction[]
@@ -70,7 +74,7 @@ model User {
   purchases    Order[]       @relation("OrderBuyer")
   sales        Order[]       @relation("OrderSeller")
 
-  // Metadados
+  // Metadata
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   lastLoginAt DateTime?
@@ -79,7 +83,7 @@ model User {
 }
 
 /**
- * Espelha o campo EconomyBan de GetPlayerBans da Steam.
+ * Mirrors the EconomyBan field of Steam's GetPlayerBans.
  */
 enum SteamEconomyBan {
   NONE
@@ -90,96 +94,101 @@ enum SteamEconomyBan {
 // =========================
 // SKIN TEMPLATE
 // =========================
-/// O catálogo: um registro por item que existe no jogo.
+/// The catalog: one record per item that exists in the game.
 ///
-/// É o MODELO, não o exemplar. "AK-47 | Redline (Field-Tested)" é um
-/// SkinTemplate; a AK específica com float 0,187 e quatro adesivos é um
-/// Item. Preço, liquidez e busca penduram aqui, porque o mercado cota o
-/// modelo — o float do exemplar ajusta em cima disso.
+/// It is the MODEL, not the instance. "AK-47 | Redline (Field-Tested)"
+/// is a SkinTemplate; the specific AK with float 0.187 and four stickers
+/// is an Item. Price, liquidity and search hang off this, because the
+/// market quotes the model — the instance's float adjusts on top of it.
 ///
-/// Cada exterior e cada variante é uma entrada própria, porque cada uma
-/// tem cotação própria: "AK-47 | Redline (Field-Tested)" e "StatTrak™
-/// AK-47 | Redline (Field-Tested)" são preços diferentes.
+/// Each exterior and each variant is its own entry, because each has its
+/// own quote: "AK-47 | Redline (Field-Tested)" and "StatTrak™ AK-47 |
+/// Redline (Field-Tested)" are different prices.
 ///
-/// Entram TODOS os tipos negociáveis, não só armas: adesivo, cápsula,
-/// agente, chaveiro e caixa também têm preço próprio. Sem adesivo no
-/// catálogo é impossível mostrar "arma vale X, cada adesivo vale Y" —
-/// que é a regra de exibição do projeto.
+/// ALL tradable types go in, not only weapons: stickers, capsules,
+/// agents, charms and cases have their own prices too. Without stickers
+/// in the catalog it is impossible to show "the weapon is worth X, each
+/// sticker is worth Y" — which is this project's display rule.
 model SkinTemplate {
   id String @id @default(uuid(7))
 
-  // Identificação
-  marketHashName String @unique /// ex: "StatTrak™ AK-47 | Redline (Field-Tested)"
-  rarity         String /// ex: "Classified"
+  // Identification
+  marketHashName String @unique /// e.g. "StatTrak™ AK-47 | Redline (Field-Tested)"
+  rarity         String /// e.g. "Classified"
 
-  /// De onde o item sai: coleções e caixas. Lista porque **um quarto do
-  /// catálogo vem de mais de uma origem** — Karambit | Doppler sai da
-  /// Chroma, Chroma 2 e Chroma 3; Sport Gloves | Pandora's Box sai da
-  /// Glove Case e da Operation Hydra Case.
+  /// Where the item comes from: collections and cases. A list because
+  /// **a quarter of the catalog comes from more than one origin** —
+  /// Karambit | Doppler drops from Chroma, Chroma 2 and Chroma 3; Sport
+  /// Gloves | Pandora's Box drops from the Glove Case and the Operation
+  /// Hydra Case.
   ///
-  /// Guardar só uma seria escolher arbitrariamente, e a informação
-  /// importa além da exibição: skin que cai de três caixas tem oferta
-  /// muito maior que uma exclusiva, e oferta é entrada do
+  /// Storing only one would be an arbitrary choice, and the information
+  /// matters beyond display: a skin that drops from three cases has far
+  /// more supply than an exclusive one, and supply is an input to
   /// `buyoutEligible`.
   ///
-  /// Não existe "origem principal": o Karambit não vem mais da Chroma 3
-  /// do que da Chroma 1.
+  /// There is no "primary origin": the Karambit is no more from Chroma 3
+  /// than from Chroma 1.
   collections String[]
 
-  /// Qual é o tipo do item. Mesma classificação do inventário, para que
-  /// catálogo e leitura da Steam concordem.
+  /// What kind of item this is. The same classification as the
+  /// inventory, so the catalog and the Steam reading agree.
   category ItemCategory @default(OTHER)
 
-  /// Só para o que tem padrão próprio: arma, faca, luva.
+  /// Only for things with a pattern of their own: weapons, knives,
+  /// gloves.
   ///
-  /// Nulos em adesivo, cápsula, agente, chaveiro e caixa — esses não têm
-  /// arma nem nome de skin. Eram obrigatórios antes, o que impedia
-  /// cadastrar qualquer coisa que não fosse arma.
-  weapon   String? /// ex: "AK-47"
-  skinName String? /// ex: "Redline"
+  /// Null on stickers, capsules, agents, charms and cases — those have
+  /// neither a weapon nor a skin name. They used to be required, which
+  /// made it impossible to register anything that was not a weapon.
+  weapon   String? /// e.g. "AK-47"
+  skinName String? /// e.g. "Redline"
 
   variant SkinVariant @default(NORMAL)
 
-  /// Faixa de float da SKIN, não do exemplar: 73,9% das skins não vão de
-  /// 0 a 1. `UMP-45 | Grand Prix` existe só entre 0,25 e 0,35 — ou seja,
-  /// só em Field-Tested. Nulos em item sem float.
+  /// The SKIN's float range, not the instance's: 73.9% of skins do not
+  /// run from 0 to 1. `UMP-45 | Grand Prix` exists only between 0.25 and
+  /// 0.35 — that is, only in Field-Tested. Null on items without a
+  /// float.
   ///
-  /// **Não é necessária para exibir o float**, e as faixas de exterior
-  /// (Factory New 0–0,07, Field-Tested 0,15–0,38…) são globais e não
-  /// ficam aqui. Guardamos por dois motivos modestos: valida float
-  /// impossível vindo do inventário, e destrava indicador de qualidade de
-  /// float caso um dia se queira. Custo zero — vem pronta do dataset, em
-  /// 100% das skins pintadas.
+  /// **It is not needed to display the float**, and the exterior bands
+  /// (Factory New 0–0.07, Field-Tested 0.15–0.38…) are global and do not
+  /// live here. We keep it for two modest reasons: it validates an
+  /// impossible float coming from the inventory, and it unlocks a
+  /// float-quality indicator should we ever want one. Zero cost — it
+  /// comes ready from the dataset, on 100% of painted skins.
   minFloat Float?
   maxFloat Float?
 
-  /// Texto descritivo do item, sem HTML.
+  /// The item's descriptive text, without HTML.
   ///
-  /// É do MODELO, e é por isso que fica aqui e não no exemplar: toda AK
-  /// Redline tem a mesma descrição. O que varia de uma para outra —
-  /// float, padrão, adesivos — vive em `Item`.
+  /// It belongs to the MODEL, which is why it lives here and not on the
+  /// instance: every AK Redline has the same description. What varies
+  /// from one to another — float, pattern, stickers — lives in `Item`.
   description String?
 
-  /// A frase em itálico que a Valve põe no fim da descrição ("Never be
-  /// afraid to push it to the limit"). Separada porque é sabor, não
-  /// informação: a vitrine pode querer destacá-la ou omiti-la.
+  /// The italic line Valve puts at the end of the description ("Never be
+  /// afraid to push it to the limit"). Kept separate because it is
+  /// flavour, not information: the storefront may want to highlight it
+  /// or leave it out.
   flavorText String?
 
-  // Mídia
+  // Media
   imageUrl    String?
   inspectLink String?
 
-  // Cache do preço de referência externo (só exibição, sobrescrito periodicamente)
+  // Cached external reference price (display only, overwritten periodically)
   referencePrice   Decimal?  @db.Decimal(12, 2)
   referencePriceAt DateTime?
 
-  // ---- Whitelist do fluxo rápido (compra com desconto para revenda) ----
-  // Critério: liquidez + teto de preço. Item ilíquido fica 7 dias travado
-  // sem poder ser liquidado em outro mercado, então o risco de preço é real.
-  // buyoutEligible é calculado por job, não editado à mão.
+  // ---- Fast-flow whitelist (discounted buy for resale) ----
+  // Criteria: liquidity + a price ceiling. An illiquid item sits locked
+  // for 7 days with no way to offload it on another market, so the price
+  // risk is real.
+  // buyoutEligible is computed by a job, never edited by hand.
   buyoutEligible     Boolean   @default(false)
-  buyoutDiscountPct  Decimal?  @db.Decimal(5, 2) // desconto aplicado na compra
-  salesVolume30d     Int? // vendas observadas nos últimos 30 dias
+  buyoutDiscountPct  Decimal?  @db.Decimal(5, 2) // discount applied on purchase
+  salesVolume30d     Int? // sales observed in the last 30 days
   liquidityUpdatedAt DateTime?
 
   items     Item[]
@@ -189,71 +198,72 @@ model SkinTemplate {
   updatedAt DateTime @updatedAt
 
   @@index([buyoutEligible])
-  /// Vitrine: "todas as AK", "todos os adesivos".
+  /// Storefront: "every AK", "every sticker".
   @@index([category])
   @@index([weapon])
-  /// GIN, para "tudo que sai da Chroma 2" achar também o que vem de
-  /// outras caixas junto. Índice comum não serve em coluna de lista.
+  /// GIN, so "everything that drops from Chroma 2" also finds what comes
+  /// from other cases alongside it. A plain index is no use on a list
+  /// column.
   @@index([collections], type: Gin)
 }
 
 // =========================
-// HISTÓRICO DE PREÇO
+// PRICE HISTORY
 // =========================
-// Append-only, como Transaction. Nunca editar linha existente: cada
-// leitura é um fato datado, e reescrever apagaria a prova do que foi
-// exibido ao usuário naquele momento.
+// Append-only, like Transaction. Never edit an existing row: each
+// reading is a dated fact, and rewriting it would erase the proof of
+// what was shown to the user at that moment.
 //
-// Existe por dois motivos que não se resolvem comprando dados:
+// It exists for two reasons that buying data does not solve:
 //
-// 1. Reclamação. "O site me mostrou US$ 340 e vocês pagaram US$ 290" só
-//    tem resposta se o preço exibido tiver sido gravado por nós. O
-//    fornecedor não guarda o que respondeu há três meses.
-// 2. Gráfico. Comprar arquivo histórico custa caro e recorrente;
-//    acumular o nosso custa nada. Só que não se recupera depois — ou
-//    começou, ou não existe.
+// 1. Complaints. "The site showed me US$ 340 and you paid US$ 290" can
+//    only be answered if the displayed price was recorded by us. The
+//    vendor does not keep what it answered three months ago.
+// 2. Charts. Buying a historical archive is expensive and recurring;
+//    accumulating our own costs nothing. Except it cannot be recovered
+//    later — either we started, or it does not exist.
 model PriceSnapshot {
   id String @id @default(uuid(7))
 
   skinTemplateId String
   skinTemplate   SkinTemplate @relation(fields: [skinTemplateId], references: [id])
 
-  /// De onde veio. Fonte e mercado são coisas diferentes: o mesmo
-  /// fornecedor entrega preço de vários mercados.
+  /// Where it came from. Source and market are different things: the
+  /// same vendor delivers prices from several markets.
   source PriceSource
   market PriceMarket
 
-  /// Sempre USD, como o resto do sistema. Precisão maior que o ledger
-  /// porque adesivo e chaveiro barato ficam abaixo de um centavo.
+  /// Always USD, like the rest of the system. More precision than the
+  /// ledger because cheap stickers and charms fall below a cent.
   price Decimal @db.Decimal(14, 4)
 
-  /// Melhor oferta de compra e de venda, quando a fonte separa. O spread
-  /// entre elas é o que indica liquidez — média esconde isso.
+  /// The best bid and ask, when the source separates them. The spread
+  /// between them is what indicates liquidity — an average hides that.
   bid Decimal? @db.Decimal(14, 4)
   ask Decimal? @db.Decimal(14, 4)
 
-  /// Vendas observadas nas últimas 24h, quando a fonte informa.
+  /// Sales observed in the last 24h, when the source reports it.
   volume24h Int?
 
-  /// Quando a FONTE apurou o preço, não quando nós gravamos. Fornecedor
-  /// que serve dado de dez minutos atrás precisa ser distinguível de um
-  /// que serve dado ao vivo.
+  /// When the SOURCE determined the price, not when we stored it. A
+  /// vendor serving data from ten minutes ago has to be
+  /// distinguishable from one serving it live.
   quotedAt DateTime
 
   capturedAt DateTime @default(now())
 
-  /// Uma leitura por template, fonte, mercado e instante apurado. Rodar
-  /// o job duas vezes não duplica a série.
+  /// One reading per template, source, market and quoted instant.
+  /// Running the job twice does not duplicate the series.
   @@unique([skinTemplateId, source, market, quotedAt])
-  /// Varredura do gráfico: um template, ordenado no tempo.
+  /// Chart scan: one template, ordered in time.
   @@index([skinTemplateId, market, quotedAt])
 }
 
 enum PriceSource {
   CS2SH
   STEAMWEBAPI
-  /// Preço formado no nosso próprio marketplace, quando houver volume.
-  INTERNO
+  /// A price formed on our own marketplace, once there is volume.
+  INTERNAL
 }
 
 enum PriceMarket {
@@ -276,7 +286,7 @@ enum SkinVariant {
 }
 
 // =========================
-// ITEM (instância real)
+// ITEM (a real instance)
 // =========================
 model Item {
   id String @id @default(uuid(7))
@@ -287,44 +297,47 @@ model Item {
   ownerId String?
   owner   User?   @relation(fields: [ownerId], references: [id])
 
-  // O que este item é. Vem da tag Type da Steam, não do nome.
+  // What this item is. It comes from Steam's Type tag, not from the name.
   category ItemCategory
 
-  // ATENÇÃO: assetId MUDA a cada troca de inventário. É o endereço atual do
-  // item na Steam, não a identidade dele — por isso não é @unique.
-  assetId String // ID atual do item na Steam (mutável)
+  // CAUTION: assetId CHANGES on every inventory trade. It is the item's
+  // current address on Steam, not its identity — which is why it is not
+  // @unique.
+  assetId String // the item's current id on Steam (mutable)
 
-  // Só armas, facas e luvas têm padrão único. Caixa, adesivo e agente são
-  // fungíveis: um exemplar é idêntico a outro, e estes campos ficam nulos.
-  // Um CHECK na migration garante que categoria com padrão único tenha os
-  // quatro preenchidos — nulo ali significaria item impossível de
-  // identificar depois de uma troca.
+  // Only weapons, knives and gloves have a unique pattern. Cases,
+  // stickers and agents are fungible: one instance is identical to
+  // another, and these fields stay null.
+  // A CHECK in the migration guarantees that a category with a unique
+  // pattern has all four filled in — a null there would mean an item
+  // impossible to identify after a trade.
   //
-  // Quando preenchidos, a identidade estável do item é a combinação
+  // When filled in, the item's stable identity is the combination
   // float + paintSeed + paintIndex + defIndex.
   float      Float?
   paintSeed  Int?
   paintIndex Int?
-  defIndex   Int? // define a arma em si (imutável)
+  defIndex   Int? // defines the weapon itself (immutable)
 
-  // Onde o item está FISICAMENTE. Não confundir com quem é o dono (ownerId)
-  // nem com estar vendido (Order) — no nosso fluxo o item passa quase todo o
-  // ciclo de vida parado em BOT_CUSTODY, inclusive depois de vendido.
+  // Where the item PHYSICALLY is. Not to be confused with who owns it
+  // (ownerId) nor with being sold (Order) — in our flow the item spends
+  // almost its whole life sitting in BOT_CUSTODY, sold or not.
   location ItemLocation @default(USER_INVENTORY)
-  botId    String? // se estiver custodiado por um bot
+  botId    String? // if it is held by a bot
   bot      Bot?         @relation(fields: [botId], references: [id])
 
-  // Trade Protection da Valve: 7 dias a cada vez que o item é RECEBIDO.
-  // Enquanto estiver no futuro, o bot não consegue enviar o item para ninguém.
-  // Preenchido quando o bot aceita a troca de depósito.
+  // Valve's Trade Protection: 7 days every time the item is RECEIVED.
+  // While it is in the future, the bot cannot send the item to anyone.
+  // Filled in when the bot accepts the deposit trade.
   tradeLockUntil DateTime?
 
-  // Como o item entrou na custódia.
-  // PLATFORM_BUYOUT = estoque próprio: compramos com desconto para revender.
-  // Nesse caso acquisitionCost é obrigatório na prática — sem ele não há
-  // como calcular margem nem saber se o desconto está calibrado.
+  // How the item entered custody.
+  // PLATFORM_BUYOUT = our own stock: we bought at a discount to resell.
+  // In that case acquisitionCost is required in practice — without it
+  // there is no way to compute margin or tell whether the discount is
+  // calibrated.
   acquisitionType ItemAcquisition @default(USER_DEPOSIT)
-  acquisitionCost Decimal?        @db.Decimal(12, 2) // em USD, só em buyout
+  acquisitionCost Decimal?        @db.Decimal(12, 2) // in USD, buyout only
   acquiredAt      DateTime?
 
   applications    ItemApplication[]
@@ -339,25 +352,25 @@ model Item {
   @@index([templateId])
   @@index([location])
   @@index([botId])
-  @@index([assetId]) // lookup ao reconciliar inventário, mas não é único
-  @@index([acquisitionType]) // relatório de estoque próprio
+  @@index([assetId]) // lookup when reconciling inventory, but not unique
+  @@index([acquisitionType]) // own-stock reporting
   @@index([category])
-  // Identidade estável do item — usada para reencontrá-lo depois de uma troca
+  // The item's stable identity — used to find it again after a trade
   @@index([defIndex, paintIndex, paintSeed, float])
-  // Fila de entrega: itens liberáveis a partir de tal momento
+  // Delivery queue: items releasable from a given moment
   @@index([location, tradeLockUntil])
 }
 
 enum ItemAcquisition {
-  USER_DEPOSIT // usuário depositou para vender — o item não é nosso
-  PLATFORM_BUYOUT // compramos do usuário no fluxo rápido — estoque próprio
+  USER_DEPOSIT // the user deposited it to sell — the item is not ours
+  PLATFORM_BUYOUT // we bought it from the user in the fast flow — own stock
 }
 
 /**
- * Derivada da tag Type da Steam. Granular de propósito: além de decidir
- * quais campos o item precisa, é por aqui que a vitrine filtra.
- * As oito primeiras têm padrão único (float e paint seed). O resto é
- * fungível — um exemplar é idêntico a outro.
+ * Derived from Steam's Type tag. Granular on purpose: beyond deciding
+ * which fields an item needs, this is how the storefront filters.
+ * The first eight have a unique pattern (float and paint seed). The rest
+ * are fungible — one instance is identical to another.
  */
 enum ItemCategory {
   RIFLE
@@ -369,9 +382,10 @@ enum ItemCategory {
   KNIFE
   GLOVES
 
-  /// Zeus x27. Tem skin, float e paint seed como qualquer arma, mas a
-  /// Valve o classifica à parte ("CSGO_Type_Equipment") e ele não é de
-  /// nenhuma das famílias acima.
+  /// The Zeus x27. It has a skin, a float and a paint seed like any
+  /// weapon, but Valve classifies it separately
+  /// ("CSGO_Type_Equipment") and it belongs to none of the families
+  /// above.
   EQUIPMENT
 
   STICKER
@@ -384,34 +398,35 @@ enum ItemCategory {
   CHARM
   TOOL
 
-  COLLECTIBLE // medalhas e troféus: a Steam nunca deixa trocar
+  COLLECTIBLE // medals and trophies: Steam never allows trading them
   PASS
-  OTHER // tipo que ainda não mapeamos — logar quando aparecer
+  OTHER // a type we have not mapped yet — log it when it shows up
 }
 
-// Só localização física. "Listado" virou Listing.active e "vendido" virou Order.
+// Physical location only. "Listed" became Listing.active and "sold"
+// became Order.
 enum ItemLocation {
-  USER_INVENTORY // ainda no inventário Steam do usuário, não depositado
-  INBOUND // troca de depósito enviada, aguardando o usuário aceitar
-  BOT_CUSTODY // em custódia — estado normal, inclusive após vendido
-  OUTBOUND // troca de entrega/devolução enviada, aguardando aceite
-  WITHDRAWN // saiu da plataforma, entregue a um inventário Steam
+  USER_INVENTORY // still in the user's Steam inventory, not deposited
+  INBOUND // deposit trade sent, waiting for the user to accept
+  BOT_CUSTODY // in custody — the normal state, sold or not
+  OUTBOUND // delivery/return trade sent, waiting to be accepted
+  WITHDRAWN // left the platform, delivered to a Steam inventory
 }
 
 // =========================
 // ITEM APPLICATION
 // =========================
-// O que está colado num item: sticker, patch ou chaveiro.
+// What is stuck on an item: a sticker, a patch or a charm.
 //
-// UMA LINHA POR UNIDADE, sempre — nunca agrupar por nome com uma
-// contagem. Duas cópias do mesmo sticker podem ter raspagens diferentes,
-// e uma delas pode valer múltiplos da outra. Agrupar destruiria isso de
-// forma irreversível, já que depois da entrega o item sai do nosso
-// alcance e o inspect link antigo deixa de funcionar.
+// ONE ROW PER UNIT, always — never group by name with a count. Two
+// copies of the same sticker can have different scrapes, and one of them
+// can be worth several times the other. Grouping would destroy that
+// irreversibly, since after delivery the item leaves our reach and the
+// old inspect link stops working.
 //
-// É também o que diferencia exemplares que, sem isso, seriam
-// intercambiáveis: uma AK limpa e uma AK com três Katowice 2014 são o
-// mesmo SkinTemplate.
+// It is also what tells apart instances that would otherwise be
+// interchangeable: a clean AK and an AK with three Katowice 2014 are the
+// same SkinTemplate.
 model ItemApplication {
   id String @id @default(uuid(7))
 
@@ -420,20 +435,21 @@ model ItemApplication {
 
   kind ItemApplicationKind
 
-  name     String // ex: "Titan | Katowice 2014"
+  name     String // e.g. "Titan | Katowice 2014"
   imageUrl String?
 
-  // Ordem em que a Steam devolve, começando em 0.
+  // The order Steam returns them in, starting at 0.
   //
-  // NÃO é o lugar físico na arma: a própria Valve inverte posições entre
-  // o inventário web e o do jogo. Serve para reconstruir a lista na mesma
-  // ordem e para distinguir unidades de mesmo nome — não para dizer
-  // "está no cabo".
+  // It is NOT the physical spot on the weapon: Valve itself swaps
+  // positions between the web inventory and the in-game one. It is there
+  // to rebuild the list in the same order and to tell apart units with
+  // the same name — not to say "it is on the grip".
   slot Int
 
-  // Só sticker tem raspagem; patch e chaveiro ficam nulos.
-  // Não vem no inventário: sai do inspect link, junto com float e paint
-  // seed, e por isso só é conhecido depois que o item entra em custódia.
+  // Only stickers have a scrape; patches and charms stay null.
+  // It does not come in the inventory: it comes from the inspect link,
+  // together with float and paint seed, and so is only known once the
+  // item is in custody.
   wear Float?
 
   createdAt DateTime @default(now())
@@ -443,50 +459,51 @@ model ItemApplication {
 }
 
 enum ItemApplicationKind {
-  STICKER // arma, até 5, tem raspagem
-  PATCH // agente, até 3, sem raspagem e não sai depois de aplicado
-  CHARM // chaveiro em arma, sem raspagem
+  STICKER // weapon, up to 5, has a scrape
+  PATCH // agent, up to 3, no scrape and cannot be removed once applied
+  CHARM // charm on a weapon, no scrape
 }
 
 // =========================
 // AUDIT LOG
 // =========================
-// Registro do que aconteceu, para resolver disputa.
+// A record of what happened, for settling disputes.
 //
-// Não confundir com log de aplicação: aquele existe para depurar problema
-// técnico, vive em arquivo e some no próximo restart. Este existe para
-// responder "essa pessoa está dizendo a verdade?" meses depois, e por isso
-// vive no banco, é consultável por usuário e NÃO PODE SER ALTERADO.
+// Not to be confused with the application log: that one exists to debug
+// a technical problem, lives in a file and disappears on the next
+// restart. This one exists to answer "is this person telling the truth?"
+// months later, and so lives in the database, is queryable per user, and
+// CANNOT BE ALTERED.
 //
-// A imutabilidade é garantida por trigger no Postgres, não só por
-// disciplina de código: um registro que a aplicação pode reescrever não
-// serve como prova de nada.
+// Immutability is enforced by a Postgres trigger, not by code
+// discipline alone: a record the application can rewrite is proof of
+// nothing.
 //
-// Guarda tanto o que deu certo quanto o que foi recusado. Cinco tentativas
-// de cadastrar trade URL de terceiros é um padrão que só aparece se as
-// recusas forem registradas.
+// It stores both what succeeded and what was refused. Five attempts to
+// register someone else's trade URL is a pattern that only shows up if
+// the refusals are recorded.
 model AuditLog {
   id String @id @default(uuid(7))
 
   actorType AuditActorType
-  // userId, botId ou nulo quando não há ator identificado
+  // userId, botId, or null when there is no identified actor
   actorId   String?
 
-  // Convenção "dominio.acao": auth.login, user.trade_url.updated,
-  // deposit.requested. String e não enum de propósito — ação nova não
-  // deveria exigir migration.
+  // The "domain.action" convention: auth.login, user.trade_url.updated,
+  // deposit.requested. A String and not an enum on purpose — a new
+  // action should not require a migration.
   action  String
   outcome AuditOutcome
 
   targetType String? // "User", "Item", "TradeOffer"...
   targetId   String?
 
-  // Detalhes do fato. Para alteração, guardar antes e depois: é o que
-  // fecha o caso quando alguém troca a trade URL e depois alega não ter
-  // recebido o item.
+  // Details of the fact. For a change, store before and after: that is
+  // what closes the case when someone swaps their trade URL and then
+  // claims they never received the item.
   metadata Json?
 
-  // Contexto da requisição — investigar golpe sem isso é adivinhação.
+  // Request context — investigating fraud without it is guesswork.
   ip        String?
   userAgent String?
 
@@ -495,25 +512,25 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([targetType, targetId])
   @@index([action, createdAt])
-  // Varredura de padrão suspeito: recusas recentes
+  // Suspicious-pattern scan: recent refusals
   @@index([outcome, createdAt])
 }
 
 enum AuditActorType {
   USER
   BOT
-  SYSTEM // jobs e rotinas automáticas
-  ANONYMOUS // sem sessão, como uma tentativa de login
+  SYSTEM // jobs and automated routines
+  ANONYMOUS // no session, such as a login attempt
 }
 
 enum AuditOutcome {
   SUCCESS
-  DENIED // recusado por regra de negócio
-  FAILED // erro técnico
+  DENIED // refused by a business rule
+  FAILED // technical error
 }
 
 // =========================
-// LISTING (anúncio de venda)
+// LISTING (a sale offer)
 // =========================
 model Listing {
   id String @id @default(uuid(7))
@@ -524,7 +541,7 @@ model Listing {
   sellerId String
   seller   User   @relation(fields: [sellerId], references: [id])
 
-  price  Decimal @db.Decimal(12, 2) // preço definido pelo usuário — valor contratual
+  price  Decimal @db.Decimal(12, 2) // price set by the user — a contractual value
   active Boolean @default(true)
 
   transactions Transaction[]
@@ -538,13 +555,13 @@ model Listing {
 }
 
 // =========================
-// ORDER (venda fechada)
+// ORDER (a closed sale)
 // =========================
-// Nasce quando o comprador paga e morre quando o item é entregue.
-// No nosso fluxo essas duas coisas são separadas por dias (trade lock de 7
-// dias da Valve), então esse intervalo precisa de um dono explícito.
-// Regra de crédito: o vendedor NÃO recebe na compra — a Transaction de SALE
-// nasce PENDING e só vira COMPLETED quando status = DELIVERED.
+// It is born when the buyer pays and dies when the item is delivered.
+// In our flow those two are days apart (Valve's 7-day trade lock), so
+// that interval needs an explicit owner.
+// Credit rule: the seller is NOT paid on purchase — the SALE Transaction
+// is born PENDING and only becomes COMPLETED when status = DELIVERED.
 model Order {
   id String @id @default(uuid(7))
 
@@ -562,20 +579,21 @@ model Order {
 
   status OrderStatus @default(PAID)
 
-  // Valores congelados no fechamento — não recalcular depois.
-  // A Listing pode ser reeditada; o pedido não.
-  // No estoque próprio (seller = conta plataforma) feeAmount é 0: o lucro
-  // é a diferença entre price e Item.acquisitionCost, não uma comissão.
-  price        Decimal @db.Decimal(12, 2) // o que o comprador pagou
-  feeAmount    Decimal @db.Decimal(12, 2) // comissão da plataforma
+  // Values frozen at closing — never recalculate them later.
+  // The Listing can be edited again; the order cannot.
+  // On own stock (seller = the platform account) feeAmount is 0: the
+  // profit is the difference between price and Item.acquisitionCost, not
+  // a commission.
+  price        Decimal @db.Decimal(12, 2) // what the buyer paid
+  feeAmount    Decimal @db.Decimal(12, 2) // the platform's commission
   sellerPayout Decimal @db.Decimal(12, 2) // price - feeAmount
 
-  // Previsão de liberação: cópia de Item.tradeLockUntil no momento da compra.
-  // É o que alimenta o contador "faltam X dias para o dinheiro cair".
+  // Expected release: a copy of Item.tradeLockUntil at purchase time.
+  // It is what feeds the "X days until the money lands" countdown.
   deliverableAt DateTime?
   deliveredAt   DateTime?
 
-  // Troca de entrega ao comprador (só existe depois do lock expirar)
+  // The delivery trade to the buyer (only exists once the lock expires)
   tradeOfferId String?     @unique
   tradeOffer   TradeOffer? @relation(fields: [tradeOfferId], references: [id])
 
@@ -590,27 +608,27 @@ model Order {
   @@index([sellerId, createdAt])
   @@index([listingId])
   @@index([itemId])
-  // Fila do worker: pedidos esperando o lock expirar
+  // Worker queue: orders waiting for the lock to expire
   @@index([status, deliverableAt])
 }
 
 enum OrderStatus {
-  PAID // comprador pagou, saldo debitado, item já é dele no inventário virtual
-  AWAITING_UNLOCK // aguardando o trade lock do item expirar
-  READY_TO_DELIVER // lock expirou, na fila do bot
-  DELIVERING // troca enviada, aguardando o comprador aceitar
-  DELIVERED // entregue — é aqui que o vendedor é creditado
-  FAILED // entrega não foi possível (bot banido, usuário sumiu...)
-  REFUNDED // comprador estornado
+  PAID // buyer paid, balance debited, the item is theirs in the virtual inventory
+  AWAITING_UNLOCK // waiting for the item's trade lock to expire
+  READY_TO_DELIVER // lock expired, in the bot's queue
+  DELIVERING // trade sent, waiting for the buyer to accept
+  DELIVERED // delivered — this is where the seller is credited
+  FAILED // delivery was not possible (bot banned, user vanished...)
+  REFUNDED // buyer refunded
 }
 
 // =========================
-// TRANSACTION (extrato / ledger)
+// TRANSACTION (statement / ledger)
 // =========================
-// Append-only: uma linha = um movimento no saldo do usuário.
-// Nunca editar valor depois de criada — estorno é uma nova linha (REFUND).
-// User.balance é o saldo materializado; só é atualizado na MESMA transação
-// de banco que insere a linha aqui.
+// Append-only: one row = one movement on the user's balance.
+// Never edit an amount after creation — a refund is a new row (REFUND).
+// User.balance is the materialised balance; it is only updated in the
+// SAME database transaction that inserts the row here.
 model Transaction {
   id String @id @default(uuid(7))
 
@@ -620,30 +638,31 @@ model Transaction {
   type   TransactionType
   status TransactionStatus @default(PENDING)
 
-  // Valor sempre em USD, com sinal: positivo credita, negativo debita.
-  // Taxa NÃO fica embutida aqui — vira uma linha FEE separada (auditoria/receita).
+  // Always in USD, signed: positive credits, negative debits.
+  // The fee is NOT folded in here — it becomes a separate FEE row
+  // (auditing/revenue).
   amount       Decimal  @db.Decimal(12, 2)
-  balanceAfter Decimal? @db.Decimal(12, 2) // snapshot pós-aplicação
+  balanceAfter Decimal? @db.Decimal(12, 2) // post-application snapshot
 
-  // Câmbio: o que o usuário efetivamente pagou/recebeu na moeda dele.
-  // É daqui que sai a métrica de spread cambial.
-  // Precisão alta porque cripto usa casas decimais que BRL/EUR não usam
+  // Foreign exchange: what the user actually paid/received in their own
+  // currency. This is where the FX spread metric comes from.
+  // High precision because crypto uses decimal places BRL/EUR do not
   sourceAmount   Decimal? @db.Decimal(30, 10)
-  sourceCurrency String? // ex: "BRL", "BTC"
-  fxRate         Decimal? @db.Decimal(18, 8) // sourceCurrency -> USD aplicado
+  sourceCurrency String? // e.g. "BRL", "BTC"
+  fxRate         Decimal? @db.Decimal(18, 8) // sourceCurrency -> USD applied
 
-  // Gateway externo (Stripe, EBANX, BitPay...)
+  // External gateway (Stripe, EBANX, BitPay...)
   provider       String?
-  providerRef    String? // id da cobrança/payout no gateway
-  // Chave de idempotência: protege contra webhook duplicado do gateway
+  providerRef    String? // the charge/payout id at the gateway
+  // Idempotency key: guards against a duplicated webhook from the gateway
   idempotencyKey String? @unique
 
-  // Vínculos internos
+  // Internal links
   listingId String?
   listing   Listing?      @relation(fields: [listingId], references: [id])
   orderId   String?
   order     Order?        @relation(fields: [orderId], references: [id])
-  // Encadeia FEE/REFUND na transação que a originou
+  // Chains FEE/REFUND to the transaction that produced it
   parentId  String?
   parent    Transaction?  @relation("TransactionChain", fields: [parentId], references: [id])
   children  Transaction[] @relation("TransactionChain")
@@ -661,33 +680,33 @@ model Transaction {
   @@index([provider, providerRef])
   @@index([listingId])
   @@index([orderId])
-  // Saldo a liberar do vendedor: SALE ainda PENDING por usuário
+  // The seller's pending balance: SALE still PENDING, per user
   @@index([userId, type, status])
 }
 
 enum TransactionType {
-  DEPOSIT // entrada de dinheiro (cartão/PIX/cripto)
-  WITHDRAWAL // saque
-  PURCHASE // débito do comprador ao fechar uma listing
-  SALE // crédito do vendedor ao fechar uma listing
-  BUYOUT // fluxo rápido: crédito ao usuário e débito da conta plataforma.
-  // Separado de SALE porque a margem sai do spread, não de FEE.
-  FEE // taxa da plataforma (comissão, taxa de saque)
-  REFUND // estorno de qualquer uma das acima
-  CHARGEBACK // contestação no cartão — débito forçado
-  ADJUSTMENT // ajuste manual (suporte/correção)
+  DEPOSIT // money coming in (card/PIX/crypto)
+  WITHDRAWAL // cash out
+  PURCHASE // debit from the buyer when a listing closes
+  SALE // credit to the seller when a listing closes
+  BUYOUT // fast flow: credit to the user and debit from the platform account.
+  // Kept apart from SALE because the margin comes from the spread, not from a FEE.
+  FEE // the platform's fee (commission, withdrawal fee)
+  REFUND // a reversal of any of the above
+  CHARGEBACK // a card dispute — a forced debit
+  ADJUSTMENT // a manual adjustment (support/correction)
 }
 
 enum TransactionStatus {
-  PENDING // aguardando confirmação do gateway
-  COMPLETED // liquidada, saldo aplicado
+  PENDING // waiting for the gateway to confirm
+  COMPLETED // settled, balance applied
   FAILED
   CANCELED
-  REVERSED // desfeita por REFUND/CHARGEBACK
+  REVERSED // undone by a REFUND/CHARGEBACK
 }
 
 // =========================
-// TRADE OFFER (troca Steam)
+// TRADE OFFER (a Steam trade)
 // =========================
 model TradeOffer {
   id String @id @default(uuid(7))
@@ -703,33 +722,34 @@ model TradeOffer {
 
   items TradeOfferItem[]
 
-  // Id da oferta na Steam — só existe depois de enviada com sucesso
+  // The offer's id on Steam — it only exists once sent successfully
   steamOfferId String? @unique
-  // Snapshot da trade url no momento do envio (a do usuário pode mudar depois)
+  // A snapshot of the trade url at send time (the user's can change later)
   tradeUrl     String?
 
-  // Confirmação mobile (Steam Guard) do lado do bot
+  // Mobile confirmation (Steam Guard) on the bot's side
   confirmedAt DateTime?
 
   order Order?
 
-  // Motivo da saída. Devolução existe porque o vendedor pode cancelar o
-  // anúncio a qualquer momento, mas o item só sai depois do lock expirar.
+  // The reason for going out. A return exists because the seller can
+  // cancel the listing at any time, but the item only leaves once the
+  // lock expires.
   reason TradeOfferReason @default(DELIVERY)
 
-  // Quando o worker pode tentar criar a oferta na Steam. Preenchido com o
-  // tradeLockUntil do item enquanto ele estiver travado.
+  // When the worker may try to create the offer on Steam. Filled with
+  // the item's tradeLockUntil while it is locked.
   scheduledFor DateTime?
 
-  // Só em DEPOSIT: os assetIds que ESPERAMOS receber.
+  // DEPOSIT only: the assetIds we EXPECT to receive.
   //
-  // No depósito ainda não existe Item nosso — ele exige float e paintSeed,
-  // que só conseguimos ler depois que a skin está em custódia. Então a
-  // oferta guarda apenas os endereços dos itens na Steam, e os Item e
-  // TradeOfferItem nascem quando a troca é aceita.
+  // On a deposit there is no Item of ours yet — it requires a float and
+  // a paintSeed, which we can only read once the skin is in custody. So
+  // the offer stores only the items' addresses on Steam, and the Item
+  // and TradeOfferItem rows are born when the trade is accepted.
   //
-  // Lembrando que assetId muda a cada troca: estes valores só valem
-  // enquanto os itens estiverem no inventário do usuário.
+  // Remember that assetId changes with every trade: these values are
+  // only valid while the items are in the user's inventory.
   requestedAssetIds String[]
 
   attempts  Int     @default(0)
@@ -744,38 +764,38 @@ model TradeOffer {
   @@index([userId, createdAt])
   @@index([botId])
   @@index([status])
-  // Fila do worker: ofertas agendadas que já podem ser criadas
+  // Worker queue: scheduled offers that can now be created
   @@index([status, scheduledFor])
 }
 
 enum TradeOfferType {
-  DEPOSIT // usuário -> bot (entrega do item para custódia)
-  WITHDRAW // bot -> usuário (entrega ao comprador ou devolução ao vendedor)
+  DEPOSIT // user -> bot (handing the item over to custody)
+  WITHDRAW // bot -> user (delivery to the buyer or return to the seller)
 }
 
 enum TradeOfferReason {
-  DEPOSIT_INTAKE // recolher o item do vendedor
-  DELIVERY // entregar ao comprador
-  RETURN // devolver ao vendedor (anúncio cancelado ou venda desfeita)
-  WITHDRAWAL // saque comum do inventário virtual
+  DEPOSIT_INTAKE // collect the item from the seller
+  DELIVERY // deliver it to the buyer
+  RETURN // return it to the seller (listing cancelled or sale undone)
+  WITHDRAWAL // an ordinary withdrawal from the virtual inventory
 }
 
 enum TradeOfferStatus {
-  SCHEDULED // aguardando o trade lock do item expirar para poder ser criada.
-  // Usado tanto na entrega ao comprador quanto na devolução de anúncio
-  // cancelado durante o lock.
-  CREATED // registrada internamente, ainda não enviada à Steam
-  PENDING_CONFIRMATION // criada na Steam, aguardando o bot confirmar no mobile
-  // authenticator. A oferta EXISTE mas o usuário ainda não a vê.
-  SENT // confirmada e visível, aguardando o usuário aceitar
-  ACCEPTED // aceita e itens trocados
-  DECLINED // recusada pelo usuário
-  CANCELED // cancelada pela plataforma
-  EXPIRED // usuário não respondeu a tempo
-  FAILED // erro na Steam / bot indisponível
+  SCHEDULED // waiting for the item's trade lock to expire before it can be created.
+  // Used both for delivery to the buyer and for returning a listing
+  // cancelled during the lock.
+  CREATED // recorded internally, not yet sent to Steam
+  PENDING_CONFIRMATION // created on Steam, waiting for the bot to confirm in the mobile
+  // authenticator. The offer EXISTS but the user cannot see it yet.
+  SENT // confirmed and visible, waiting for the user to accept
+  ACCEPTED // accepted and the items traded
+  DECLINED // refused by the user
+  CANCELED // cancelled by the platform
+  EXPIRED // the user did not answer in time
+  FAILED // a Steam error / the bot is unavailable
 }
 
-// N:N entre TradeOffer e Item (uma oferta pode levar vários itens)
+// N:N between TradeOffer and Item (one offer can carry several items)
 model TradeOfferItem {
   id String @id @default(uuid(7))
 
@@ -792,27 +812,28 @@ model TradeOfferItem {
 }
 
 // =========================
-// BOT (conta Steam de custódia)
+// BOT (a custody Steam account)
 // =========================
-// ATENÇÃO: senha, shared_secret e identity_secret NÃO ficam aqui.
-// Só a referência ao segredo no cofre (env/secret manager).
+// CAUTION: the password, shared_secret and identity_secret do NOT live
+// here. Only the reference to the secret in the vault (env/secret
+// manager).
 model Bot {
   id String @id @default(uuid(7))
 
   steamId     String  @unique
-  username    String  @unique // login Steam do bot
+  username    String  @unique // the bot's Steam login
   displayName String?
   tradeUrl    String?
 
-  credentialRef String @unique // chave no secret manager, ex: "bot/01/creds"
+  credentialRef String @unique // key in the secret manager, e.g. "bot/01/creds"
 
   status BotStatus @default(OFFLINE)
 
-  // Capacidade: inventário Steam trava em 1000 itens
+  // Capacity: a Steam inventory caps out at 1000 items
   itemCount Int @default(0)
   maxItems  Int @default(900)
 
-  // Bots novos ficam com trade hold de 7 dias / 15 dias sem Steam Guard mobile
+  // New bots carry a 7-day trade hold / 15 days without mobile Steam Guard
   tradeHoldUntil DateTime?
 
   items       Item[]
@@ -830,7 +851,7 @@ model Bot {
 enum BotStatus {
   ONLINE
   OFFLINE
-  MAINTENANCE // fora de rotação por escolha da plataforma
-  LOCKED // trade hold / limitação temporária da Steam
+  MAINTENANCE // out of rotation by the platform's choice
+  LOCKED // trade hold / temporary Steam limitation
   BANNED
 }

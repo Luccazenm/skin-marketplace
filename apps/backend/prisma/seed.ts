@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client';
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error('DATABASE_URL não definida. Confira apps/backend/.env');
+  throw new Error('DATABASE_URL is not set. Check apps/backend/.env');
 }
 
 const prisma = new PrismaClient({
@@ -13,20 +13,21 @@ const prisma = new PrismaClient({
 });
 
 /**
- * A conta da plataforma é obrigatória pelo modelo: ela é a dona dos itens
- * comprados no fluxo rápido e a contraparte de toda linha do ledger.
- * O steamId é sentinela — essa conta não existe na Steam.
+ * The platform account is required by the model: it owns the items
+ * bought through the fast flow and is the counterparty on every ledger
+ * line. The steamId is a sentinel — this account does not exist on
+ * Steam.
  */
 const PLATFORM_STEAM_ID = 'PLATFORM';
-const PLATFORM_USERNAME = 'Plataforma';
+const PLATFORM_USERNAME = 'Platform';
 
 async function seedPlatformAccount() {
-  const existente = await prisma.user.findFirst({
+  const existing = await prisma.user.findFirst({
     where: { isPlatform: true },
   });
 
-  if (!existente) {
-    const plataforma = await prisma.user.create({
+  if (!existing) {
+    const platform = await prisma.user.create({
       data: {
         isPlatform: true,
         steamId: PLATFORM_STEAM_ID,
@@ -35,24 +36,25 @@ async function seedPlatformAccount() {
       },
     });
 
-    console.log(`Conta da plataforma criada (id: ${plataforma.id})`);
-    return plataforma;
+    console.log(`Platform account created (id: ${platform.id})`);
+    return platform;
   }
 
-  // Repara identidade divergente. O saldo NUNCA é tocado aqui: ele é o
-  // caixa da plataforma e zerá-lo por engano falsearia a contabilidade.
-  const precisaReparo =
-    existente.username !== PLATFORM_USERNAME ||
-    existente.avatarUrl !== null ||
-    existente.lastLoginAt !== null;
+  // Repairs a diverging identity. The balance is NEVER touched here: it
+  // is the platform's cash, and zeroing it by mistake would falsify the
+  // accounting.
+  const needsRepair =
+    existing.username !== PLATFORM_USERNAME ||
+    existing.avatarUrl !== null ||
+    existing.lastLoginAt !== null;
 
-  if (!precisaReparo) {
-    console.log(`Conta da plataforma já existe (id: ${existente.id})`);
-    return existente;
+  if (!needsRepair) {
+    console.log(`Platform account already exists (id: ${existing.id})`);
+    return existing;
   }
 
-  const reparada = await prisma.user.update({
-    where: { id: existente.id },
+  const repaired = await prisma.user.update({
+    where: { id: existing.id },
     data: {
       username: PLATFORM_USERNAME,
       avatarUrl: null,
@@ -62,8 +64,8 @@ async function seedPlatformAccount() {
     },
   });
 
-  console.log(`Conta da plataforma reparada (id: ${reparada.id})`);
-  return reparada;
+  console.log(`Platform account repaired (id: ${repaired.id})`);
+  return repaired;
 }
 
 async function main() {
@@ -71,8 +73,8 @@ async function main() {
 }
 
 main()
-  .catch((erro) => {
-    console.error(erro);
+  .catch((error) => {
+    console.error(error);
     process.exit(1);
   })
   .finally(() => void prisma.$disconnect());

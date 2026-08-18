@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 /**
- * Cliente Redis compartilhado. Além do cache, é o que vai sustentar a fila
- * do BullMQ no worker de trocas.
+ * The shared Redis client. Beyond the cache, it is what will carry
+ * BullMQ's queue in the trade worker.
  */
 @Injectable()
 export class RedisService extends Redis implements OnModuleDestroy {
@@ -12,13 +12,13 @@ export class RedisService extends Redis implements OnModuleDestroy {
 
   constructor(config: ConfigService) {
     super(config.getOrThrow<string>('REDIS_URL'), {
-      // O BullMQ exige null aqui, e é o comportamento que queremos: falhar
-      // rápido em vez de acumular comandos numa conexão morta.
+      // BullMQ requires null here, and it is the behaviour we want: fail
+      // fast instead of piling up commands on a dead connection.
       maxRetriesPerRequest: null,
     });
 
-    this.on('error', (erro: Error) => {
-      this.logger.error(`Redis: ${erro.message}`);
+    this.on('error', (error: Error) => {
+      this.logger.error(`Redis: ${error.message}`);
     });
   }
 

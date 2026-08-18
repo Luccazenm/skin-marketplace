@@ -4,32 +4,32 @@ import cookieParser from 'cookie-parser';
 import { requestContextMiddleware } from './observability/request-context.middleware';
 
 /**
- * Configuração aplicada ao app antes de ele atender qualquer requisição.
+ * Configuration applied to the app before it serves any request.
  *
- * Vive aqui, e não dentro do bootstrap, para que os testes subam
- * exatamente o mesmo app que roda em produção. Prefixo de rota, validação
- * de entrada e leitura de cookie ficam fora do módulo do Nest — um teste
- * que montasse o app por conta própria passaria sem eles e daria falsa
- * confiança: rota respondendo 200 onde produção devolve 404, ou body
- * inválido sendo aceito.
+ * It lives here, rather than inside the bootstrap, so the tests boot
+ * exactly the same app that runs in production. The route prefix, input
+ * validation and cookie parsing sit outside the Nest module — a test
+ * that assembled the app on its own would pass without them and give
+ * false confidence: a route answering 200 where production returns 404,
+ * or an invalid body being accepted.
  */
 export function setupApp(app: INestApplication): void {
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');
 
-  // Primeiro de todos: abre o contexto para que qualquer log emitido
-  // durante a requisição — inclusive de erro em middleware seguinte —
-  // saia com o identificador dela.
+  // First of all: opens the context so that any log emitted during the
+  // request — including an error from a later middleware — carries its
+  // identifier.
   app.use(requestContextMiddleware);
 
-  // Necessário para o guard ler o cookie de sessão
+  // Needed so the guard can read the session cookie
   app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // remove campos não declarados no DTO
-      forbidNonWhitelisted: true, // e recusa a requisição se vierem
+      whitelist: true, // strips fields not declared in the DTO
+      forbidNonWhitelisted: true, // and refuses the request if they arrive
       transform: true,
     }),
   );
@@ -42,6 +42,7 @@ export function setupApp(app: INestApplication): void {
     credentials: true,
   });
 
-  // Sem isso o Prisma não fecha a conexão em SIGTERM (reload, deploy, docker stop)
+  // Without this Prisma does not close the connection on SIGTERM
+  // (reload, deploy, docker stop)
   app.enableShutdownHooks();
 }

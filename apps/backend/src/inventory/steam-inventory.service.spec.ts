@@ -3,9 +3,10 @@ import { ItemCategory } from '@prisma/client';
 import { SteamInventoryService } from './steam-inventory.service';
 
 /**
- * Este serviço decide o que o usuário vê do próprio inventário. Além de
- * chamar a Steam, ele junta duas listas separadas e interpreta tags — e
- * um erro aqui mostra o item errado, ou deixa de mostrar um que existe.
+ * This service decides what the user sees of their own inventory. On top
+ * of calling Steam, it joins two separate lists and interprets tags —
+ * and a mistake here shows the wrong item, or fails to show one that
+ * exists.
  */
 describe('SteamInventoryService', () => {
   let service: SteamInventoryService;
@@ -14,12 +15,12 @@ describe('SteamInventoryService', () => {
   const STEAM_ID = '76561198832746931';
 
   /**
-   * Resposta da Steam: `assets` são as instâncias que a pessoa tem,
-   * `descriptions` são os metadados compartilhados. Vários assets apontam
-   * para a mesma description — é assim que 50 caixas iguais não repetem
-   * nome e imagem 50 vezes.
+   * Steam's response: `assets` are the instances the person owns,
+   * `descriptions` are the shared metadata. Several assets point at the
+   * same description — that is how 50 identical cases avoid repeating
+   * name and image 50 times.
    */
-  const resposta = (body: unknown, status = 200) =>
+  const response = (body: unknown, status = 200) =>
     Promise.resolve({
       ok: status >= 200 && status < 300,
       status,
@@ -27,11 +28,11 @@ describe('SteamInventoryService', () => {
     } as Response);
 
   /**
-   * Formato da description como a Steam devolve. Quase tudo é opcional de
-   * propósito: vários testes omitem campos para exercitar item incompleto,
-   * e é assim que ela chega de verdade.
+   * The description format as Steam returns it. Almost everything is
+   * optional on purpose: several tests omit fields to exercise an
+   * incomplete item, and that is how it really arrives.
    */
-  interface Descricao {
+  interface Description {
     classid: string;
     instanceid?: string;
     market_hash_name?: string;
@@ -46,7 +47,7 @@ describe('SteamInventoryService', () => {
     actions?: { name?: string; link?: string }[];
   }
 
-  const descricaoAk: Descricao = {
+  const akDescription: Description = {
     classid: '310777179',
     instanceid: '302028390',
     market_hash_name: 'AK-47 | Redline (Field-Tested)',
@@ -78,9 +79,9 @@ describe('SteamInventoryService', () => {
     ],
   };
 
-  const inventarioCom = (
+  const inventoryWith = (
     assets: unknown[],
-    descriptions: unknown[] = [descricaoAk],
+    descriptions: unknown[] = [akDescription],
     asset_properties: unknown[] = [],
   ) => ({
     assets,
@@ -90,38 +91,39 @@ describe('SteamInventoryService', () => {
   });
 
   /**
-   * Propriedades do exemplar. Os identificadores são números mágicos da
-   * Valve, apurados contra inventário real: 1 é paint seed, 2 é float, 6
-   * é o inspect auto-codificado, e 4 (dentro do acessório) é a raspagem.
+   * Per-instance properties. The identifiers are Valve's magic numbers,
+   * confirmed against a real inventory: 1 is the paint seed, 2 is the
+   * float, 6 is the self-encoded inspect link, and 4 (inside the
+   * accessory) is the scrape.
    */
-  const propriedadesDe = (
+  const propertiesOf = (
     assetid: string,
-    opcoes: { float?: string; seed?: string; raspagens?: number[] } = {},
+    options: { float?: string; seed?: string; scrapes?: number[] } = {},
   ) => ({
     appid: 730,
     contextid: '2',
     assetid,
     asset_properties: [
-      ...(opcoes.seed !== undefined
-        ? [{ propertyid: 1, int_value: opcoes.seed, name: 'Pattern Template' }]
+      ...(options.seed !== undefined
+        ? [{ propertyid: 1, int_value: options.seed, name: 'Pattern Template' }]
         : []),
-      ...(opcoes.float !== undefined
-        ? [{ propertyid: 2, float_value: opcoes.float, name: 'Wear Rating' }]
+      ...(options.float !== undefined
+        ? [{ propertyid: 2, float_value: options.float, name: 'Wear Rating' }]
         : []),
     ],
-    ...(opcoes.raspagens
+    ...(options.scrapes
       ? {
-          asset_accessories: opcoes.raspagens.map((r) => ({
+          asset_accessories: options.scrapes.map((s) => ({
             classid: '5327976266',
             parent_relationship_properties: [
-              { propertyid: 4, float_value: String(r) },
+              { propertyid: 4, float_value: String(s) },
             ],
           })),
         }
       : {}),
   });
 
-  const asset = (assetid: string, desc: Descricao = descricaoAk) => ({
+  const asset = (assetid: string, desc: Description = akDescription) => ({
     appid: 730,
     contextid: '2',
     assetid,
@@ -146,58 +148,60 @@ describe('SteamInventoryService', () => {
     fetchMock.mockRestore();
   });
 
-  describe('a requisição', () => {
-    it('pede o inventário de CS2 no contexto de itens negociáveis', async () => {
-      fetchMock.mockReturnValue(resposta(inventarioCom([])));
+  describe('the request', () => {
+    it('asks for the CS2 inventory in the tradable-items context', async () => {
+      fetchMock.mockReturnValue(response(inventoryWith([])));
 
       await service.fetchInventory(STEAM_ID);
 
       const [url] = fetchMock.mock.calls[0] as [string];
 
-      // 730 é o CS2 e o contexto 2 é onde ficam os itens negociáveis —
-      // por isso item de outro jogo não tem como aparecer.
+      // 730 is CS2 and context 2 is where the tradable items live — that
+      // is why an item from another game cannot show up.
       expect(url).toContain(`/inventory/${STEAM_ID}/730/2`);
-      // Teto que a comunidade convergiu; acima disso o bloqueio vem antes.
+      // The ceiling the community settled on; above it the block comes
+      // sooner.
       expect(url).toContain('count=2000');
-      // O idioma fixa os rótulos de exibição; a lógica usa internal_name.
+      // The language pins the display labels; the logic uses
+      // internal_name.
       expect(url).toContain('l=english');
     });
   });
 
-  describe('falhas', () => {
-    it('trata 429 como limite atingido, não como erro genérico', async () => {
-      fetchMock.mockReturnValue(resposta({}, 429));
+  describe('failures', () => {
+    it('treats 429 as a rate limit, not as a generic error', async () => {
+      fetchMock.mockReturnValue(response({}, 429));
 
       await expect(service.fetchInventory(STEAM_ID)).resolves.toEqual({
         status: 'rate_limited',
       });
     });
 
-    it('trata 403 como inventário privado', async () => {
-      fetchMock.mockReturnValue(resposta({}, 403));
+    it('treats 403 as a private inventory', async () => {
+      fetchMock.mockReturnValue(response({}, 403));
 
       await expect(service.fetchInventory(STEAM_ID)).resolves.toEqual({
         status: 'private',
       });
     });
 
-    it('trata 401 como inventário privado', async () => {
-      fetchMock.mockReturnValue(resposta({}, 401));
+    it('treats 401 as a private inventory', async () => {
+      fetchMock.mockReturnValue(response({}, 401));
 
       await expect(service.fetchInventory(STEAM_ID)).resolves.toEqual({
         status: 'private',
       });
     });
 
-    it('trata outros status como erro', async () => {
-      fetchMock.mockReturnValue(resposta({}, 500));
+    it('treats other statuses as an error', async () => {
+      fetchMock.mockReturnValue(response({}, 500));
 
       const r = await service.fetchInventory(STEAM_ID);
 
       expect(r.status).toBe('error');
     });
 
-    it('trata queda de rede como erro, sem estourar', async () => {
+    it('treats a dropped network as an error, without throwing', async () => {
       fetchMock.mockRejectedValue(new Error('ECONNRESET'));
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -205,10 +209,11 @@ describe('SteamInventoryService', () => {
       expect(r.status).toBe('error');
     });
 
-    // Conta sem itens devolve sucesso sem os arrays. Tratar como erro
-    // mostraria "falha ao carregar" para quem só tem inventário vazio.
-    it('inventário vazio é sucesso com lista vazia', async () => {
-      fetchMock.mockReturnValue(resposta({ success: 1 }));
+    // An account with no items answers successfully but without the
+    // arrays. Treating that as an error would show "failed to load" to
+    // someone who simply has an empty inventory.
+    it('an empty inventory is a success with an empty list', async () => {
+      fetchMock.mockReturnValue(response({ success: 1 }));
 
       await expect(service.fetchInventory(STEAM_ID)).resolves.toEqual({
         status: 'ok',
@@ -217,9 +222,9 @@ describe('SteamInventoryService', () => {
     });
   });
 
-  describe('combinação de assets com descriptions', () => {
-    it('resolve os metadados pelo par classid + instanceid', async () => {
-      fetchMock.mockReturnValue(resposta(inventarioCom([asset('111')])));
+  describe('joining assets with descriptions', () => {
+    it('resolves the metadata by the classid + instanceid pair', async () => {
+      fetchMock.mockReturnValue(response(inventoryWith([asset('111')])));
 
       const r = await service.fetchInventory(STEAM_ID);
 
@@ -231,10 +236,10 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].assetId).toBe('111');
     });
 
-    // O caso que justifica a Steam separar as duas listas.
-    it('repete a mesma descrição para vários assets', async () => {
+    // The case that justifies Steam splitting the two lists.
+    it('reuses the same description for several assets', async () => {
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111'), asset('222'), asset('333')])),
+        response(inventoryWith([asset('111'), asset('222'), asset('333')])),
       );
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -245,11 +250,14 @@ describe('SteamInventoryService', () => {
       expect(new Set(r.items.map((i) => i.marketHashName)).size).toBe(1);
     });
 
-    // Devolver item pela metade seria pior: apareceria sem nome na tela.
-    it('ignora asset cuja descrição não veio', async () => {
-      const orfao = { ...asset('999'), classid: '000', instanceid: '000' };
+    // Returning half an item would be worse: it would appear on screen
+    // with no name.
+    it('ignores an asset whose description did not arrive', async () => {
+      const orphan = { ...asset('999'), classid: '000', instanceid: '000' };
 
-      fetchMock.mockReturnValue(resposta(inventarioCom([asset('111'), orfao])));
+      fetchMock.mockReturnValue(
+        response(inventoryWith([asset('111'), orphan])),
+      );
 
       const r = await service.fetchInventory(STEAM_ID);
       if (r.status !== 'ok') return;
@@ -258,11 +266,13 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].assetId).toBe('111');
     });
 
-    it('trata instanceid ausente como zero dos dois lados', async () => {
-      const desc = { ...descricaoAk, instanceid: undefined };
-      const semInstance = { ...asset('111'), instanceid: undefined };
+    it('treats a missing instanceid as zero on both sides', async () => {
+      const desc = { ...akDescription, instanceid: undefined };
+      const withoutInstance = { ...asset('111'), instanceid: undefined };
 
-      fetchMock.mockReturnValue(resposta(inventarioCom([semInstance], [desc])));
+      fetchMock.mockReturnValue(
+        response(inventoryWith([withoutInstance], [desc])),
+      );
 
       const r = await service.fetchInventory(STEAM_ID);
       if (r.status !== 'ok') return;
@@ -272,29 +282,29 @@ describe('SteamInventoryService', () => {
     });
   });
 
-  describe('classificação', () => {
-    it('usa internal_name, não o rótulo traduzido', async () => {
-      fetchMock.mockReturnValue(resposta(inventarioCom([asset('111')])));
+  describe('classification', () => {
+    it('uses internal_name, not the translated label', async () => {
+      fetchMock.mockReturnValue(response(inventoryWith([asset('111')])));
 
       const r = await service.fetchInventory(STEAM_ID);
       if (r.status !== 'ok') return;
 
       expect(r.items[0].category).toBe(ItemCategory.RIFLE);
       expect(r.items[0].hasUniquePattern).toBe(true);
-      // Os rótulos traduzidos ficam à parte, só para exibir
+      // The translated labels stay apart, for display only
       expect(r.items[0].typeLabel).toBe('Rifle');
       expect(r.items[0].rarity).toBe('Classified');
       expect(r.items[0].exterior).toBe('Field-Tested');
     });
 
-    it('cai em OTHER quando o tipo não está mapeado', async () => {
-      const desconhecido = {
-        ...descricaoAk,
-        tags: [{ category: 'Type', internal_name: 'CSGO_Type_CoisaNova' }],
+    it('falls back to OTHER when the type is not mapped', async () => {
+      const unknown = {
+        ...akDescription,
+        tags: [{ category: 'Type', internal_name: 'CSGO_Type_SomethingNew' }],
       };
 
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111', desconhecido)], [desconhecido])),
+        response(inventoryWith([asset('111', unknown)], [unknown])),
       );
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -303,11 +313,11 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].category).toBe(ItemCategory.OTHER);
     });
 
-    it('não estoura quando o item não tem tags', async () => {
-      const semTags = { ...descricaoAk, tags: undefined };
+    it('does not throw when the item has no tags', async () => {
+      const withoutTags = { ...akDescription, tags: undefined };
 
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111', semTags)], [semTags])),
+        response(inventoryWith([asset('111', withoutTags)], [withoutTags])),
       );
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -318,9 +328,9 @@ describe('SteamInventoryService', () => {
     });
   });
 
-  describe('depositável', () => {
-    it('item negociável pode ser depositado', async () => {
-      fetchMock.mockReturnValue(resposta(inventarioCom([asset('111')])));
+  describe('depositable', () => {
+    it('a tradable item can be deposited', async () => {
+      fetchMock.mockReturnValue(response(inventoryWith([asset('111')])));
 
       const r = await service.fetchInventory(STEAM_ID);
       if (r.status !== 'ok') return;
@@ -329,17 +339,17 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].blockReason).toBeNull();
     });
 
-    // Medalha nunca poderá ser trocada — é diferente de estar esperando.
-    it('medalha é bloqueio permanente', async () => {
-      const medalha = {
-        ...descricaoAk,
+    // A medal will never be tradable — that is different from waiting.
+    it('a medal is a permanent block', async () => {
+      const medal = {
+        ...akDescription,
         market_hash_name: '2024 Service Medal',
         tradable: 0,
         tags: [{ category: 'Type', internal_name: 'CSGO_Type_Collectible' }],
       };
 
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111', medalha)], [medalha])),
+        response(inventoryWith([asset('111', medal)], [medal])),
       );
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -349,13 +359,13 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].blockReason).toBe('permanent');
     });
 
-    // A Steam não distingue trade lock de bloqueio definitivo, então o
-    // rótulo é vago de propósito — prometer prazo seria chute.
-    it('arma não negociável fica como indisponível, sem prazo', async () => {
-      const travada = { ...descricaoAk, tradable: 0 };
+    // Steam does not distinguish a trade lock from a permanent block, so
+    // the label is vague on purpose — promising a date would be a guess.
+    it('a non-tradable weapon is unavailable, with no date', async () => {
+      const locked = { ...akDescription, tradable: 0 };
 
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111', travada)], [travada])),
+        response(inventoryWith([asset('111', locked)], [locked])),
       );
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -366,19 +376,19 @@ describe('SteamInventoryService', () => {
   });
 
   /**
-   * Float e paint seed vêm do próprio inventário, em `asset_properties`.
-   * É o que dispensa manter conta conectada ao jogo só para inspecionar —
-   * ver CLAUDE.md.
+   * Float and paint seed come from the inventory itself, in
+   * `asset_properties`. That is what removes the need to keep an account
+   * connected to the game just to inspect — see CLAUDE.md.
    */
-  describe('float e paint seed', () => {
-    it('lê os dados do exemplar', async () => {
+  describe('float and paint seed', () => {
+    it('reads the per-instance data', async () => {
       fetchMock.mockReturnValue(
-        resposta(
-          inventarioCom(
+        response(
+          inventoryWith(
             [asset('51981650519')],
-            [descricaoAk],
+            [akDescription],
             [
-              propriedadesDe('51981650519', {
+              propertiesOf('51981650519', {
                 float: '0.666114687919616699',
                 seed: '401',
               }),
@@ -394,17 +404,18 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].paintSeed).toBe(401);
     });
 
-    // São do exemplar, não do modelo: duas cópias da mesma skin têm
-    // floats diferentes, e é isso que as torna itens distintos.
-    it('dá valores diferentes a assets da mesma description', async () => {
+    // They belong to the instance, not the model: two copies of the same
+    // skin have different floats, and that is what makes them distinct
+    // items.
+    it('gives different values to assets sharing a description', async () => {
       fetchMock.mockReturnValue(
-        resposta(
-          inventarioCom(
+        response(
+          inventoryWith(
             [asset('111'), asset('222')],
-            [descricaoAk],
+            [akDescription],
             [
-              propriedadesDe('111', { float: '0.01', seed: '1' }),
-              propriedadesDe('222', { float: '0.9', seed: '2' }),
+              propertiesOf('111', { float: '0.01', seed: '1' }),
+              propertiesOf('222', { float: '0.9', seed: '2' }),
             ],
           ),
         ),
@@ -419,8 +430,8 @@ describe('SteamInventoryService', () => {
       expect(r.items[1].paintSeed).toBe(2);
     });
 
-    it('fica nulo quando a Steam não manda as propriedades', async () => {
-      fetchMock.mockReturnValue(resposta(inventarioCom([asset('111')])));
+    it('stays null when Steam does not send the properties', async () => {
+      fetchMock.mockReturnValue(response(inventoryWith([asset('111')])));
 
       const r = await service.fetchInventory(STEAM_ID);
       if (r.status !== 'ok') return;
@@ -429,15 +440,15 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].paintSeed).toBeNull();
     });
 
-    // NaN atravessaria o sistema em silêncio e apareceria numa tela de
-    // preço; nulo pelo menos é visível.
-    it('vira nulo, e não NaN, quando o valor não é numérico', async () => {
+    // NaN would travel through the system silently and turn up on a
+    // pricing screen; null is at least visible.
+    it('becomes null, not NaN, when the value is not numeric', async () => {
       fetchMock.mockReturnValue(
-        resposta(
-          inventarioCom(
+        response(
+          inventoryWith(
             [asset('111')],
-            [descricaoAk],
-            [propriedadesDe('111', { float: 'sei lá', seed: '' })],
+            [akDescription],
+            [propertiesOf('111', { float: 'no idea', seed: '' })],
           ),
         ),
       );
@@ -449,16 +460,16 @@ describe('SteamInventoryService', () => {
     });
   });
 
-  describe('raspagem dos adesivos', () => {
-    const comAdesivos = (quantos: number) => ({
-      ...descricaoAk,
+  describe('sticker scrape', () => {
+    const withStickers = (howMany: number) => ({
+      ...akDescription,
       descriptions: [
         {
           name: 'sticker_info',
           value:
             '<div id="sticker_info"><center>' +
             Array.from(
-              { length: quantos },
+              { length: howMany },
               () =>
                 '<img src="https://cdn/gl_glitter.png" ' +
                 'title="Sticker: GamerLegion (Glitter) | Paris 2023">',
@@ -468,20 +479,20 @@ describe('SteamInventoryService', () => {
       ],
     });
 
-    // Caso real: cinco cópias do mesmo adesivo, cada uma com raspagem
-    // diferente. É exatamente por isso que aplicações nunca são agrupadas
-    // por nome com contagem.
-    it('casa a raspagem de cada cópia do mesmo adesivo', async () => {
-      const desc = comAdesivos(5);
+    // A real case: five copies of the same sticker, each with a
+    // different scrape. That is exactly why applications are never
+    // grouped by name with a count.
+    it('matches the scrape of each copy of the same sticker', async () => {
+      const desc = withStickers(5);
 
       fetchMock.mockReturnValue(
-        resposta(
-          inventarioCom(
+        response(
+          inventoryWith(
             [asset('111', desc)],
             [desc],
             [
-              propriedadesDe('111', {
-                raspagens: [0.63, 0.84, 0.8, 0.75, 0.97],
+              propertiesOf('111', {
+                scrapes: [0.63, 0.84, 0.8, 0.75, 0.97],
               }),
             ],
           ),
@@ -496,15 +507,15 @@ describe('SteamInventoryService', () => {
       ]);
     });
 
-    it('trata adesivo intacto como zero, não como ausente', async () => {
-      const desc = comAdesivos(4);
+    it('treats an untouched sticker as zero, not as missing', async () => {
+      const desc = withStickers(4);
 
       fetchMock.mockReturnValue(
-        resposta(
-          inventarioCom(
+        response(
+          inventoryWith(
             [asset('111', desc)],
             [desc],
-            [propriedadesDe('111', { raspagens: [0, 0, 0, 0] })],
+            [propertiesOf('111', { scrapes: [0, 0, 0, 0] })],
           ),
         ),
       );
@@ -515,18 +526,18 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].applied.map((a) => a.wear)).toEqual([0, 0, 0, 0]);
     });
 
-    // A ligação entre as duas listas é só a ordem. Se as quantidades
-    // divergem, emparelhar atribuiria a raspagem de um adesivo a outro —
-    // e isso mexe direto no preço.
-    it('não adivinha quando as quantidades não batem', async () => {
-      const desc = comAdesivos(4);
+    // Order is the only link between the two lists. If the counts
+    // diverge, pairing them would assign one sticker's scrape to
+    // another — and that moves the price directly.
+    it('does not guess when the counts do not match', async () => {
+      const desc = withStickers(4);
 
       fetchMock.mockReturnValue(
-        resposta(
-          inventarioCom(
+        response(
+          inventoryWith(
             [asset('111', desc)],
             [desc],
-            [propriedadesDe('111', { raspagens: [0.5, 0.2] })],
+            [propertiesOf('111', { scrapes: [0.5, 0.2] })],
           ),
         ),
       );
@@ -542,11 +553,11 @@ describe('SteamInventoryService', () => {
       ]);
     });
 
-    it('fica nula quando a Steam não manda acessórios', async () => {
-      const desc = comAdesivos(2);
+    it('stays null when Steam does not send the accessories', async () => {
+      const desc = withStickers(2);
 
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111', desc)], [desc])),
+        response(inventoryWith([asset('111', desc)], [desc])),
       );
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -558,10 +569,10 @@ describe('SteamInventoryService', () => {
   });
 
   describe('inspect link', () => {
-    // Serve para abrir o item no jogo. Não é mais a fonte de float e
-    // paint seed — esses vêm em asset_properties.
-    it('substitui os placeholders por steamId e assetId', async () => {
-      fetchMock.mockReturnValue(resposta(inventarioCom([asset('98765')])));
+    // It is there to open the item in the game. It is no longer the
+    // source of float and paint seed — those come in asset_properties.
+    it('replaces the placeholders with steamId and assetId', async () => {
+      fetchMock.mockReturnValue(response(inventoryWith([asset('98765')])));
 
       const r = await service.fetchInventory(STEAM_ID);
       if (r.status !== 'ok') return;
@@ -572,16 +583,16 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].inspectLink).not.toContain('%owner_steamid%');
     });
 
-    it('fica nulo quando o item não tem link de inspeção', async () => {
-      const caixa = {
-        ...descricaoAk,
+    it('stays null when the item has no inspect link', async () => {
+      const crate = {
+        ...akDescription,
         market_hash_name: 'Dreams & Nightmares Case',
         actions: undefined,
         tags: [{ category: 'Type', internal_name: 'CSGO_Type_WeaponCase' }],
       };
 
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111', caixa)], [caixa])),
+        response(inventoryWith([asset('111', crate)], [crate])),
       );
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -591,14 +602,16 @@ describe('SteamInventoryService', () => {
       expect(r.items[0].category).toBe(ItemCategory.CONTAINER);
     });
 
-    it('ignora ação que não seja de inspeção', async () => {
-      const comOutraAcao = {
-        ...descricaoAk,
-        actions: [{ name: 'Abrir na loja', link: 'https://exemplo/loja' }],
+    it('ignores an action that is not an inspect one', async () => {
+      const withAnotherAction = {
+        ...akDescription,
+        actions: [{ name: 'Open in the store', link: 'https://example/store' }],
       };
 
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111', comOutraAcao)], [comOutraAcao])),
+        response(
+          inventoryWith([asset('111', withAnotherAction)], [withAnotherAction]),
+        ),
       );
 
       const r = await service.fetchInventory(STEAM_ID);
@@ -608,9 +621,9 @@ describe('SteamInventoryService', () => {
     });
   });
 
-  describe('imagem', () => {
-    it('monta a URL completa a partir do icon_url', async () => {
-      fetchMock.mockReturnValue(resposta(inventarioCom([asset('111')])));
+  describe('image', () => {
+    it('builds the full URL from icon_url', async () => {
+      fetchMock.mockReturnValue(response(inventoryWith([asset('111')])));
 
       const r = await service.fetchInventory(STEAM_ID);
       if (r.status !== 'ok') return;
@@ -620,11 +633,11 @@ describe('SteamInventoryService', () => {
       );
     });
 
-    it('fica nula quando o item não tem ícone', async () => {
-      const semIcone = { ...descricaoAk, icon_url: undefined };
+    it('stays null when the item has no icon', async () => {
+      const withoutIcon = { ...akDescription, icon_url: undefined };
 
       fetchMock.mockReturnValue(
-        resposta(inventarioCom([asset('111', semIcone)], [semIcone])),
+        response(inventoryWith([asset('111', withoutIcon)], [withoutIcon])),
       );
 
       const r = await service.fetchInventory(STEAM_ID);

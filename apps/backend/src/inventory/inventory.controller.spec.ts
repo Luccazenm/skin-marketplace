@@ -8,11 +8,11 @@ import {
 import type { InventoryItem } from './steam-inventory.service';
 
 /**
- * Cada falha da Steam vira um status diferente de propósito: as ações que
- * o usuário pode tomar são diferentes. Inventário privado ele resolve
- * sozinho; limite atingido é esperar; Steam fora do ar é tentar depois.
+ * Each Steam failure becomes a different status on purpose: the actions
+ * the user can take differ. A private inventory they fix themselves; a
+ * rate limit means waiting; Steam being down means trying later.
  */
-interface Resumo {
+interface Summary {
   count: number;
   total: number;
   blocked: number;
@@ -54,14 +54,15 @@ describe('InventoryController', () => {
   beforeEach(async () => {
     await ctx.prisma.user.deleteMany({ where: { steamId: STEAM_ID } });
     user = await ctx.prisma.user.create({
-      data: { steamId: STEAM_ID, username: 'Dono' },
+      data: { steamId: STEAM_ID, username: 'Owner' },
     });
 
-    // Cada teste parte de cache limpo, senão o resultado depende da ordem
+    // Every test starts from a clean cache, otherwise the result depends
+    // on the order they run in
     await ctx.redis.del(
       `inventory:${STEAM_ID}`,
       'steam:inventory:slot',
-      'steam:inventory:bloqueado',
+      'steam:inventory:blocked',
     );
     jest.clearAllMocks();
   });
@@ -72,11 +73,11 @@ describe('InventoryController', () => {
     await ctx.close();
   });
 
-  it('exige sessão', async () => {
+  it('requires a session', async () => {
     await http().get('/api/inventory').expect(401);
   });
 
-  it('devolve os itens com o resumo', async () => {
+  it('returns the items along with the summary', async () => {
     ctx.steam.inventory.fetchInventory.mockResolvedValue({
       status: 'ok',
       items: [item('1'), item('2'), item('3', false)],
@@ -87,7 +88,7 @@ describe('InventoryController', () => {
       .set(ctx.authFor(user))
       .expect(200);
 
-    const inv = body<Resumo>(r);
+    const inv = body<Summary>(r);
 
     expect(inv.count).toBe(3);
     expect(inv.total).toBe(3);
@@ -95,7 +96,7 @@ describe('InventoryController', () => {
     expect(inv.cached).toBe(false);
   });
 
-  it('filtra por depositável mantendo o total', async () => {
+  it('filters by depositable while keeping the total', async () => {
     ctx.steam.inventory.fetchInventory.mockResolvedValue({
       status: 'ok',
       items: [item('1'), item('2'), item('3', false)],
@@ -106,31 +107,31 @@ describe('InventoryController', () => {
       .set(ctx.authFor(user))
       .expect(200);
 
-    const inv = body<Resumo>(r);
+    const inv = body<Summary>(r);
 
     expect(inv.count).toBe(2);
-    // total e blocked continuam completos: é o que permite a tela avisar
-    // que há itens escondidos, em vez de eles sumirem sem explicação.
+    // total and blocked stay complete: that is what lets the screen warn
+    // about hidden items, instead of them vanishing unexplained.
     expect(inv.total).toBe(3);
     expect(inv.blocked).toBe(1);
   });
 
-  it('recusa valor inválido no filtro', async () => {
+  it('refuses an invalid value in the filter', async () => {
     await http()
-      .get('/api/inventory?depositable=talvez')
+      .get('/api/inventory?depositable=maybe')
       .set(ctx.authFor(user))
       .expect(400);
   });
 
-  it('recusa parâmetro desconhecido', async () => {
+  it('refuses an unknown parameter', async () => {
     await http()
       .get('/api/inventory?xpto=1')
       .set(ctx.authFor(user))
       .expect(400);
   });
 
-  describe('falhas da Steam', () => {
-    it('inventário privado devolve 403 com instrução', async () => {
+  describe('Steam failures', () => {
+    it('a private inventory returns 403 with instructions', async () => {
       ctx.steam.inventory.fetchInventory.mockResolvedValue({
         status: 'private',
       });
@@ -140,11 +141,11 @@ describe('InventoryController', () => {
         .set(ctx.authFor(user))
         .expect(403);
 
-      // A pessoa consegue resolver sozinha �?" a mensagem diz onde.
-      expect(body<{ message: string }>(r).message).toContain('Privacidade');
+      // The person can fix this themselves — the message says where.
+      expect(body<{ message: string }>(r).message).toContain('Privacy');
     });
 
-    it('limite da Steam devolve 429', async () => {
+    it('a Steam rate limit returns 429', async () => {
       ctx.steam.inventory.fetchInventory.mockResolvedValue({
         status: 'rate_limited',
       });
@@ -152,7 +153,7 @@ describe('InventoryController', () => {
       await http().get('/api/inventory').set(ctx.authFor(user)).expect(429);
     });
 
-    it('Steam indisponível devolve 502', async () => {
+    it('Steam being unavailable returns 502', async () => {
       ctx.steam.inventory.fetchInventory.mockResolvedValue({
         status: 'error',
         message: 'timeout',
@@ -162,7 +163,7 @@ describe('InventoryController', () => {
     });
   });
 
-  it('não consulta a Steam duas vezes seguidas', async () => {
+  it('does not query Steam twice in a row', async () => {
     ctx.steam.inventory.fetchInventory.mockResolvedValue({
       status: 'ok',
       items: [item('1')],
@@ -175,6 +176,6 @@ describe('InventoryController', () => {
       .expect(200);
 
     expect(ctx.steam.inventory.fetchInventory).toHaveBeenCalledTimes(1);
-    expect(body<Resumo>(r).cached).toBe(true);
+    expect(body<Summary>(r).cached).toBe(true);
   });
 });

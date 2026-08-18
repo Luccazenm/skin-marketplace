@@ -13,8 +13,8 @@ describe('DepositsController', () => {
   let user: User;
   let botId: string;
 
-  // steamId exclusivo desta suíte: reaproveitar o de outro spec faz uma
-  // apagar o usuário da outra quando rodam juntas.
+  // A steamId exclusive to this suite: reusing another spec's makes one
+  // delete the other's user when they run together.
   const STEAM_ID = '76561199000000130';
   const BOT_STEAM_ID = '76561199000000131';
   // partner = steamId - 76561197960265728
@@ -27,7 +27,7 @@ describe('DepositsController', () => {
     assetId,
     classId: '1',
     instanceId: '0',
-    marketHashName: `AK-47 | Teste ${assetId}`,
+    marketHashName: `AK-47 | Test ${assetId}`,
     iconUrl: null,
     category: ItemCategory.RIFLE,
     tradable: depositable,
@@ -49,17 +49,17 @@ describe('DepositsController', () => {
   });
 
   beforeEach(async () => {
-    await limpar(ctx, STEAM_ID, BOT_STEAM_ID);
+    await cleanUp(ctx, STEAM_ID, BOT_STEAM_ID);
 
     user = await ctx.prisma.user.create({
-      data: { steamId: STEAM_ID, username: 'Depositante', tradeUrl: TRADE_URL },
+      data: { steamId: STEAM_ID, username: 'Depositor', tradeUrl: TRADE_URL },
     });
 
     const bot = await ctx.prisma.bot.create({
       data: {
         steamId: BOT_STEAM_ID,
-        username: 'bot-http-teste',
-        credentialRef: 'cofre/bot-http-teste',
+        username: 'http-test-bot',
+        credentialRef: 'vault/http-test-bot',
         status: BotStatus.ONLINE,
       },
     });
@@ -79,38 +79,38 @@ describe('DepositsController', () => {
   });
 
   afterAll(async () => {
-    await limpar(ctx, STEAM_ID, BOT_STEAM_ID);
+    await cleanUp(ctx, STEAM_ID, BOT_STEAM_ID);
     await ctx.redis.del(`inventory:${STEAM_ID}`);
     await ctx.close();
   });
 
-  it('exige sessão', async () => {
+  it('requires a session', async () => {
     await http()
       .post('/api/deposits')
       .send({ assetIds: ['111'] })
       .expect(401);
   });
 
-  it('enfileira o depósito', async () => {
+  it('queues the deposit', async () => {
     const r = await http()
       .post('/api/deposits')
       .set(ctx.authFor(user))
       .send({ assetIds: ['111', '222'] })
       .expect(201);
 
-    const criado = body<{ id: string; status: string; itemCount: number }>(r);
+    const created = body<{ id: string; status: string; itemCount: number }>(r);
 
-    expect(criado.status).toBe('CREATED');
-    expect(criado.itemCount).toBe(2);
+    expect(created.status).toBe('CREATED');
+    expect(created.itemCount).toBe(2);
 
-    const oferta = await ctx.prisma.tradeOffer.findUnique({
-      where: { id: criado.id },
+    const offer = await ctx.prisma.tradeOffer.findUnique({
+      where: { id: created.id },
     });
-    expect(oferta!.botId).toBe(botId);
+    expect(offer!.botId).toBe(botId);
   });
 
-  describe('validação de entrada', () => {
-    it('recusa lista vazia', async () => {
+  describe('input validation', () => {
+    it('refuses an empty list', async () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
@@ -118,7 +118,7 @@ describe('DepositsController', () => {
         .expect(400);
     });
 
-    it('recusa assetId que não é número', async () => {
+    it('refuses an assetId that is not a number', async () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
@@ -126,28 +126,28 @@ describe('DepositsController', () => {
         .expect(400);
     });
 
-    it('recusa campo desconhecido', async () => {
+    it('refuses an unknown field', async () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: ['111'], botId: 'escolhido-por-mim' })
+        .send({ assetIds: ['111'], botId: 'chosen-by-me' })
         .expect(400);
     });
 
-    // Teto para não montar oferta que a Steam recusaria por tamanho.
-    it('recusa seleção acima do limite', async () => {
-      const muitos = Array.from({ length: 101 }, (_, i) => String(i));
+    // A ceiling so we never build an offer Steam would refuse for size.
+    it('refuses a selection above the limit', async () => {
+      const tooMany = Array.from({ length: 101 }, (_, i) => String(i));
 
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: muitos })
+        .send({ assetIds: tooMany })
         .expect(400);
     });
   });
 
-  describe('regras de negócio viram o status certo', () => {
-    it('sem trade URL devolve 400', async () => {
+  describe('business rules turn into the right status', () => {
+    it('no trade URL returns 400', async () => {
       await ctx.prisma.user.update({
         where: { id: user.id },
         data: { tradeUrl: null },
@@ -162,7 +162,7 @@ describe('DepositsController', () => {
       expect(body<{ message: string }>(r).message).toContain('trade URL');
     });
 
-    it('item bloqueado devolve 400 nomeando o item', async () => {
+    it('a blocked item returns 400 naming the item', async () => {
       const r = await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
@@ -170,12 +170,13 @@ describe('DepositsController', () => {
         .expect(400);
 
       expect(body<{ message: string }>(r).message).toContain(
-        'AK-47 | Teste 333',
+        'AK-47 | Test 333',
       );
     });
 
-    // 409 e não 400: o pedido está correto, o estado é que impede.
-    it('item já em outra troca devolve 409', async () => {
+    // 409 and not 400: the request is correct, it is the state that gets
+    // in the way.
+    it('an item already in another trade returns 409', async () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
@@ -189,9 +190,10 @@ describe('DepositsController', () => {
         .expect(409);
     });
 
-    // 503 e não 500: não é erro, é indisponibilidade temporária �?" e a
-    // diferença muda se o cliente deve tentar de novo.
-    it('sem bot em rotação devolve 503', async () => {
+    // 503 and not 500: this is not an error, it is temporary
+    // unavailability — and the difference tells the client whether to
+    // try again.
+    it('no bot in rotation returns 503', async () => {
       await ctx.prisma.bot.update({
         where: { id: botId },
         data: { status: BotStatus.OFFLINE },
@@ -205,7 +207,7 @@ describe('DepositsController', () => {
     });
   });
 
-  it('registra o depósito na auditoria com o nome dos itens', async () => {
+  it('records the deposit in the audit log with the item names', async () => {
     await http()
       .post('/api/deposits')
       .set(ctx.authFor(user))
@@ -219,12 +221,12 @@ describe('DepositsController', () => {
     expect(log.outcome).toBe('SUCCESS');
     expect(log.metadata).toMatchObject({
       botSteamId: BOT_STEAM_ID,
-      items: [{ assetId: '111', name: 'AK-47 | Teste 111' }],
+      items: [{ assetId: '111', name: 'AK-47 | Test 111' }],
     });
   });
 });
 
-async function limpar(ctx: TestApp, steamId: string, botSteamId: string) {
+async function cleanUp(ctx: TestApp, steamId: string, botSteamId: string) {
   const user = await ctx.prisma.user.findUnique({ where: { steamId } });
 
   if (user) {

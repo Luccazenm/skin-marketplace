@@ -9,8 +9,9 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
 /**
- * No Prisma 7 o PrismaClient não lê mais a connection string do schema —
- * a conexão entra por um driver adapter explícito.
+ * In Prisma 7 the PrismaClient no longer reads the connection string
+ * from the schema — the connection comes in through an explicit driver
+ * adapter.
  */
 @Injectable()
 export class PrismaService
@@ -29,7 +30,7 @@ export class PrismaService
 
   async onModuleInit(): Promise<void> {
     await this.$connect();
-    this.logger.log('Conectado ao Postgres');
+    this.logger.log('Connected to Postgres');
   }
 
   async onModuleDestroy(): Promise<void> {

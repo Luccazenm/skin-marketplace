@@ -35,7 +35,7 @@ describe('DepositsService.requestDeposit', () => {
     assetId,
     classId: '1',
     instanceId: '0',
-    marketHashName: `AK-47 | Teste ${assetId}`,
+    marketHashName: `AK-47 | Test ${assetId}`,
     iconUrl: null,
     category: ItemCategory.RIFLE,
     tradable: depositable,
@@ -61,8 +61,8 @@ describe('DepositsService.requestDeposit', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
       ],
-      // AuditService entra de verdade: registrar a recusa é parte do
-      // comportamento esperado, não um detalhe que pode ser mockado.
+      // AuditService goes in for real: recording the refusal is part of
+      // the expected behaviour, not a detail that can be mocked away.
       providers: [DepositsService, PrismaService, AuditService],
     })
       .useMocker((token) =>
@@ -76,17 +76,17 @@ describe('DepositsService.requestDeposit', () => {
   });
 
   beforeEach(async () => {
-    await limpar(prisma, STEAM_ID, BOT_STEAM_ID);
+    await cleanUp(prisma, STEAM_ID, BOT_STEAM_ID);
 
     user = await prisma.user.create({
-      data: { steamId: STEAM_ID, username: 'Depositante', tradeUrl: TRADE_URL },
+      data: { steamId: STEAM_ID, username: 'Depositor', tradeUrl: TRADE_URL },
     });
 
     const bot = await prisma.bot.create({
       data: {
         steamId: BOT_STEAM_ID,
-        username: 'bot-teste',
-        credentialRef: 'cofre/bot-teste',
+        username: 'test-bot',
+        credentialRef: 'vault/test-bot',
         status: BotStatus.ONLINE,
       },
     });
@@ -102,52 +102,53 @@ describe('DepositsService.requestDeposit', () => {
   });
 
   afterAll(async () => {
-    await limpar(prisma, STEAM_ID, BOT_STEAM_ID);
+    await cleanUp(prisma, STEAM_ID, BOT_STEAM_ID);
     await prisma.$disconnect();
   });
 
-  it('enfileira a oferta com os assetIds pedidos', async () => {
-    const oferta = await service.requestDeposit(user, ['111', '222']);
+  it('queues the offer with the requested assetIds', async () => {
+    const offer = await service.requestDeposit(user, ['111', '222']);
 
-    expect(oferta.status).toBe(TradeOfferStatus.CREATED);
-    expect(oferta.requestedAssetIds.sort()).toEqual(['111', '222']);
-    expect(oferta.botId).toBe(botId);
-    // Cópia da trade URL: a do usuário pode mudar antes do worker rodar
-    expect(oferta.tradeUrl).toBe(TRADE_URL);
+    expect(offer.status).toBe(TradeOfferStatus.CREATED);
+    expect(offer.requestedAssetIds.sort()).toEqual(['111', '222']);
+    expect(offer.botId).toBe(botId);
+    // A copy of the trade URL: the user's own can change before the
+    // worker runs
+    expect(offer.tradeUrl).toBe(TRADE_URL);
   });
 
-  it('recusa quem não cadastrou trade URL', async () => {
-    const semUrl = await prisma.user.update({
+  it('refuses someone who has not registered a trade URL', async () => {
+    const withoutUrl = await prisma.user.update({
       where: { id: user.id },
       data: { tradeUrl: null },
     });
 
-    await expect(service.requestDeposit(semUrl, ['111'])).rejects.toThrow(
+    await expect(service.requestDeposit(withoutUrl, ['111'])).rejects.toThrow(
       BadRequestException,
     );
   });
 
-  it('recusa item que não está no inventário do usuário', async () => {
+  it("refuses an item that is not in the user's inventory", async () => {
     await expect(service.requestDeposit(user, ['999'])).rejects.toThrow(
       BadRequestException,
     );
   });
 
-  it('recusa item bloqueado para depósito', async () => {
+  it('refuses an item blocked from being deposited', async () => {
     await expect(service.requestDeposit(user, ['333'])).rejects.toThrow(
       BadRequestException,
     );
   });
 
-  it('recusa seleção com itens repetidos', async () => {
+  it('refuses a selection with repeated items', async () => {
     await expect(service.requestDeposit(user, ['111', '111'])).rejects.toThrow(
       BadRequestException,
     );
   });
 
-  // Clique duplo ou formulário reenviado não pode gerar duas ofertas para
-  // o mesmo item.
-  it('recusa item que já está numa troca em aberto', async () => {
+  // A double click or a resubmitted form must not produce two offers for
+  // the same item.
+  it('refuses an item that is already in an open trade', async () => {
     await service.requestDeposit(user, ['111']);
 
     await expect(service.requestDeposit(user, ['111', '222'])).rejects.toThrow(
@@ -155,30 +156,30 @@ describe('DepositsService.requestDeposit', () => {
     );
   });
 
-  it('libera o item de novo se a troca anterior falhou', async () => {
-    const primeira = await service.requestDeposit(user, ['111']);
+  it('frees the item again if the previous trade failed', async () => {
+    const first = await service.requestDeposit(user, ['111']);
 
     await prisma.tradeOffer.update({
-      where: { id: primeira.id },
+      where: { id: first.id },
       data: { status: TradeOfferStatus.FAILED },
     });
 
-    const segunda = await service.requestDeposit(user, ['111']);
-    expect(segunda.id).not.toBe(primeira.id);
+    const second = await service.requestDeposit(user, ['111']);
+    expect(second.id).not.toBe(first.id);
   });
 
-  it('recusa quando a conta Steam está impedida de negociar', async () => {
-    const banido = await prisma.user.update({
+  it('refuses when the Steam account is barred from trading', async () => {
+    const banned = await prisma.user.update({
       where: { id: user.id },
       data: { steamEconomyBan: SteamEconomyBan.BANNED },
     });
 
-    await expect(service.requestDeposit(banido, ['111'])).rejects.toThrow(
+    await expect(service.requestDeposit(banned, ['111'])).rejects.toThrow(
       BadRequestException,
     );
   });
 
-  it('recusa quando o inventário está privado', async () => {
+  it('refuses when the inventory is private', async () => {
     inventoryMock.getInventory.mockResolvedValue({ status: 'private' });
 
     await expect(service.requestDeposit(user, ['111'])).rejects.toThrow(
@@ -186,7 +187,7 @@ describe('DepositsService.requestDeposit', () => {
     );
   });
 
-  it('não enfileira quando a Steam está indisponível', async () => {
+  it('does not queue anything when Steam is unavailable', async () => {
     inventoryMock.getInventory.mockResolvedValue({ status: 'rate_limited' });
 
     await expect(service.requestDeposit(user, ['111'])).rejects.toThrow(
@@ -194,8 +195,8 @@ describe('DepositsService.requestDeposit', () => {
     );
   });
 
-  describe('escolha do bot', () => {
-    it('recusa quando nenhum bot está em rotação', async () => {
+  describe('picking the bot', () => {
+    it('refuses when no bot is in rotation', async () => {
       await prisma.bot.update({
         where: { id: botId },
         data: { status: BotStatus.OFFLINE },
@@ -206,8 +207,9 @@ describe('DepositsService.requestDeposit', () => {
       );
     });
 
-    // Bot novo tem trade hold: aceitar depósito nele deixaria o item preso.
-    it('recusa bot ainda em trade hold', async () => {
+    // A new bot has a trade hold: accepting a deposit into it would
+    // leave the item stuck.
+    it('refuses a bot still under a trade hold', async () => {
       await prisma.bot.update({
         where: { id: botId },
         data: { tradeHoldUntil: new Date(Date.now() + 3 * 86_400_000) },
@@ -218,7 +220,7 @@ describe('DepositsService.requestDeposit', () => {
       );
     });
 
-    it('recusa quando não há espaço para a quantidade pedida', async () => {
+    it('refuses when there is no room for the requested quantity', async () => {
       await prisma.bot.update({ where: { id: botId }, data: { maxItems: 1 } });
 
       await expect(
@@ -228,7 +230,7 @@ describe('DepositsService.requestDeposit', () => {
   });
 });
 
-async function limpar(prisma: PrismaService, ...steamIds: string[]) {
+async function cleanUp(prisma: PrismaService, ...steamIds: string[]) {
   await prisma.tradeOffer.deleteMany({
     where: { user: { steamId: { in: steamIds } } },
   });

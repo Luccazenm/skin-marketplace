@@ -29,64 +29,65 @@ export class InventoryController {
 
   @Get()
   @ApiOperation({
-    summary: 'Inventário de CS2 do usuário autenticado',
+    summary: "The authenticated user's CS2 inventory",
     description:
-      'Lido ao vivo da Steam. Não persiste nada: float e paint seed não ' +
-      'vêm no inventário, então o Item só é criado quando a skin entra em ' +
-      'custódia.',
+      'Read live from Steam. Nothing is persisted: the Item is only ' +
+      'created once the skin enters custody.',
   })
-  @ApiResponse({ status: 403, description: 'Inventário privado' })
-  @ApiResponse({ status: 429, description: 'Limite da Steam atingido' })
-  @ApiResponse({ status: 502, description: 'Steam indisponível' })
+  @ApiResponse({ status: 403, description: 'Private inventory' })
+  @ApiResponse({ status: 429, description: 'Steam rate limit reached' })
+  @ApiResponse({ status: 502, description: 'Steam unavailable' })
   async myInventory(
     @CurrentUser() user: User,
     @Query() query: InventoryQueryDto,
   ) {
-    const resultado = await this.inventory.getInventory(user.steamId);
+    const result = await this.inventory.getInventory(user.steamId);
 
-    switch (resultado.status) {
+    switch (result.status) {
       case 'ok': {
-        const bloqueados = resultado.items.filter((i) => !i.depositable).length;
+        const blocked = result.items.filter((i) => !i.depositable).length;
 
         const items = query.depositable
-          ? resultado.items.filter((i) => i.depositable)
-          : resultado.items;
+          ? result.items.filter((i) => i.depositable)
+          : result.items;
 
         return {
           count: items.length,
-          // total e blocked vêm sempre, mesmo com o filtro ligado: sem
-          // isso a tela não teria como avisar que existem itens ocultos, e
-          // quem procura uma skin que sabe que tem acharia que sumiu.
-          total: resultado.items.length,
-          blocked: bloqueados,
+          // total and blocked always come through, even with the filter
+          // on: without them the screen would have no way to warn that
+          // items are hidden, and someone looking for a skin they know
+          // they own would think it had vanished.
+          total: result.items.length,
+          blocked,
           items,
-          // O frontend usa isto para avisar que o dado pode estar
-          // desatualizado, em vez de mostrar como se fosse ao vivo.
-          fetchedAt: resultado.fetchedAt,
-          cached: resultado.cached,
-          stale: resultado.stale,
+          // The frontend uses this to warn that the data may be out of
+          // date, instead of presenting it as live.
+          fetchedAt: result.fetchedAt,
+          cached: result.cached,
+          stale: result.stale,
         };
       }
 
       case 'private':
-        // Acionável: a pessoa consegue resolver sozinha nas configurações.
+        // Actionable: the person can fix this themselves in the settings.
         throw new ForbiddenException(
-          'Seu inventário da Steam está privado. Em Perfil > Privacidade, ' +
-            'defina "Inventário" como público para continuar.',
+          'Your Steam inventory is private. Under Profile > Privacy, set ' +
+            '"Inventory" to public to continue.',
         );
 
       case 'rate_limited':
-        // A culpa não é de quem pediu — é o nosso IP que estourou a cota.
-        // Devolvemos 429 para o cliente não insistir e piorar.
+        // This is not the caller's fault — it is our IP that blew
+        // through the quota. We return 429 so the client does not insist
+        // and make it worse.
         throw new HttpException(
-          'Muitas consultas à Steam neste momento. Tente novamente em ' +
-            'alguns minutos.',
+          'Too many queries to Steam right now. Please try again in a few ' +
+            'minutes.',
           HttpStatus.TOO_MANY_REQUESTS,
         );
 
       case 'error':
         throw new BadGatewayException(
-          `Não foi possível ler seu inventário: ${resultado.message}`,
+          `We could not read your inventory: ${result.message}`,
         );
     }
   }

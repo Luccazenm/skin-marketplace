@@ -3,8 +3,8 @@ import { AuditQueryService } from './audit-query.service';
 import { AuditService } from './audit.service';
 
 /**
- * Global: praticamente todo módulo de domínio precisa auditar, e reimportar
- * em cada um só criaria ruído.
+ * Global: practically every domain module needs to audit, and
+ * re-importing it in each one would only add noise.
  */
 @Global()
 @Module({

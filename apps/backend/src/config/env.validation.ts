@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
 /**
- * Contrato das variáveis de ambiente.
+ * The environment variable contract.
  *
- * Roda no boot: se faltar variável ou o formato estiver errado, o processo
- * morre aqui com uma mensagem clara em vez de quebrar em runtime na primeira
- * requisição que precisar do banco.
+ * It runs at boot: if a variable is missing or malformed, the process
+ * dies here with a clear message instead of breaking at runtime on the
+ * first request that needs the database.
  */
 export const envSchema = z.object({
   NODE_ENV: z
@@ -14,38 +14,41 @@ export const envSchema = z.object({
 
   PORT: z.coerce.number().int().positive().default(3000),
 
-  // Aceita uma origem ou várias separadas por vírgula
+  // Accepts one origin, or several separated by commas
   CORS_ORIGIN: z.string().min(1).default('http://localhost:5173'),
 
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
 
-  // Endereço público desta API. A Steam usa como "realm": é o domínio que
-  // aparece para o usuário na tela de login dela.
+  // This API's public address. Steam uses it as the "realm": it is the
+  // domain shown to the user on Steam's own login screen.
   API_URL: z.url().default('http://localhost:3000'),
 
-  // Para onde mandamos o usuário depois do login concluído.
+  // Where we send the user once the login is complete.
   FRONTEND_URL: z.url().default('http://localhost:5173'),
 
-  // Opcional de propósito: serve só para enriquecer o perfil (nome, avatar).
-  // O login funciona sem ela — quem autentica é o OpenID, não esta chave.
+  // Optional on purpose: it only enriches the profile (name, avatar).
+  // Login works without it — the OpenID authenticates, not this key.
   STEAM_API_KEY: z.string().min(1).optional(),
 
-  // Assina os tokens de sessão. Sem default de propósito: um segredo padrão
-  // que vaza para produção deixa qualquer um forjar sessão de qualquer conta.
-  // Gerar com: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
-  JWT_SECRET: z.string().min(32, 'precisa de pelo menos 32 caracteres'),
+  // Signs the session tokens. No default on purpose: a default secret
+  // that leaks into production lets anyone forge a session for any
+  // account.
+  // Generate with: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+  JWT_SECRET: z.string().min(32, 'needs at least 32 characters'),
 
-  // Em segundos. Vale para o token e para o cookie — uma fonte só, senão
-  // o cookie some antes do token expirar (ou o contrário).
+  // In seconds. It governs both the token and the cookie — a single
+  // source, otherwise the cookie disappears before the token expires (or
+  // the other way round).
   JWT_EXPIRES_IN_SECONDS: z.coerce
     .number()
     .int()
     .positive()
     .default(60 * 60 * 24 * 7),
 
-  // Cookie de sessão em HTTPS apenas. Falso só faz sentido em dev local.
+  // Session cookie over HTTPS only. False only makes sense in local
+  // development.
   COOKIE_SECURE: z
     .enum(['true', 'false'])
     .default('false')
@@ -58,15 +61,15 @@ export function validateEnv(config: Record<string, unknown>): Env {
   const result = envSchema.safeParse(config);
 
   if (!result.success) {
-    const detalhes = result.error.issues
+    const details = result.error.issues
       .map(
-        (issue) => `  - ${issue.path.join('.') || '(raiz)'}: ${issue.message}`,
+        (issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`,
       )
       .join('\n');
 
     throw new Error(
-      `Variáveis de ambiente inválidas:\n${detalhes}\n\n` +
-        'Confira apps/backend/.env contra apps/backend/.env.example.',
+      `Invalid environment variables:\n${details}\n\n` +
+        'Check apps/backend/.env against apps/backend/.env.example.',
     );
   }
 

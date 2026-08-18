@@ -22,26 +22,26 @@ export class UsersController {
 
   @Put('trade-url')
   @ApiOperation({
-    summary: 'Define a trade URL do usuário',
+    summary: "Sets the user's trade URL",
     description:
-      'Sem ela o bot não consegue enviar oferta de troca. O servidor ' +
-      'confere que a URL pertence à conta autenticada.',
+      'Without it the bot cannot send a trade offer. The server checks ' +
+      'that the URL belongs to the authenticated account.',
   })
   @ApiResponse({
     status: 400,
-    description: 'Trade URL inválida ou de outra conta',
+    description: 'Invalid trade URL, or one from another account',
   })
   async setTradeUrl(
     @CurrentUser() user: User,
     @Body() dto: UpdateTradeUrlDto,
     @Req() req: Request,
   ): Promise<{ tradeUrl: string | null }> {
-    const atualizado = await this.users.updateTradeUrl(
+    const updated = await this.users.updateTradeUrl(
       user,
       dto.tradeUrl,
       auditContext(req),
     );
 
-    return { tradeUrl: atualizado.tradeUrl };
+    return { tradeUrl: updated.tradeUrl };
   }
 }

@@ -2,129 +2,131 @@ import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import type { InventoryItem } from './steam-inventory.service';
 
-interface EntradaCache {
+interface CacheEntry {
   items: InventoryItem[];
-  /** Momento em que veio da Steam. */
+  /** The moment it came from Steam. */
   fetchedAt: number;
 }
 
 export interface CacheHit {
   items: InventoryItem[];
   fetchedAt: Date;
-  /** true = passou da validade, está sendo servido por falta de opção. */
+  /** true = past its freshness window, served for lack of an option. */
   stale: boolean;
 }
 
 /**
- * Cache do inventário, com duas idades.
+ * The inventory cache, with two ages.
  *
- * Existe porque o endpoint de inventário da Steam é limitado por IP — o do
- * nosso servidor. Sem cache, cada F5 de cada usuário vira uma chamada, e
- * poucas dessas bastam para a Steam bloquear todo mundo por horas.
+ * It exists because Steam's inventory endpoint is rate-limited per IP —
+ * ours. Without a cache, every refresh from every user becomes a call,
+ * and a handful of those is enough for Steam to block everyone for
+ * hours.
  *
- * Guardamos uma entrada só, com TTL longo, e decidimos pela idade:
+ * We keep a single entry, with a long TTL, and decide by its age:
  *
- *   idade < FRESCO   -> serve direto, nem toca na Steam
- *   idade > FRESCO   -> tenta revalidar; se não puder, serve velho mesmo
- *   sem entrada      -> precisa chamar a Steam ou falhar
+ *   age < FRESH   -> serve it directly, never touch Steam
+ *   age > FRESH   -> try to revalidate; if we cannot, serve it stale
+ *   no entry      -> we have to call Steam or fail
  *
- * Servir dado velho é melhor que recusar: um inventário de dez minutos
- * atrás é praticamente igual ao de agora, e a alternativa é uma tela
- * vazia com mensagem de erro.
+ * Serving stale data beats refusing: an inventory from ten minutes ago
+ * is practically identical to the current one, and the alternative is an
+ * empty screen with an error message.
  */
 @Injectable()
 export class InventoryCacheService {
-  /** Abaixo disso, o dado é considerado atual. */
-  private static readonly FRESCO_SEGUNDOS = 120;
+  /** Below this, the data counts as current. */
+  private static readonly FRESH_SECONDS = 120;
 
-  /** Quanto tempo o dado continua guardado para servir como reserva. */
-  private static readonly RETENCAO_SEGUNDOS = 60 * 60;
+  /** How long the data stays around to serve as a fallback. */
+  private static readonly RETENTION_SECONDS = 60 * 60;
 
   /**
-   * Intervalo mínimo entre duas chamadas ao endpoint de inventário, para o
-   * servidor inteiro. A comunidade convergiu para 4s como limite seguro;
-   * abaixo disso o bloqueio por IP vem rápido.
+   * Minimum interval between two calls to the inventory endpoint, for the
+   * whole server. The community settled on 4s as the safe limit; below
+   * that the per-IP block arrives quickly.
    */
-  private static readonly INTERVALO_MINIMO_MS = 4000;
+  private static readonly MINIMUM_INTERVAL_MS = 4000;
 
   private readonly logger = new Logger(InventoryCacheService.name);
 
   constructor(private readonly redis: RedisService) {}
 
   async get(steamId: string): Promise<CacheHit | null> {
-    const cru = await this.redis.get(this.chave(steamId));
+    const raw = await this.redis.get(this.key(steamId));
 
-    if (!cru) {
+    if (!raw) {
       return null;
     }
 
-    let entrada: EntradaCache;
+    let entry: CacheEntry;
 
     try {
-      entrada = JSON.parse(cru) as EntradaCache;
+      entry = JSON.parse(raw) as CacheEntry;
     } catch {
-      // Formato antigo ou corrompido: tratar como ausência de cache.
+      // Old or corrupted format: treat it as a cache miss.
       return null;
     }
 
-    const idadeSegundos = (Date.now() - entrada.fetchedAt) / 1000;
+    const ageSeconds = (Date.now() - entry.fetchedAt) / 1000;
 
     return {
-      items: entrada.items,
-      fetchedAt: new Date(entrada.fetchedAt),
-      stale: idadeSegundos > InventoryCacheService.FRESCO_SEGUNDOS,
+      items: entry.items,
+      fetchedAt: new Date(entry.fetchedAt),
+      stale: ageSeconds > InventoryCacheService.FRESH_SECONDS,
     };
   }
 
   async set(steamId: string, items: InventoryItem[]): Promise<void> {
-    const entrada: EntradaCache = { items, fetchedAt: Date.now() };
+    const entry: CacheEntry = { items, fetchedAt: Date.now() };
 
     await this.redis.set(
-      this.chave(steamId),
-      JSON.stringify(entrada),
+      this.key(steamId),
+      JSON.stringify(entry),
       'EX',
-      InventoryCacheService.RETENCAO_SEGUNDOS,
+      InventoryCacheService.RETENTION_SECONDS,
     );
   }
 
   /**
-   * Tenta reservar o direito de chamar a Steam agora.
+   * Tries to reserve the right to call Steam right now.
    *
-   * É um limite GLOBAL, não por usuário: quem manda é o IP do servidor, e
-   * ele é um só. Se dois usuários pedirem ao mesmo tempo, só um passa —
-   * o outro será servido pelo cache, mesmo velho.
+   * This is a GLOBAL limit, not a per-user one: what counts is the
+   * server's IP, and there is only one of it. If two users ask at the
+   * same time, only one gets through — the other is served from the
+   * cache, stale or not.
    *
-   * Implementado com SET NX: a chave só é criada se não existir, e expira
-   * sozinha. Vale entre múltiplas instâncias da API, já que o estado vive
-   * no Redis e não na memória do processo.
+   * Implemented with SET NX: the key is only created if it does not
+   * exist, and it expires on its own. It holds across multiple API
+   * instances, since the state lives in Redis and not in process memory.
    */
-  async tentarReservarChamada(): Promise<boolean> {
-    const resultado = await this.redis.set(
+  async tryReserveCall(): Promise<boolean> {
+    const result = await this.redis.set(
       'steam:inventory:slot',
       Date.now().toString(),
       'PX',
-      InventoryCacheService.INTERVALO_MINIMO_MS,
+      InventoryCacheService.MINIMUM_INTERVAL_MS,
       'NX',
     );
 
-    return resultado === 'OK';
+    return result === 'OK';
   }
 
   /**
-   * Depois de um 429, para de tentar por alguns minutos — para o servidor
-   * inteiro, já que o bloqueio da Steam é do nosso IP. Insistir durante o
-   * castigo renova o prazo, então a única saída é esperar.
+   * After a 429, stop trying for a few minutes — for the whole server,
+   * since Steam's block is on our IP. Insisting during the penalty
+   * renews it, so the only way out is to wait.
    */
-  async marcarBloqueioSteam(): Promise<void> {
-    await this.redis.set('steam:inventory:bloqueado', '1', 'EX', 300);
-    this.logger.error('Inventário bloqueado por 5 minutos após 429 da Steam');
+  async markSteamBlocked(): Promise<void> {
+    await this.redis.set('steam:inventory:blocked', '1', 'EX', 300);
+    this.logger.error('Inventory blocked for 5 minutes after a 429 from Steam');
   }
 
-  async estaBloqueado(): Promise<boolean> {
-    return (await this.redis.exists('steam:inventory:bloqueado')) === 1;
+  async isBlocked(): Promise<boolean> {
+    return (await this.redis.exists('steam:inventory:blocked')) === 1;
   }
 
-  private chave(steamId: string): string {
+  private key(steamId: string): string {
     return `inventory:${steamId}`;
   }
 }

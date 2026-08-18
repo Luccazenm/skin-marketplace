@@ -11,8 +11,8 @@ import {
 } from './steam-inventory.service';
 
 /**
- * Roda contra o Redis local (docker compose up -d).
- * A Steam é mockada — o objetivo é testar QUANDO decidimos chamá-la.
+ * Runs against the local Redis (docker compose up -d).
+ * Steam is mocked — the point is to test WHEN we decide to call it.
  */
 describe('InventoryService', () => {
   let service: InventoryService;
@@ -20,7 +20,7 @@ describe('InventoryService', () => {
 
   const STEAM_ID = '76561199000000050';
 
-  const itemFalso: InventoryItem = {
+  const fakeItem: InventoryItem = {
     assetId: '1',
     classId: '2',
     instanceId: '0',
@@ -65,7 +65,7 @@ describe('InventoryService', () => {
     await redis.del(
       `inventory:${STEAM_ID}`,
       'steam:inventory:slot',
-      'steam:inventory:bloqueado',
+      'steam:inventory:blocked',
     );
     steamMock.fetchInventory.mockReset();
   });
@@ -74,15 +74,15 @@ describe('InventoryService', () => {
     await redis.del(
       `inventory:${STEAM_ID}`,
       'steam:inventory:slot',
-      'steam:inventory:bloqueado',
+      'steam:inventory:blocked',
     );
     await redis.quit();
   });
 
-  it('consulta a Steam quando não há cache', async () => {
+  it('queries Steam when there is no cache', async () => {
     steamMock.fetchInventory.mockResolvedValue({
       status: 'ok',
-      items: [itemFalso],
+      items: [fakeItem],
     });
 
     const r = await service.getInventory(STEAM_ID);
@@ -94,32 +94,33 @@ describe('InventoryService', () => {
     expect(steamMock.fetchInventory).toHaveBeenCalledTimes(1);
   });
 
-  // O ponto central da etapa: F5 do usuário não vira chamada à Steam.
-  it('não chama a Steam de novo enquanto o cache está fresco', async () => {
+  // The central point of this stage: a user refresh does not become a
+  // call to Steam.
+  it('does not call Steam again while the cache is fresh', async () => {
     steamMock.fetchInventory.mockResolvedValue({
       status: 'ok',
-      items: [itemFalso],
+      items: [fakeItem],
     });
 
     await service.getInventory(STEAM_ID);
-    const segunda = await service.getInventory(STEAM_ID);
+    const second = await service.getInventory(STEAM_ID);
 
     expect(steamMock.fetchInventory).toHaveBeenCalledTimes(1);
-    expect(segunda.status).toBe('ok');
-    if (segunda.status !== 'ok') return;
-    expect(segunda.cached).toBe(true);
-    expect(segunda.stale).toBe(false);
+    expect(second.status).toBe('ok');
+    if (second.status !== 'ok') return;
+    expect(second.cached).toBe(true);
+    expect(second.stale).toBe(false);
   });
 
-  it('serve dado velho quando a Steam devolve 429', async () => {
+  it('serves stale data when Steam returns a 429', async () => {
     steamMock.fetchInventory.mockResolvedValue({
       status: 'ok',
-      items: [itemFalso],
+      items: [fakeItem],
     });
     await service.getInventory(STEAM_ID);
 
-    // Envelhece o cache e libera o slot para forçar nova tentativa
-    await envelhecerCache(redis, STEAM_ID);
+    // Age the cache and free the slot to force another attempt
+    await ageCache(redis, STEAM_ID);
     await redis.del('steam:inventory:slot');
 
     steamMock.fetchInventory.mockResolvedValue({ status: 'rate_limited' });
@@ -131,11 +132,11 @@ describe('InventoryService', () => {
     expect(r.stale).toBe(true);
     expect(r.items).toHaveLength(1);
 
-    // E marcou o castigo, para os próximos nem tentarem
-    expect(await redis.exists('steam:inventory:bloqueado')).toBe(1);
+    // And it marked the penalty, so the next callers do not even try
+    expect(await redis.exists('steam:inventory:blocked')).toBe(1);
   });
 
-  it('recusa quando bate no limite sem ter nada em cache', async () => {
+  it('refuses when it hits the limit with nothing cached', async () => {
     steamMock.fetchInventory.mockResolvedValue({ status: 'rate_limited' });
 
     const r = await service.getInventory(STEAM_ID);
@@ -143,22 +144,22 @@ describe('InventoryService', () => {
     expect(r.status).toBe('rate_limited');
   });
 
-  it('não chama a Steam durante o castigo', async () => {
-    await redis.set('steam:inventory:bloqueado', '1', 'EX', 60);
+  it('does not call Steam during the penalty', async () => {
+    await redis.set('steam:inventory:blocked', '1', 'EX', 60);
 
     await service.getInventory(STEAM_ID);
 
     expect(steamMock.fetchInventory).not.toHaveBeenCalled();
   });
 
-  it('serve dado velho quando a Steam falha por outro motivo', async () => {
+  it('serves stale data when Steam fails for another reason', async () => {
     steamMock.fetchInventory.mockResolvedValue({
       status: 'ok',
-      items: [itemFalso],
+      items: [fakeItem],
     });
     await service.getInventory(STEAM_ID);
 
-    await envelhecerCache(redis, STEAM_ID);
+    await ageCache(redis, STEAM_ID);
     await redis.del('steam:inventory:slot');
 
     steamMock.fetchInventory.mockResolvedValue({
@@ -173,16 +174,16 @@ describe('InventoryService', () => {
     expect(r.stale).toBe(true);
   });
 
-  // Privacidade: se a pessoa fechou o perfil, não podemos continuar
-  // mostrando o que ela decidiu esconder.
-  it('NÃO serve cache quando o inventário virou privado', async () => {
+  // Privacy: if the person closed their profile, we cannot keep showing
+  // what they decided to hide.
+  it('does NOT serve the cache once the inventory turns private', async () => {
     steamMock.fetchInventory.mockResolvedValue({
       status: 'ok',
-      items: [itemFalso],
+      items: [fakeItem],
     });
     await service.getInventory(STEAM_ID);
 
-    await envelhecerCache(redis, STEAM_ID);
+    await ageCache(redis, STEAM_ID);
     await redis.del('steam:inventory:slot');
 
     steamMock.fetchInventory.mockResolvedValue({ status: 'private' });
@@ -193,12 +194,12 @@ describe('InventoryService', () => {
   });
 });
 
-/** Reescreve a entrada do cache com data antiga, para ficar stale. */
-async function envelhecerCache(redis: RedisService, steamId: string) {
-  const cru = await redis.get(`inventory:${steamId}`);
-  const entrada = JSON.parse(cru!) as { items: unknown[]; fetchedAt: number };
+/** Rewrites the cache entry with an old date, so it turns stale. */
+async function ageCache(redis: RedisService, steamId: string) {
+  const raw = await redis.get(`inventory:${steamId}`);
+  const entry = JSON.parse(raw!) as { items: unknown[]; fetchedAt: number };
 
-  entrada.fetchedAt = Date.now() - 10 * 60 * 1000; // 10 minutos atrás
+  entry.fetchedAt = Date.now() - 10 * 60 * 1000; // 10 minutes ago
 
-  await redis.set(`inventory:${steamId}`, JSON.stringify(entrada), 'EX', 3600);
+  await redis.set(`inventory:${steamId}`, JSON.stringify(entry), 'EX', 3600);
 }

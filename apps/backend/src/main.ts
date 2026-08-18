@@ -7,41 +7,41 @@ import { AppModule } from './app.module';
 import { StructuredLogger } from './observability/structured-logger';
 
 async function bootstrap() {
-  // bufferLogs segura o que for emitido durante a inicialização até o
-  // logger definitivo assumir — sem isso, os logs do boot sairiam no
-  // formato antigo.
+  // bufferLogs holds whatever is emitted during start-up until the real
+  // logger takes over — without it, the boot logs would come out in the
+  // old format.
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const config = app.get(ConfigService);
 
-  // JSON em produção, para dar para filtrar por usuário e requisição.
-  // Em desenvolvimento, texto legível vale mais.
+  // JSON in production, so it can be filtered by user and request. In
+  // development, readable text is worth more.
   app.useLogger(
     new StructuredLogger(config.get<string>('NODE_ENV') === 'production'),
   );
 
-  // Mesma configuração usada pelos testes — ver app-setup.ts
+  // The same configuration the tests use — see app-setup.ts
   setupApp(app);
 
-  // Enquanto não existe frontend, o Swagger é a bancada de testes da API.
-  // Fora de produção para não expor a superfície inteira publicamente.
+  // While there is no frontend, Swagger is the API's workbench. Kept out
+  // of production so the whole surface is not exposed publicly.
   if (config.get<string>('NODE_ENV') !== 'production') {
-    const documento = SwaggerModule.createDocument(
+    const document = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()
         .setTitle('Skin Marketplace API')
-        .setDescription('Marketplace de skins de CS2')
+        .setDescription('CS2 skin marketplace')
         .setVersion('0.1')
         .addBearerAuth()
         .build(),
     );
 
-    SwaggerModule.setup('docs', app, documento);
+    SwaggerModule.setup('docs', app, document);
   }
 
   const port = config.getOrThrow<number>('PORT');
   await app.listen(port);
 
-  new Logger('Bootstrap').log(`API ouvindo em http://localhost:${port}/api`);
+  new Logger('Bootstrap').log(`API listening on http://localhost:${port}/api`);
 }
 
 void bootstrap();

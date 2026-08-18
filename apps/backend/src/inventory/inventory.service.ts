@@ -10,9 +10,9 @@ export type InventoryResponse =
       status: 'ok';
       items: InventoryItem[];
       fetchedAt: Date;
-      /** Dado servido do cache, sem consultar a Steam agora. */
+      /** Data served from the cache, without asking Steam now. */
       cached: boolean;
-      /** Passou da validade — a Steam não pôde ser consultada. */
+      /** Past its freshness window — Steam could not be reached. */
       stale: boolean;
     }
   | { status: 'private' }
@@ -20,12 +20,13 @@ export type InventoryResponse =
   | { status: 'error'; message: string };
 
 /**
- * Decide QUANDO vale a pena falar com a Steam.
+ * Decides WHEN it is worth talking to Steam.
  *
- * A regra de ouro: dado velho é melhor que erro. Um inventário de dez
- * minutos atrás é praticamente igual ao atual, enquanto uma tela vazia com
- * "tente novamente" não serve para nada — e ainda leva o usuário a
- * recarregar, o que agrava exatamente o problema que estamos evitando.
+ * The golden rule: stale data beats an error. An inventory from ten
+ * minutes ago is practically identical to the current one, while an
+ * empty screen saying "try again" is no use at all — and it pushes the
+ * user to refresh, which makes exactly the problem we are avoiding
+ * worse.
  */
 @Injectable()
 export class InventoryService {
@@ -37,68 +38,68 @@ export class InventoryService {
   ) {}
 
   async getInventory(steamId: string): Promise<InventoryResponse> {
-    const emCache = await this.cache.get(steamId);
+    const cached = await this.cache.get(steamId);
 
-    // 1. Dado atual: nem toca na Steam.
-    if (emCache && !emCache.stale) {
+    // 1. Current data: never touch Steam.
+    if (cached && !cached.stale) {
       return {
         status: 'ok',
-        items: emCache.items,
-        fetchedAt: emCache.fetchedAt,
+        items: cached.items,
+        fetchedAt: cached.fetchedAt,
         cached: true,
         stale: false,
       };
     }
 
-    // 2. Estamos de castigo depois de um 429. Insistir agora só renova o
-    //    bloqueio, então servimos o que tivermos.
-    if (await this.cache.estaBloqueado()) {
-      return emCache ? this.servirVelho(emCache) : { status: 'rate_limited' };
+    // 2. We are serving a penalty after a 429. Insisting now only renews
+    //    the block, so we serve whatever we have.
+    if (await this.cache.isBlocked()) {
+      return cached ? this.serveStale(cached) : { status: 'rate_limited' };
     }
 
-    // 3. Só uma chamada à Steam por vez, para o servidor inteiro.
-    if (!(await this.cache.tentarReservarChamada())) {
-      return emCache ? this.servirVelho(emCache) : { status: 'rate_limited' };
+    // 3. Only one call to Steam at a time, for the whole server.
+    if (!(await this.cache.tryReserveCall())) {
+      return cached ? this.serveStale(cached) : { status: 'rate_limited' };
     }
 
-    const resultado = await this.steam.fetchInventory(steamId);
+    const result = await this.steam.fetchInventory(steamId);
 
-    if (resultado.status === 'ok') {
-      await this.cache.set(steamId, resultado.items);
+    if (result.status === 'ok') {
+      await this.cache.set(steamId, result.items);
 
       return {
         status: 'ok',
-        items: resultado.items,
+        items: result.items,
         fetchedAt: new Date(),
         cached: false,
         stale: false,
       };
     }
 
-    if (resultado.status === 'rate_limited') {
-      await this.cache.marcarBloqueioSteam();
-      return emCache ? this.servirVelho(emCache) : { status: 'rate_limited' };
+    if (result.status === 'rate_limited') {
+      await this.cache.markSteamBlocked();
+      return cached ? this.serveStale(cached) : { status: 'rate_limited' };
     }
 
-    // Inventário privado NÃO cai para o cache: se a pessoa acabou de
-    // fechar o perfil, servir o conteúdo antigo mostraria itens que ela
-    // decidiu esconder.
-    if (resultado.status === 'private') {
+    // A private inventory does NOT fall back to the cache: if the person
+    // just closed their profile, serving the old contents would show
+    // items they decided to hide.
+    if (result.status === 'private') {
       return { status: 'private' };
     }
 
-    // Falha passageira da Steam: o cache velho ainda é útil.
-    return emCache
-      ? this.servirVelho(emCache)
-      : { status: 'error', message: resultado.message };
+    // A passing Steam failure: the stale cache is still useful.
+    return cached
+      ? this.serveStale(cached)
+      : { status: 'error', message: result.message };
   }
 
-  private servirVelho(hit: {
+  private serveStale(hit: {
     items: InventoryItem[];
     fetchedAt: Date;
   }): InventoryResponse {
     this.logger.warn(
-      `Servindo inventário de ${hit.fetchedAt.toISOString()} — Steam indisponível ou limitada`,
+      `Serving inventory from ${hit.fetchedAt.toISOString()} — Steam unavailable or rate-limited`,
     );
 
     return {
