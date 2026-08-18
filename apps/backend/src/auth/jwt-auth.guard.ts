@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
 import type { Request } from 'express';
-import { enriquecerContexto } from '../observability/request-context';
+import { enrichContext } from '../observability/request-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionRevocationService } from './session-revocation.service';
 import { TokenService, type JwtPayloadVerificado } from './token.service';
@@ -67,7 +67,7 @@ export class JwtAuthGuard implements CanActivate {
 
     // A partir daqui os logs desta requisição saem com dono. Os anteriores
     // ficam sem — o que é correto: ainda não se sabia quem era.
-    enriquecerContexto({ userId: user.id });
+    enrichContext({ userId: user.id });
 
     return true;
   }

@@ -1,9 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 export interface RequestContext {
-  /** Identificador desta requisição. Aparece em todo log dela. */
+  /** Identifier for this request. Appears in every log line it produces. */
   requestId: string;
-  /** Preenchido pelo guard, depois de autenticar. */
+  /** Filled in by the guard, after authenticating. */
   userId?: string;
   ip?: string;
   method?: string;
@@ -11,41 +11,38 @@ export interface RequestContext {
 }
 
 /**
- * Contexto da requisição em curso, acessível de qualquer profundidade.
+ * Context of the request in flight, reachable from any depth.
  *
- * Existe para que um log escrito lá no fundo de um serviço saia com o
- * identificador da requisição sem que todo método precise receber isso
- * como parâmetro. Sem ele, os logs de uma falha ficam espalhados no meio
- * dos de todas as outras requisições que aconteciam ao mesmo tempo.
+ * It exists so that a log written deep inside a service carries the
+ * request identifier without every method having to take it as a
+ * parameter. Without it, the logs of one failure end up scattered among
+ * those of every other request happening at the same time.
  *
- * AsyncLocalStorage sobrevive a await e callback, então o contexto
- * atravessa a cadeia inteira de chamadas assíncronas.
+ * AsyncLocalStorage survives await and callbacks, so the context travels
+ * the entire chain of asynchronous calls.
  */
-const armazenamento = new AsyncLocalStorage<RequestContext>();
+const storage = new AsyncLocalStorage<RequestContext>();
 
-export function executarComContexto<T>(
-  contexto: RequestContext,
-  fn: () => T,
-): T {
-  return armazenamento.run(contexto, fn);
+export function runWithContext<T>(context: RequestContext, fn: () => T): T {
+  return storage.run(context, fn);
 }
 
-export function contextoAtual(): RequestContext | undefined {
-  return armazenamento.getStore();
+export function currentContext(): RequestContext | undefined {
+  return storage.getStore();
 }
 
 /**
- * Acrescenta dados ao contexto já aberto.
+ * Adds data to the context already open.
  *
- * Usado pelo guard: quando a requisição chega não se sabe quem é, e o
- * userId só aparece depois da autenticação. Sem isto, os logs anteriores
- * ao guard ficariam sem dono — o que é correto, e os posteriores passam a
- * ter.
+ * Used by the guard: when a request arrives we do not know who it is, and
+ * the userId only appears after authentication. Without this, logs before
+ * the guard would have no owner — which is correct — and the ones after
+ * it gain one.
  */
-export function enriquecerContexto(dados: Partial<RequestContext>): void {
-  const atual = armazenamento.getStore();
+export function enrichContext(data: Partial<RequestContext>): void {
+  const current = storage.getStore();
 
-  if (atual) {
-    Object.assign(atual, dados);
+  if (current) {
+    Object.assign(current, data);
   }
 }

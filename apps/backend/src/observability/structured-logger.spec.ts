@@ -1,20 +1,20 @@
 import { StructuredLogger } from './structured-logger';
-import { executarComContexto } from './request-context';
+import { runWithContext } from './request-context';
 
 describe('StructuredLogger', () => {
-  let escrito: string[];
+  let written: string[];
   let stdoutMock: jest.SpyInstance;
   let logger: StructuredLogger;
 
-  const ultimaLinha = () =>
-    JSON.parse(escrito[escrito.length - 1]) as Record<string, unknown>;
+  const lastLine = () =>
+    JSON.parse(written[written.length - 1]) as Record<string, unknown>;
 
   beforeEach(() => {
-    escrito = [];
+    written = [];
     stdoutMock = jest
       .spyOn(process.stdout, 'write')
       .mockImplementation((chunk) => {
-        escrito.push(String(chunk));
+        written.push(String(chunk));
         return true;
       });
 
@@ -25,36 +25,36 @@ describe('StructuredLogger', () => {
     stdoutMock.mockRestore();
   });
 
-  it('emite uma linha JSON por evento', () => {
-    logger.log('mensagem de teste', 'MeuServico');
+  it('emits one JSON line per event', () => {
+    logger.log('test message', 'MyService');
 
-    expect(escrito).toHaveLength(1);
-    expect(escrito[0].endsWith('\n')).toBe(true);
+    expect(written).toHaveLength(1);
+    expect(written[0].endsWith('\n')).toBe(true);
 
-    const linha = ultimaLinha();
-    expect(linha.level).toBe('info');
-    expect(linha.msg).toBe('mensagem de teste');
-    expect(linha.ctx).toBe('MeuServico');
-    expect(linha.ts).toBeDefined();
+    const line = lastLine();
+    expect(line.level).toBe('info');
+    expect(line.msg).toBe('test message');
+    expect(line.ctx).toBe('MyService');
+    expect(line.ts).toBeDefined();
   });
 
-  it('registra o nível de cada método', () => {
+  it('records the level of each method', () => {
     logger.warn('a', 'X');
-    expect(ultimaLinha().level).toBe('warn');
+    expect(lastLine().level).toBe('warn');
 
-    logger.error('b', 'trace aqui', 'X');
-    expect(ultimaLinha().level).toBe('error');
-    expect(ultimaLinha().trace).toBe('trace aqui');
+    logger.error('b', 'trace here', 'X');
+    expect(lastLine().level).toBe('error');
+    expect(lastLine().trace).toBe('trace here');
 
     logger.debug('c', 'X');
-    expect(ultimaLinha().level).toBe('debug');
+    expect(lastLine().level).toBe('debug');
   });
 
-  describe('contexto da requisição', () => {
-    // O motivo de tudo isso: sem o requestId, os logs de uma falha ficam
-    // espalhados no meio dos de todas as outras requisições simultâneas.
-    it('inclui requestId e dados da requisição', () => {
-      executarComContexto(
+  describe('request context', () => {
+    // The reason for all of this: without the requestId, the logs of one
+    // failure sit scattered among every other concurrent request.
+    it('includes requestId and request data', () => {
+      runWithContext(
         {
           requestId: 'req-123',
           userId: 'user-456',
@@ -62,128 +62,125 @@ describe('StructuredLogger', () => {
           method: 'POST',
           path: '/api/deposits',
         },
-        () => logger.log('depósito enfileirado', 'DepositsService'),
+        () => logger.log('deposit queued', 'DepositsService'),
       );
 
-      const linha = ultimaLinha();
-      expect(linha.requestId).toBe('req-123');
-      expect(linha.userId).toBe('user-456');
-      expect(linha.ip).toBe('203.0.113.5');
-      expect(linha.method).toBe('POST');
-      expect(linha.path).toBe('/api/deposits');
+      const line = lastLine();
+      expect(line.requestId).toBe('req-123');
+      expect(line.userId).toBe('user-456');
+      expect(line.ip).toBe('203.0.113.5');
+      expect(line.method).toBe('POST');
+      expect(line.path).toBe('/api/deposits');
     });
 
-    // O contexto atravessa await: um log lá no fundo da cadeia sai com o
-    // mesmo id, sem ninguém precisar passar isso como parâmetro.
-    it('sobrevive a await', async () => {
-      await executarComContexto({ requestId: 'req-async' }, async () => {
+    // The context survives await: a log deep in the chain comes out with
+    // the same id, without anyone passing it as a parameter.
+    it('survives await', async () => {
+      await runWithContext({ requestId: 'req-async' }, async () => {
         await new Promise((r) => setTimeout(r, 5));
-        logger.log('depois do await', 'X');
+        logger.log('after the await', 'X');
       });
 
-      expect(ultimaLinha().requestId).toBe('req-async');
+      expect(lastLine().requestId).toBe('req-async');
     });
 
-    it('funciona fora de requisição, sem contexto', () => {
-      logger.log('rotina de inicialização', 'Bootstrap');
+    it('works outside a request, with no context', () => {
+      logger.log('startup routine', 'Bootstrap');
 
-      const linha = ultimaLinha();
-      expect(linha.msg).toBe('rotina de inicialização');
-      expect(linha.requestId).toBeUndefined();
+      const line = lastLine();
+      expect(line.msg).toBe('startup routine');
+      expect(line.requestId).toBeUndefined();
     });
   });
 
-  describe('mascaramento', () => {
-    // Rede de proteção: o certo é não passar credencial adiante, mas
-    // despejar um objeto inteiro num log de erro é acidente comum.
-    it('oculta campos que parecem segredo', () => {
+  describe('masking', () => {
+    // Safety net: the right thing is not to pass credentials along, but
+    // dumping a whole object into an error log is a common accident.
+    it('hides fields that look like secrets', () => {
       logger.log(
         {
-          usuario: 'mazzo',
-          password: 'senha-real',
+          user: 'mazzo',
+          password: 'real-password',
           jwtSecret: 'abc123',
-          steam_api_key: 'chave',
+          steam_api_key: 'key',
           authorization: 'Bearer xyz',
           sessionToken: 'tok',
         },
         'X',
       );
 
-      const msg = JSON.parse(String(ultimaLinha().msg)) as Record<
-        string,
-        unknown
-      >;
+      const msg = JSON.parse(String(lastLine().msg)) as Record<string, unknown>;
 
-      expect(msg.usuario).toBe('mazzo');
-      expect(msg.password).toBe('[oculto]');
-      expect(msg.jwtSecret).toBe('[oculto]');
-      expect(msg.steam_api_key).toBe('[oculto]');
-      expect(msg.authorization).toBe('[oculto]');
-      expect(msg.sessionToken).toBe('[oculto]');
+      expect(msg.user).toBe('mazzo');
+      expect(msg.password).toBe('[hidden]');
+      expect(msg.jwtSecret).toBe('[hidden]');
+      expect(msg.steam_api_key).toBe('[hidden]');
+      expect(msg.authorization).toBe('[hidden]');
+      expect(msg.sessionToken).toBe('[hidden]');
     });
 
-    it('oculta em objeto aninhado', () => {
+    it('hides inside a nested object', () => {
       logger.log({ req: { headers: { cookie: 'session=abc' } } }, 'X');
 
-      const msg = JSON.parse(String(ultimaLinha().msg)) as {
+      const msg = JSON.parse(String(lastLine().msg)) as {
         req: { headers: { cookie: string } };
       };
 
-      expect(msg.req.headers.cookie).toBe('[oculto]');
+      expect(msg.req.headers.cookie).toBe('[hidden]');
     });
 
-    it('oculta dentro de lista', () => {
-      logger.log({ contas: [{ nome: 'bot1', password: 'x' }] }, 'X');
+    it('hides inside a list', () => {
+      logger.log({ accounts: [{ name: 'bot1', password: 'x' }] }, 'X');
 
-      const msg = JSON.parse(String(ultimaLinha().msg)) as {
-        contas: { nome: string; password: string }[];
+      const msg = JSON.parse(String(lastLine().msg)) as {
+        accounts: { name: string; password: string }[];
       };
 
-      expect(msg.contas[0].nome).toBe('bot1');
-      expect(msg.contas[0].password).toBe('[oculto]');
+      expect(msg.accounts[0].name).toBe('bot1');
+      expect(msg.accounts[0].password).toBe('[hidden]');
     });
 
-    it('não estoura com referência circular', () => {
+    it('does not blow up on a circular reference', () => {
       const circular: Record<string, unknown> = { a: 1 };
       circular.self = circular;
 
       expect(() => logger.log(circular, 'X')).not.toThrow();
-      expect(ultimaLinha().msg).toBeDefined();
+      expect(lastLine().msg).toBeDefined();
     });
   });
 
-  it('extrai a mensagem de um Error', () => {
-    logger.error(new Error('algo quebrou'), undefined, 'X');
+  it('extracts the message from an Error', () => {
+    logger.error(new Error('something broke'), undefined, 'X');
 
-    expect(ultimaLinha().msg).toBe('algo quebrou');
+    expect(lastLine().msg).toBe('something broke');
   });
 
-  describe('modo desenvolvimento', () => {
-    // Em dev, legibilidade vale mais que estrutura — e sair JSON no
-    // terminal atrapalharia mais do que ajudaria.
-    it('escreve texto legível, não JSON', () => {
+  describe('development mode', () => {
+    // In dev, readability beats structure — and JSON in the terminal
+    // would get in the way more than it helps.
+    it('writes readable text, not JSON', () => {
       const dev = new StructuredLogger(false);
 
-      dev.log('mensagem de dev', 'MeuServico');
+      dev.log('dev message', 'MyService');
 
-      const saida = escrito.join('');
-      expect(saida).toContain('mensagem de dev');
+      const output = written.join('');
+      expect(output).toContain('dev message');
       expect(() => {
-        JSON.parse(saida);
+        JSON.parse(output);
       }).toThrow();
     });
 
-    // Um prefixo curto basta para separar requisições concorrentes no
-    // terminal; o id inteiro só atrapalharia a leitura.
-    it('mostra o começo do requestId como prefixo', () => {
+    // A short prefix is enough to tell concurrent requests apart in the
+    // terminal; the full id would only hurt readability.
+    it('shows the start of the requestId as a prefix', () => {
       const dev = new StructuredLogger(false);
 
-      executarComContexto(
+      runWithContext(
         { requestId: 'abcdef12-3456-7890-abcd-ef1234567890' },
-        () => dev.log('com contexto', 'X'),
+        () => dev.log('with context', 'X'),
       );
 
-      expect(escrito.join('')).toContain('[abcdef12]');
+      expect(written.join('')).toContain('[abcdef12]');
     });
   });
 });
