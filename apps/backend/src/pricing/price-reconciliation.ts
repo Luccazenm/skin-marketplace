@@ -1,39 +1,39 @@
 import { PriceMarket } from '@prisma/client';
 
-/** Uma leitura de preço, já normalizada pelo adaptador da fonte. */
-export interface Cotacao {
+/** One price reading, already normalized by the source adapter. */
+export interface Quote {
   market: PriceMarket;
   /** USD. */
   price: number;
-  /** Quando a fonte apurou — não quando nós gravamos. */
+  /** When the source measured it — not when we stored it. */
   quotedAt: Date;
   volume24h?: number | null;
 }
 
-export type MotivoSemPreco = 'sem_cotacao' | 'todas_velhas' | 'fontes_divergem';
+export type NoPriceReason = 'no_quote' | 'all_stale' | 'sources_disagree';
 
-export type PrecoRecomendado =
+export type RecommendedPrice =
   | {
       ok: true;
       /** USD. */
       price: number;
-      /** De onde saiu o número exibido. */
+      /** Where the displayed number came from. */
       market: PriceMarket;
       quotedAt: Date;
-      /** As demais, para exibir ao lado — nunca somadas na média. */
-      referencias: Cotacao[];
+      /** The others, to show alongside — never folded into an average. */
+      references: Quote[];
     }
-  | { ok: false; motivo: MotivoSemPreco; referencias: Cotacao[] };
+  | { ok: false; reason: NoPriceReason; references: Quote[] };
 
 /**
- * Ordem de preferência do preço de referência.
+ * Preference order for the reference price.
  *
- * BUFF163 primeiro porque é o mercado mais líquido do CS2 e o que o
- * resto do mercado usa como âncora. Steam por último: o preço de lá é
- * inflado, porque o saldo não é sacável — serve como último recurso, não
- * como referência.
+ * BUFF163 first because it is the most liquid CS2 market and the one the
+ * rest of the market anchors to. Steam last: its price is inflated,
+ * because the balance there cannot be withdrawn — it serves as a last
+ * resort, not as a reference.
  */
-const PREFERENCIA: PriceMarket[] = [
+const PREFERENCE: PriceMarket[] = [
   PriceMarket.BUFF163,
   PriceMarket.YOUPIN,
   PriceMarket.C5GAME,
@@ -45,94 +45,94 @@ const PREFERENCIA: PriceMarket[] = [
   PriceMarket.STEAM,
 ];
 
-export interface OpcoesReconciliacao {
-  /** Cotação mais velha que isto não é exibida. */
-  idadeMaximaMs?: number;
-  /** Divergência acima disto (0,4 = 40%) faz recusar. */
-  divergenciaMaxima?: number;
-  agora?: Date;
+export interface ReconciliationOptions {
+  /** A quote older than this is not displayed. */
+  maxAgeMs?: number;
+  /** Disagreement above this (0.4 = 40%) refuses the price. */
+  maxDisagreement?: number;
+  now?: Date;
 }
 
 /**
- * Escolhe o preço a exibir a partir de várias fontes.
+ * Picks the price to display from several sources.
  *
- * Três decisões, todas com o mesmo viés: **não exibir preço é melhor que
- * exibir preço errado.** Quem vê "US$ 340" fecha negócio com base nisso;
- * quem vê "preço indisponível" pergunta.
+ * Three decisions, all with the same bias: **not showing a price beats
+ * showing a wrong one.** Someone who sees "US$ 340" closes a deal on it;
+ * someone who sees "price unavailable" asks.
  *
- * 1. **Não faz média.** Mercados têm liquidez muito diferente, e a média
- *    entre eles produz um número que não existe em lugar nenhum. Escolhe
- *    um mercado e mostra os outros ao lado.
- * 2. **Descarta cotação velha.** Preço de ontem numa tela de venda é
- *    reclamação com razão.
- * 3. **Recusa quando as fontes discordam demais.** Divergência grande é
- *    dado furado, item sem liquidez ou erro do fornecedor — nunca uma
- *    oportunidade.
+ * 1. **No averaging.** Markets have very different liquidity, and the
+ *    average between them produces a number that exists nowhere. Pick one
+ *    market and show the others beside it.
+ * 2. **Discard stale quotes.** Yesterday's price on a selling screen is a
+ *    complaint waiting to happen.
+ * 3. **Refuse when sources disagree too much.** A large gap means bad
+ *    data, an illiquid item, or a provider error — never an opportunity.
  */
-export function precoRecomendado(
-  cotacoes: Cotacao[],
-  opcoes: OpcoesReconciliacao = {},
-): PrecoRecomendado {
+export function recommendedPrice(
+  quotes: Quote[],
+  options: ReconciliationOptions = {},
+): RecommendedPrice {
   const {
-    idadeMaximaMs = 60 * 60 * 1000,
-    divergenciaMaxima = 0.4,
-    agora = new Date(),
-  } = opcoes;
+    maxAgeMs = 60 * 60 * 1000,
+    maxDisagreement = 0.4,
+    now = new Date(),
+  } = options;
 
-  if (cotacoes.length === 0) {
-    return { ok: false, motivo: 'sem_cotacao', referencias: [] };
+  if (quotes.length === 0) {
+    return { ok: false, reason: 'no_quote', references: [] };
   }
 
-  const frescas = cotacoes.filter(
-    (c) =>
-      c.price > 0 && agora.getTime() - c.quotedAt.getTime() <= idadeMaximaMs,
+  const fresh = quotes.filter(
+    (q) => q.price > 0 && now.getTime() - q.quotedAt.getTime() <= maxAgeMs,
   );
 
-  if (frescas.length === 0) {
-    return { ok: false, motivo: 'todas_velhas', referencias: cotacoes };
+  if (fresh.length === 0) {
+    return { ok: false, reason: 'all_stale', references: quotes };
   }
 
-  // Uma fonte só: não há com o que comparar. Vale exibir — a alternativa
-  // seria nunca mostrar preço de item que só existe num mercado.
-  if (frescas.length > 1 && divergem(frescas, divergenciaMaxima)) {
-    return { ok: false, motivo: 'fontes_divergem', referencias: frescas };
+  // A single source: nothing to compare against. Worth displaying — the
+  // alternative would be never showing a price for an item that exists on
+  // only one market.
+  if (fresh.length > 1 && disagree(fresh, maxDisagreement)) {
+    return { ok: false, reason: 'sources_disagree', references: fresh };
   }
 
-  const escolhida = maisPreferida(frescas);
+  const chosen = mostPreferred(fresh);
 
   return {
     ok: true,
-    price: escolhida.price,
-    market: escolhida.market,
-    quotedAt: escolhida.quotedAt,
-    referencias: frescas.filter((c) => c.market !== escolhida.market),
+    price: chosen.price,
+    market: chosen.market,
+    quotedAt: chosen.quotedAt,
+    references: fresh.filter((q) => q.market !== chosen.market),
   };
 }
 
 /**
- * Compara o menor com o maior, não com a média: duas fontes coerentes e
- * uma absurda ainda é motivo para não exibir, e a média as acomodaria.
+ * Compares the lowest against the highest, not against the average: two
+ * coherent sources and one absurd one is still reason not to display, and
+ * an average would accommodate it.
  */
-function divergem(cotacoes: Cotacao[], limite: number): boolean {
-  const precos = cotacoes.map((c) => c.price);
-  const menor = Math.min(...precos);
-  const maior = Math.max(...precos);
+function disagree(quotes: Quote[], limit: number): boolean {
+  const prices = quotes.map((q) => q.price);
+  const lowest = Math.min(...prices);
+  const highest = Math.max(...prices);
 
-  return (maior - menor) / menor > limite;
+  return (highest - lowest) / lowest > limit;
 }
 
-function maisPreferida(cotacoes: Cotacao[]): Cotacao {
-  for (const market of PREFERENCIA) {
-    const achada = cotacoes.find((c) => c.market === market);
+function mostPreferred(quotes: Quote[]): Quote {
+  for (const market of PREFERENCE) {
+    const found = quotes.find((q) => q.market === market);
 
-    if (achada) {
-      return achada;
+    if (found) {
+      return found;
     }
   }
 
-  // Mercado que ainda não entrou na lista de preferência. Melhor exibir
-  // com o mais recente do que não exibir por causa de um enum novo.
-  return [...cotacoes].sort(
+  // A market not yet in the preference list. Better to display using the
+  // most recent one than to withhold a price because of a new enum value.
+  return [...quotes].sort(
     (a, b) => b.quotedAt.getTime() - a.quotedAt.getTime(),
   )[0];
 }

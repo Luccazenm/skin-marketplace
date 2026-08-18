@@ -9,26 +9,26 @@ import {
 import { validateEnv } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
 import { PriceHistoryService } from './price-history.service';
-import type { CotacaoBruta } from './price-provider';
+import type { RawQuote } from './price-provider';
 
 /**
- * A série histórica é a única defesa contra "o site me mostrou outro
- * preço" — e é a única coisa deste projeto que não dá para recuperar
- * depois: histórico não se constrói para trás.
+ * The history series is the only defence against "the site showed me a
+ * different price" — and the only thing in this project that cannot be
+ * recovered later: history is not built backwards.
  */
 describe('PriceHistoryService', () => {
   let service: PriceHistoryService;
   let prisma: PrismaService;
   let template: SkinTemplate;
 
-  const NOME = 'AK-47 | Teste Preço (Field-Tested)';
-  const QUANDO = new Date('2026-08-17T10:00:00Z');
+  const NAME = 'AK-47 | Price Test (Field-Tested)';
+  const WHEN = new Date('2026-08-17T10:00:00Z');
 
-  const cotacao = (over: Partial<CotacaoBruta> = {}): CotacaoBruta => ({
-    marketHashName: NOME,
+  const quote = (over: Partial<RawQuote> = {}): RawQuote => ({
+    marketHashName: NAME,
     market: PriceMarket.BUFF163,
     price: 100.5,
-    quotedAt: QUANDO,
+    quotedAt: WHEN,
     ...over,
   });
 
@@ -46,17 +46,17 @@ describe('PriceHistoryService', () => {
   });
 
   beforeEach(async () => {
-    await limpar();
+    await cleanup();
 
     template = await prisma.skinTemplate.create({
       data: {
-        marketHashName: NOME,
+        marketHashName: NAME,
         category: ItemCategory.RIFLE,
         weapon: 'AK-47',
-        skinName: 'Teste Preço',
+        skinName: 'Price Test',
         rarity: 'Classified',
-        // Exigidos pela constraint: item pintado precisa de faixa de
-        // float, senão não dá para dizer se o float do exemplar é bom.
+        // Required by the constraint: a painted item needs a float range,
+        // otherwise there is no way to say whether a unit's float is good.
         minFloat: 0.15,
         maxFloat: 0.38,
       },
@@ -64,13 +64,13 @@ describe('PriceHistoryService', () => {
   });
 
   afterAll(async () => {
-    await limpar();
+    await cleanup();
     await prisma.$disconnect();
   });
 
-  async function limpar() {
+  async function cleanup() {
     const t = await prisma.skinTemplate.findUnique({
-      where: { marketHashName: NOME },
+      where: { marketHashName: NAME },
     });
 
     if (t) {
@@ -81,11 +81,11 @@ describe('PriceHistoryService', () => {
     }
   }
 
-  describe('registrar', () => {
-    it('grava a cotação com o instante apurado pela fonte', async () => {
-      const r = await service.registrar(PriceSource.CS2SH, [cotacao()]);
+  describe('record', () => {
+    it('stores the quote with the instant measured by the source', async () => {
+      const r = await service.record(PriceSource.CS2SH, [quote()]);
 
-      expect(r).toEqual({ gravadas: 1, repetidas: 0, semTemplate: 0 });
+      expect(r).toEqual({ stored: 1, repeated: 0, withoutTemplate: 0 });
 
       const s = await prisma.priceSnapshot.findFirst({
         where: { skinTemplateId: template.id },
@@ -93,15 +93,15 @@ describe('PriceHistoryService', () => {
 
       expect(Number(s!.price)).toBe(100.5);
       expect(s!.market).toBe(PriceMarket.BUFF163);
-      // quotedAt é da fonte; capturedAt é nosso. Não são a mesma coisa:
-      // fornecedor que serve dado velho precisa ser distinguível.
-      expect(s!.quotedAt).toEqual(QUANDO);
-      expect(s!.capturedAt.getTime()).toBeGreaterThan(QUANDO.getTime());
+      // quotedAt is the source's; capturedAt is ours. They are not the
+      // same thing: a provider serving stale data must be distinguishable.
+      expect(s!.quotedAt).toEqual(WHEN);
+      expect(s!.capturedAt.getTime()).toBeGreaterThan(WHEN.getTime());
     });
 
-    it('guarda bid, ask e volume quando a fonte informa', async () => {
-      await service.registrar(PriceSource.CS2SH, [
-        cotacao({ bid: 95, ask: 105, volume24h: 42 }),
+    it('keeps bid, ask and volume when the source reports them', async () => {
+      await service.record(PriceSource.CS2SH, [
+        quote({ bid: 95, ask: 105, volume24h: 42 }),
       ]);
 
       const s = await prisma.priceSnapshot.findFirst({
@@ -113,22 +113,22 @@ describe('PriceHistoryService', () => {
       expect(s!.volume24h).toBe(42);
     });
 
-    // O job pode morrer no meio e ser rodado de novo. Abortar a captura
-    // inteira por uma linha repetida seria pior que ignorá-la.
-    it('não duplica ao rodar de novo', async () => {
-      await service.registrar(PriceSource.CS2SH, [cotacao()]);
-      const r = await service.registrar(PriceSource.CS2SH, [cotacao()]);
+    // The job can die midway and be run again. Aborting the whole capture
+    // over one repeated row would be worse than ignoring it.
+    it('does not duplicate when run again', async () => {
+      await service.record(PriceSource.CS2SH, [quote()]);
+      const r = await service.record(PriceSource.CS2SH, [quote()]);
 
-      expect(r).toEqual({ gravadas: 0, repetidas: 1, semTemplate: 0 });
+      expect(r).toEqual({ stored: 0, repeated: 1, withoutTemplate: 0 });
       await expect(
         prisma.priceSnapshot.count({ where: { skinTemplateId: template.id } }),
       ).resolves.toBe(1);
     });
 
-    it('mesma fonte e mercado em instantes diferentes são duas linhas', async () => {
-      await service.registrar(PriceSource.CS2SH, [cotacao()]);
-      await service.registrar(PriceSource.CS2SH, [
-        cotacao({ quotedAt: new Date(QUANDO.getTime() + 3_600_000) }),
+    it('treats the same source and market at different instants as two rows', async () => {
+      await service.record(PriceSource.CS2SH, [quote()]);
+      await service.record(PriceSource.CS2SH, [
+        quote({ quotedAt: new Date(WHEN.getTime() + 3_600_000) }),
       ]);
 
       await expect(
@@ -136,96 +136,97 @@ describe('PriceHistoryService', () => {
       ).resolves.toBe(2);
     });
 
-    // O fornecedor conhece o jogo inteiro; nós só o que já apareceu aqui.
-    it('conta, sem falhar, item que não está no catálogo', async () => {
-      const r = await service.registrar(PriceSource.CS2SH, [
-        cotacao(),
-        cotacao({ marketHashName: 'Skin Que Não Temos (FN)' }),
+    // The provider knows the whole game; we only know what has shown up
+    // here.
+    it('counts, without failing, an item that is not in the catalog', async () => {
+      const r = await service.record(PriceSource.CS2SH, [
+        quote(),
+        quote({ marketHashName: 'Skin We Do Not Have (FN)' }),
       ]);
 
-      expect(r).toEqual({ gravadas: 1, repetidas: 0, semTemplate: 1 });
+      expect(r).toEqual({ stored: 1, repeated: 0, withoutTemplate: 1 });
     });
 
-    it('não faz nada com lote vazio', async () => {
-      await expect(service.registrar(PriceSource.CS2SH, [])).resolves.toEqual({
-        gravadas: 0,
-        repetidas: 0,
-        semTemplate: 0,
+    it('does nothing with an empty batch', async () => {
+      await expect(service.record(PriceSource.CS2SH, [])).resolves.toEqual({
+        stored: 0,
+        repeated: 0,
+        withoutTemplate: 0,
       });
     });
   });
 
-  describe('precoAtual', () => {
-    it('usa a leitura mais recente de cada mercado', async () => {
-      await service.registrar(PriceSource.CS2SH, [
-        cotacao({ price: 90, quotedAt: new Date(Date.now() - 7_200_000) }),
-        cotacao({ price: 100, quotedAt: new Date(Date.now() - 60_000) }),
+  describe('currentPrice', () => {
+    it('uses the most recent reading of each market', async () => {
+      await service.record(PriceSource.CS2SH, [
+        quote({ price: 90, quotedAt: new Date(Date.now() - 7_200_000) }),
+        quote({ price: 100, quotedAt: new Date(Date.now() - 60_000) }),
       ]);
 
-      const r = await service.precoAtual(template.id);
+      const r = await service.currentPrice(template.id);
 
       expect(r.ok).toBe(true);
       if (!r.ok) return;
       expect(r.price).toBe(100);
     });
 
-    it('recusa quando só há leitura velha', async () => {
-      await service.registrar(PriceSource.CS2SH, [
-        cotacao({ quotedAt: new Date(Date.now() - 86_400_000) }),
+    it('refuses when only a stale reading exists', async () => {
+      await service.record(PriceSource.CS2SH, [
+        quote({ quotedAt: new Date(Date.now() - 86_400_000) }),
       ]);
 
-      const r = await service.precoAtual(template.id);
+      const r = await service.currentPrice(template.id);
 
       expect(r.ok).toBe(false);
       if (r.ok) return;
-      expect(r.motivo).toBe('todas_velhas');
+      expect(r.reason).toBe('all_stale');
     });
 
-    it('recusa quando não há cotação nenhuma', async () => {
-      const r = await service.precoAtual(template.id);
+    it('refuses when there is no quote at all', async () => {
+      const r = await service.currentPrice(template.id);
 
       expect(r.ok).toBe(false);
       if (r.ok) return;
-      expect(r.motivo).toBe('sem_cotacao');
+      expect(r.reason).toBe('no_quote');
     });
 
-    it('prefere BUFF e devolve os outros como referência', async () => {
-      const agora = new Date(Date.now() - 60_000);
+    it('prefers BUFF and returns the others as references', async () => {
+      const now = new Date(Date.now() - 60_000);
 
-      await service.registrar(PriceSource.CS2SH, [
-        cotacao({ market: PriceMarket.SKINPORT, price: 120, quotedAt: agora }),
-        cotacao({ market: PriceMarket.BUFF163, price: 100, quotedAt: agora }),
+      await service.record(PriceSource.CS2SH, [
+        quote({ market: PriceMarket.SKINPORT, price: 120, quotedAt: now }),
+        quote({ market: PriceMarket.BUFF163, price: 100, quotedAt: now }),
       ]);
 
-      const r = await service.precoAtual(template.id);
+      const r = await service.currentPrice(template.id);
 
       if (!r.ok) return;
       expect(r.market).toBe(PriceMarket.BUFF163);
-      expect(r.referencias).toHaveLength(1);
+      expect(r.references).toHaveLength(1);
     });
   });
 
-  describe('serie', () => {
-    it('devolve em ordem cronológica, filtrando por mercado e período', async () => {
+  describe('series', () => {
+    it('returns in chronological order, filtered by market and period', async () => {
       const base = Date.now() - 5 * 86_400_000;
 
-      await service.registrar(PriceSource.CS2SH, [
-        cotacao({ price: 10, quotedAt: new Date(base) }),
-        cotacao({ price: 20, quotedAt: new Date(base + 86_400_000) }),
-        cotacao({
+      await service.record(PriceSource.CS2SH, [
+        quote({ price: 10, quotedAt: new Date(base) }),
+        quote({ price: 20, quotedAt: new Date(base + 86_400_000) }),
+        quote({
           market: PriceMarket.SKINPORT,
           price: 99,
           quotedAt: new Date(base),
         }),
       ]);
 
-      const serie = await service.serie(
+      const series = await service.series(
         template.id,
         PriceMarket.BUFF163,
         new Date(base - 1000),
       );
 
-      expect(serie.map((s) => Number(s.price))).toEqual([10, 20]);
+      expect(series.map((s) => Number(s.price))).toEqual([10, 20]);
     });
   });
 });

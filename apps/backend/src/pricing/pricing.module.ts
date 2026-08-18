@@ -3,13 +3,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { PriceHistoryService } from './price-history.service';
 
 /**
- * Preço.
+ * Pricing.
  *
- * Nenhum adaptador de fornecedor ainda: a escolha entre cs2.sh e
- * SteamWebAPI está esperando resposta sobre termos comerciais e
- * frequência de atualização — ver docs/emails-e-fornecedores.md. O que
- * existe aqui vale para qualquer um dos dois, e a série histórica começa
- * a acumular no dia em que o primeiro adaptador entrar.
+ * No provider adapter yet: the choice between cs2.sh and SteamWebAPI is
+ * waiting on answers about commercial terms and refresh frequency — see
+ * docs/emails-e-fornecedores.md. What exists here holds for either one,
+ * and the history series starts accumulating the day the first adapter
+ * lands.
  */
 @Module({
   imports: [PrismaModule],

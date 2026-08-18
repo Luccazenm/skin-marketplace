@@ -1,34 +1,33 @@
 import { PriceMarket } from '@prisma/client';
-import { precoRecomendado, type Cotacao } from './price-reconciliation';
+import { recommendedPrice, type Quote } from './price-reconciliation';
 
 /**
- * É esta função que decide o número que o usuário vê antes de vender uma
- * skin. Errar aqui não quebra o sistema — faz alguém aceitar menos do que
- * o item vale, que é pior, porque ninguém percebe.
+ * This function decides the number a user sees before selling a skin.
+ * Getting it wrong does not break the system — it makes someone accept
+ * less than the item is worth, which is worse, because nobody notices.
  */
-describe('precoRecomendado', () => {
-  const AGORA = new Date('2026-08-17T12:00:00Z');
+describe('recommendedPrice', () => {
+  const NOW = new Date('2026-08-17T12:00:00Z');
 
-  const cotacao = (
+  const quote = (
     market: PriceMarket,
     price: number,
-    minutosAtras = 0,
-  ): Cotacao => ({
+    minutesAgo = 0,
+  ): Quote => ({
     market,
     price,
-    quotedAt: new Date(AGORA.getTime() - minutosAtras * 60_000),
+    quotedAt: new Date(NOW.getTime() - minutesAgo * 60_000),
   });
 
-  const resolver = (cotacoes: Cotacao[]) =>
-    precoRecomendado(cotacoes, { agora: AGORA });
+  const resolve = (quotes: Quote[]) => recommendedPrice(quotes, { now: NOW });
 
-  describe('escolha do mercado', () => {
-    // BUFF é o mercado mais líquido e a âncora que o resto usa.
-    it('prefere BUFF163 quando disponível', () => {
-      const r = resolver([
-        cotacao(PriceMarket.SKINPORT, 120),
-        cotacao(PriceMarket.BUFF163, 100),
-        cotacao(PriceMarket.CSFLOAT, 110),
+  describe('market choice', () => {
+    // BUFF is the most liquid market and the anchor the rest uses.
+    it('prefers BUFF163 when available', () => {
+      const r = resolve([
+        quote(PriceMarket.SKINPORT, 120),
+        quote(PriceMarket.BUFF163, 100),
+        quote(PriceMarket.CSFLOAT, 110),
       ]);
 
       expect(r.ok).toBe(true);
@@ -38,32 +37,32 @@ describe('precoRecomendado', () => {
       expect(r.price).toBe(100);
     });
 
-    // Steam infla porque o saldo de lá não é sacável — é último recurso,
-    // nunca referência.
-    it('só usa Steam quando não há mais nada', () => {
-      const r = resolver([
-        cotacao(PriceMarket.STEAM, 150),
-        cotacao(PriceMarket.SKINPORT, 120),
+    // Steam is inflated because its balance cannot be withdrawn — it is a
+    // last resort, never a reference.
+    it('only uses Steam when there is nothing else', () => {
+      const r = resolve([
+        quote(PriceMarket.STEAM, 150),
+        quote(PriceMarket.SKINPORT, 120),
       ]);
 
       if (!r.ok) return;
       expect(r.market).toBe(PriceMarket.SKINPORT);
     });
 
-    it('aceita Steam sozinha, em vez de não mostrar nada', () => {
-      const r = resolver([cotacao(PriceMarket.STEAM, 150)]);
+    it('accepts Steam alone rather than showing nothing', () => {
+      const r = resolve([quote(PriceMarket.STEAM, 150)]);
 
       expect(r.ok).toBe(true);
       if (!r.ok) return;
       expect(r.market).toBe(PriceMarket.STEAM);
     });
 
-    // Média entre mercados de liquidez diferente produz um número que não
-    // existe em lugar nenhum.
-    it('não faz média: devolve o preço de um mercado real', () => {
-      const r = resolver([
-        cotacao(PriceMarket.BUFF163, 100),
-        cotacao(PriceMarket.SKINPORT, 130),
+    // An average across markets of different liquidity produces a number
+    // that exists nowhere.
+    it('does not average: it returns a real market price', () => {
+      const r = resolve([
+        quote(PriceMarket.BUFF163, 100),
+        quote(PriceMarket.SKINPORT, 130),
       ]);
 
       if (!r.ok) return;
@@ -71,136 +70,138 @@ describe('precoRecomendado', () => {
       expect(r.price).not.toBe(115);
     });
 
-    it('devolve as outras como referência, sem misturar', () => {
-      const r = resolver([
-        cotacao(PriceMarket.BUFF163, 100),
-        cotacao(PriceMarket.SKINPORT, 130),
-        cotacao(PriceMarket.CSFLOAT, 125),
+    it('returns the others as references, unmixed', () => {
+      const r = resolve([
+        quote(PriceMarket.BUFF163, 100),
+        quote(PriceMarket.SKINPORT, 130),
+        quote(PriceMarket.CSFLOAT, 125),
       ]);
 
       if (!r.ok) return;
-      expect(r.referencias.map((c) => c.market).sort()).toEqual(
+      expect(r.references.map((q) => q.market).sort()).toEqual(
         [PriceMarket.CSFLOAT, PriceMarket.SKINPORT].sort(),
       );
     });
   });
 
-  describe('cotação velha', () => {
-    it('descarta a que passou da idade máxima', () => {
-      const r = precoRecomendado(
+  describe('stale quote', () => {
+    it('discards the one past the maximum age', () => {
+      const r = recommendedPrice(
         [
-          cotacao(PriceMarket.BUFF163, 100, 180),
-          cotacao(PriceMarket.SKINPORT, 130, 5),
+          quote(PriceMarket.BUFF163, 100, 180),
+          quote(PriceMarket.SKINPORT, 130, 5),
         ],
-        { agora: AGORA, idadeMaximaMs: 60 * 60 * 1000 },
+        { now: NOW, maxAgeMs: 60 * 60 * 1000 },
       );
 
       if (!r.ok) return;
       expect(r.market).toBe(PriceMarket.SKINPORT);
     });
 
-    // Preço de ontem numa tela de venda é reclamação com razão.
-    it('recusa quando todas estão velhas', () => {
-      const r = precoRecomendado(
+    // Yesterday's price on a selling screen is a complaint with a point.
+    it('refuses when every quote is stale', () => {
+      const r = recommendedPrice(
         [
-          cotacao(PriceMarket.BUFF163, 100, 300),
-          cotacao(PriceMarket.SKINPORT, 130, 400),
+          quote(PriceMarket.BUFF163, 100, 300),
+          quote(PriceMarket.SKINPORT, 130, 400),
         ],
-        { agora: AGORA, idadeMaximaMs: 60 * 60 * 1000 },
+        { now: NOW, maxAgeMs: 60 * 60 * 1000 },
       );
 
       expect(r.ok).toBe(false);
       if (r.ok) return;
-      expect(r.motivo).toBe('todas_velhas');
-      // As velhas voltam como referência: servem para investigar depois.
-      expect(r.referencias).toHaveLength(2);
+      expect(r.reason).toBe('all_stale');
+      // The stale ones come back as references: useful when investigating
+      // later.
+      expect(r.references).toHaveLength(2);
     });
   });
 
-  describe('divergência entre fontes', () => {
-    // Divergência grande é dado furado, item sem liquidez ou erro do
-    // fornecedor — nunca uma oportunidade.
-    it('recusa quando as fontes discordam demais', () => {
-      const r = resolver([
-        cotacao(PriceMarket.BUFF163, 100),
-        cotacao(PriceMarket.SKINPORT, 300),
+  describe('disagreement between sources', () => {
+    // A large gap means bad data, an illiquid item, or a provider error —
+    // never an opportunity.
+    it('refuses when the sources disagree too much', () => {
+      const r = resolve([
+        quote(PriceMarket.BUFF163, 100),
+        quote(PriceMarket.SKINPORT, 300),
       ]);
 
       expect(r.ok).toBe(false);
       if (r.ok) return;
-      expect(r.motivo).toBe('fontes_divergem');
+      expect(r.reason).toBe('sources_disagree');
     });
 
-    it('aceita diferença dentro do limite', () => {
-      const r = resolver([
-        cotacao(PriceMarket.BUFF163, 100),
-        cotacao(PriceMarket.SKINPORT, 130),
+    it('accepts a difference within the limit', () => {
+      const r = resolve([
+        quote(PriceMarket.BUFF163, 100),
+        quote(PriceMarket.SKINPORT, 130),
       ]);
 
       expect(r.ok).toBe(true);
     });
 
-    // Compara extremos, não média: duas coerentes e uma absurda ainda é
-    // motivo para não exibir, e a média a acomodaria.
-    it('pega a fonte absurda mesmo entre duas coerentes', () => {
-      const r = resolver([
-        cotacao(PriceMarket.BUFF163, 100),
-        cotacao(PriceMarket.CSFLOAT, 105),
-        cotacao(PriceMarket.SKINPORT, 900),
+    // Compares extremes, not the average: two coherent sources and one
+    // absurd one is still reason not to display, and the average would
+    // accommodate it.
+    it('catches the absurd source even between two coherent ones', () => {
+      const r = resolve([
+        quote(PriceMarket.BUFF163, 100),
+        quote(PriceMarket.CSFLOAT, 105),
+        quote(PriceMarket.SKINPORT, 900),
       ]);
 
       expect(r.ok).toBe(false);
     });
 
-    it('não recusa item que só existe num mercado', () => {
-      const r = resolver([cotacao(PriceMarket.BUFF163, 100)]);
+    it('does not refuse an item that exists on a single market', () => {
+      const r = resolve([quote(PriceMarket.BUFF163, 100)]);
 
       expect(r.ok).toBe(true);
     });
 
-    it('respeita o limite configurado', () => {
-      const cotacoes = [
-        cotacao(PriceMarket.BUFF163, 100),
-        cotacao(PriceMarket.SKINPORT, 150),
+    it('respects the configured limit', () => {
+      const quotes = [
+        quote(PriceMarket.BUFF163, 100),
+        quote(PriceMarket.SKINPORT, 150),
       ];
 
       expect(
-        precoRecomendado(cotacoes, { agora: AGORA, divergenciaMaxima: 0.6 }).ok,
+        recommendedPrice(quotes, { now: NOW, maxDisagreement: 0.6 }).ok,
       ).toBe(true);
       expect(
-        precoRecomendado(cotacoes, { agora: AGORA, divergenciaMaxima: 0.1 }).ok,
+        recommendedPrice(quotes, { now: NOW, maxDisagreement: 0.1 }).ok,
       ).toBe(false);
     });
   });
 
-  describe('entrada degenerada', () => {
-    it('recusa sem cotação nenhuma', () => {
-      const r = resolver([]);
+  describe('degenerate input', () => {
+    it('refuses with no quotes at all', () => {
+      const r = resolve([]);
 
       expect(r.ok).toBe(false);
       if (r.ok) return;
-      expect(r.motivo).toBe('sem_cotacao');
+      expect(r.reason).toBe('no_quote');
     });
 
-    // Preço zero ou negativo é erro de fornecedor, não item de graça.
-    it.each([0, -5])('ignora preço %p', (price) => {
-      const r = resolver([cotacao(PriceMarket.BUFF163, price)]);
+    // A zero or negative price is a provider error, not a free item.
+    it.each([0, -5])('ignores a price of %p', (price) => {
+      const r = resolve([quote(PriceMarket.BUFF163, price)]);
 
       expect(r.ok).toBe(false);
     });
 
-    it('usa a cotação boa quando a outra veio zerada', () => {
-      const r = resolver([
-        cotacao(PriceMarket.BUFF163, 0),
-        cotacao(PriceMarket.SKINPORT, 130),
+    it('uses the good quote when the other came in at zero', () => {
+      const r = resolve([
+        quote(PriceMarket.BUFF163, 0),
+        quote(PriceMarket.SKINPORT, 130),
       ]);
 
       if (!r.ok) return;
       expect(r.market).toBe(PriceMarket.SKINPORT);
     });
 
-    it('não estoura com mercado fora da lista de preferência', () => {
-      const r = resolver([cotacao(PriceMarket.NEXTSKINS, 100)]);
+    it('does not blow up on a market outside the preference list', () => {
+      const r = resolve([quote(PriceMarket.NEXTSKINS, 100)]);
 
       expect(r.ok).toBe(true);
       if (!r.ok) return;

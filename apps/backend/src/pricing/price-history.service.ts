@@ -1,25 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, type PriceMarket, type PriceSource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CotacaoBruta } from './price-provider';
-import { precoRecomendado, type Cotacao } from './price-reconciliation';
+import type { RawQuote } from './price-provider';
+import { recommendedPrice, type Quote } from './price-reconciliation';
 
-export interface ResultadoCaptura {
-  gravadas: number;
-  /** Já existiam: rodar o job duas vezes não duplica a série. */
-  repetidas: number;
-  /** Sem `SkinTemplate` correspondente no nosso catálogo. */
-  semTemplate: number;
+export interface CaptureResult {
+  stored: number;
+  /** Already existed: running the job twice does not duplicate the series. */
+  repeated: number;
+  /** Without a matching `SkinTemplate` in our catalog. */
+  withoutTemplate: number;
 }
 
 /**
- * Grava e lê a série histórica de preços.
+ * Stores and reads the price history series.
  *
- * A série é **append-only**: nunca editar linha existente. Cada snapshot
- * é o registro de que, naquele instante, aquela fonte dizia aquele preço.
- * Reescrever apagaria a prova do que foi mostrado ao usuário — que é
- * metade do motivo de esta tabela existir. A outra metade é o gráfico,
- * que ninguém consegue construir para trás.
+ * The series is **append-only**: never edit an existing row. Each
+ * snapshot records that, at that instant, that source said that price.
+ * Rewriting would erase the proof of what the user was shown — which is
+ * half the reason this table exists. The other half is the chart, which
+ * nobody can build backwards.
  */
 @Injectable()
 export class PriceHistoryService {
@@ -28,40 +28,40 @@ export class PriceHistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Grava um lote de cotações.
+   * Stores a batch of quotes.
    *
-   * Ignora repetição em vez de falhar: o job pode rodar de novo depois de
-   * uma queda no meio, e a alternativa seria abortar a captura inteira
-   * por causa de uma linha que já existia.
+   * Ignores repeats instead of failing: the job may run again after a
+   * crash midway, and the alternative would be aborting the whole capture
+   * because of a row that already existed.
    */
-  async registrar(
+  async record(
     source: PriceSource,
-    cotacoes: CotacaoBruta[],
-  ): Promise<ResultadoCaptura> {
-    if (cotacoes.length === 0) {
-      return { gravadas: 0, repetidas: 0, semTemplate: 0 };
+    quotes: RawQuote[],
+  ): Promise<CaptureResult> {
+    if (quotes.length === 0) {
+      return { stored: 0, repeated: 0, withoutTemplate: 0 };
     }
 
-    const nomes = [...new Set(cotacoes.map((c) => c.marketHashName))];
+    const names = [...new Set(quotes.map((q) => q.marketHashName))];
 
     const templates = await this.prisma.skinTemplate.findMany({
-      where: { marketHashName: { in: nomes } },
+      where: { marketHashName: { in: names } },
       select: { id: true, marketHashName: true },
     });
 
-    const idPorNome = new Map(templates.map((t) => [t.marketHashName, t.id]));
+    const idByName = new Map(templates.map((t) => [t.marketHashName, t.id]));
 
-    let gravadas = 0;
-    let repetidas = 0;
-    let semTemplate = 0;
+    let stored = 0;
+    let repeated = 0;
+    let withoutTemplate = 0;
 
-    for (const c of cotacoes) {
-      const skinTemplateId = idPorNome.get(c.marketHashName);
+    for (const q of quotes) {
+      const skinTemplateId = idByName.get(q.marketHashName);
 
-      // Item que ainda não está no catálogo. Não é erro: o fornecedor
-      // conhece o jogo inteiro e nós só o que já apareceu por aqui.
+      // An item not yet in the catalog. Not an error: the provider knows
+      // the whole game and we only know what has shown up here.
       if (!skinTemplateId) {
-        semTemplate++;
+        withoutTemplate++;
         continue;
       }
 
@@ -70,65 +70,64 @@ export class PriceHistoryService {
           data: {
             skinTemplateId,
             source,
-            market: c.market,
-            price: new Prisma.Decimal(c.price),
-            bid: c.bid != null ? new Prisma.Decimal(c.bid) : null,
-            ask: c.ask != null ? new Prisma.Decimal(c.ask) : null,
-            volume24h: c.volume24h ?? null,
-            quotedAt: c.quotedAt,
+            market: q.market,
+            price: new Prisma.Decimal(q.price),
+            bid: q.bid != null ? new Prisma.Decimal(q.bid) : null,
+            ask: q.ask != null ? new Prisma.Decimal(q.ask) : null,
+            volume24h: q.volume24h ?? null,
+            quotedAt: q.quotedAt,
           },
         });
-        gravadas++;
-      } catch (erro) {
+        stored++;
+      } catch (error) {
         if (
-          erro instanceof Prisma.PrismaClientKnownRequestError &&
-          erro.code === 'P2002'
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
         ) {
-          repetidas++;
+          repeated++;
           continue;
         }
 
-        throw erro;
+        throw error;
       }
     }
 
     this.logger.log(
-      `Captura de ${source}: ${gravadas} gravadas, ${repetidas} repetidas, ` +
-        `${semTemplate} sem template`,
+      `Capture from ${source}: ${stored} stored, ${repeated} repeated, ` +
+        `${withoutTemplate} without template`,
     );
 
-    return { gravadas, repetidas, semTemplate };
+    return { stored, repeated, withoutTemplate };
   }
 
   /**
-   * Preço a exibir para um item, a partir da última leitura de cada
-   * mercado.
+   * Price to display for an item, from the latest reading of each market.
    *
-   * Lê do nosso banco, nunca do fornecedor. Chamar a API externa aqui
-   * significaria estourar a cota na primeira dúzia de visitantes, somar
-   * centenas de milissegundos a cada página, e derrubar a vitrine junto
-   * com o fornecedor no dia em que ele cair.
+   * Reads from our database, never from the provider. Calling the
+   * external API here would blow the quota on the first dozen visitors,
+   * add hundreds of milliseconds to every page, and take the storefront
+   * down together with the provider the day it falls over.
    */
-  async precoAtual(
+  async currentPrice(
     skinTemplateId: string,
-    opcoes: { idadeMaximaMs?: number } = {},
+    options: { maxAgeMs?: number } = {},
   ) {
-    const recentes = await this.prisma.priceSnapshot.findMany({
+    const recent = await this.prisma.priceSnapshot.findMany({
       where: { skinTemplateId },
       orderBy: { quotedAt: 'desc' },
-      // Cobre com folga uma leitura por mercado; o filtro por mercado
-      // acontece abaixo, já em memória.
+      // Comfortably covers one reading per market; the per-market filter
+      // happens below, already in memory.
       take: 50,
     });
 
-    const porMercado = new Map<PriceMarket, Cotacao>();
+    const byMarket = new Map<PriceMarket, Quote>();
 
-    for (const s of recentes) {
-      if (porMercado.has(s.market)) {
+    for (const s of recent) {
+      if (byMarket.has(s.market)) {
         continue;
       }
 
-      porMercado.set(s.market, {
+      byMarket.set(s.market, {
         market: s.market,
         price: Number(s.price),
         quotedAt: s.quotedAt,
@@ -136,13 +135,13 @@ export class PriceHistoryService {
       });
     }
 
-    return precoRecomendado([...porMercado.values()], opcoes);
+    return recommendedPrice([...byMarket.values()], options);
   }
 
-  /** Série de um mercado, para o gráfico. */
-  async serie(skinTemplateId: string, market: PriceMarket, desde: Date) {
+  /** One market's series, for the chart. */
+  async series(skinTemplateId: string, market: PriceMarket, since: Date) {
     return this.prisma.priceSnapshot.findMany({
-      where: { skinTemplateId, market, quotedAt: { gte: desde } },
+      where: { skinTemplateId, market, quotedAt: { gte: since } },
       orderBy: { quotedAt: 'asc' },
       select: { price: true, volume24h: true, quotedAt: true },
     });

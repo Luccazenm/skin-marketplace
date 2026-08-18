@@ -1,45 +1,46 @@
 import type { PriceMarket, PriceSource } from '@prisma/client';
 
-/** Uma leitura de preço, já normalizada. */
-export interface CotacaoBruta {
+/** One price reading, already normalized. */
+export interface RawQuote {
   marketHashName: string;
   market: PriceMarket;
-  /** USD. Conversão é responsabilidade do adaptador. */
+  /** USD. Conversion is the adapter's responsibility. */
   price: number;
   bid?: number | null;
   ask?: number | null;
   volume24h?: number | null;
-  /** Quando a FONTE apurou, não quando recebemos. */
+  /** When the SOURCE measured it, not when we received it. */
   quotedAt: Date;
 }
 
 /**
- * O que um fornecedor de preço precisa saber fazer.
+ * What a price provider needs to know how to do.
  *
- * Existe para que a escolha de fornecedor não vaze para o resto do
- * sistema. Nenhuma tela, nenhum job e nenhuma regra de negócio conhece
- * cs2.sh ou SteamWebAPI: conhecem `CotacaoBruta`. Trocar de fornecedor,
- * ou usar dois ao mesmo tempo, é acrescentar um arquivo.
+ * It exists so the choice of provider does not leak into the rest of the
+ * system. No screen, no job and no business rule knows about cs2.sh or
+ * SteamWebAPI: they know `RawQuote`. Switching providers, or using two at
+ * once, means adding a file.
  *
- * Isso não é abstração por gosto — é o que permite:
- * - juntar fontes, que exige um formato comum onde comparar;
- * - trocar quem cobrou caro demais sem reescrever a vitrine;
- * - testar tudo o que depende de preço sem rede.
+ * This is not abstraction for its own sake — it is what allows:
+ * - combining sources, which requires a common shape to compare in;
+ * - dropping whoever raised prices without rewriting the storefront;
+ * - testing everything price-dependent without a network.
  */
 export interface PriceProvider {
   readonly source: PriceSource;
 
   /**
-   * Preços dos itens pedidos.
+   * Prices for the requested items.
    *
-   * Recebe lote porque todo fornecedor cobra e limita por requisição:
-   * pedir um a um estoura a cota e é ordens de grandeza mais lento.
+   * Takes a batch because every provider charges and limits per request:
+   * asking one by one blows the quota and is orders of magnitude slower.
    *
-   * Item sem cotação é **omitido**, não devolvido com preço zero — zero
-   * atravessaria o sistema e viraria "skin de graça" em alguma tela.
+   * An item without a quote is **omitted**, not returned with a price of
+   * zero — zero would travel through the system and become "free skin" on
+   * some screen.
    */
-  buscarPrecos(marketHashNames: string[]): Promise<CotacaoBruta[]>;
+  fetchPrices(marketHashNames: string[]): Promise<RawQuote[]>;
 }
 
-/** Token de injeção. Vários provedores podem ser registrados. */
+/** Injection token. Several providers can be registered. */
 export const PRICE_PROVIDERS = Symbol('PRICE_PROVIDERS');
