@@ -9,12 +9,13 @@ export interface SteamProfile {
 }
 
 /**
- * Busca dados públicos do perfil na Web API da Steam.
+ * Fetches public profile data from Steam's Web API.
  *
- * Isto é ENRIQUECIMENTO, não autenticação. Quem prova a identidade é o
- * OpenID da parte 2; aqui só pegamos nome e avatar para exibir. Por isso
- * toda falha é tratada como "sem perfil" em vez de erro: ficar sem avatar
- * é um problema cosmético, não motivo para impedir alguém de entrar.
+ * This is ENRICHMENT, not authentication. Identity is proven by the
+ * OpenID in leg 2; here we only pick up a name and an avatar to display.
+ * That is why every failure is treated as "no profile" rather than an
+ * error: going without an avatar is cosmetic, not a reason to keep
+ * someone out.
  */
 @Injectable()
 export class SteamProfileService {
@@ -30,7 +31,7 @@ export class SteamProfileService {
 
     if (!apiKey) {
       this.logger.warn(
-        'STEAM_API_KEY não configurada — perfil não será preenchido',
+        'STEAM_API_KEY is not configured — the profile will not be filled in',
       );
       return null;
     }
@@ -43,7 +44,9 @@ export class SteamProfileService {
       const req = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 
       if (!req.ok) {
-        this.logger.warn(`Steam API respondeu ${req.status} ao buscar perfil`);
+        this.logger.warn(
+          `Steam API answered ${req.status} while fetching the profile`,
+        );
         return null;
       }
 
@@ -65,17 +68,17 @@ export class SteamProfileService {
       }
 
       return {
-        // personaname pode vir vazio em conta recém-criada
+        // personaname can come back empty on a freshly created account
         username: player.personaname?.trim() || steamId,
         avatarUrl: player.avatarfull ?? null,
         profileUrl: player.profileurl ?? null,
-        // timecreated vem em segundos; Date espera milissegundos
+        // timecreated comes in seconds; Date expects milliseconds
         steamCreatedAt: player.timecreated
           ? new Date(player.timecreated * 1000)
           : null,
       };
-    } catch (erro) {
-      this.logger.warn(`Falha ao buscar perfil na Steam: ${String(erro)}`);
+    } catch (error) {
+      this.logger.warn(`Failed to fetch the Steam profile: ${String(error)}`);
       return null;
     }
   }

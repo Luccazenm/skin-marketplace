@@ -4,14 +4,14 @@ describe('SteamAccountStateService', () => {
   let service: SteamAccountStateService;
   let fetchMock: jest.SpyInstance;
 
-  const xml = (campos: Record<string, string>) =>
+  const xml = (fields: Record<string, string>) =>
     `<?xml version="1.0" encoding="UTF-8"?><profile>` +
-    Object.entries(campos)
+    Object.entries(fields)
       .map(([k, v]) => `<${k}>${v}</${k}>`)
       .join('') +
     `</profile>`;
 
-  const responderCom = (body: string, ok = true, status = 200) => {
+  const answerWith = (body: string, ok = true, status = 200) => {
     fetchMock.mockResolvedValue({
       ok,
       status,
@@ -29,10 +29,11 @@ describe('SteamAccountStateService', () => {
     jest.restoreAllMocks();
   });
 
-  // O caso que motivou o serviço: conta recém-criada, sem ban nenhum, mas
-  // que não consegue negociar porque não gastou os US$ 5.
-  it('detecta conta limitada', async () => {
-    responderCom(
+  // The case that motivated the service: a freshly created account, with
+  // no ban at all, that still cannot trade because it has not spent the
+  // US$ 5.
+  it('detects a limited account', async () => {
+    answerWith(
       xml({
         isLimitedAccount: '1',
         privacyState: 'public',
@@ -40,17 +41,17 @@ describe('SteamAccountStateService', () => {
       }),
     );
 
-    const estado = await service.fetchAccountState('76561198000000000');
+    const state = await service.fetchAccountState('76561198000000000');
 
-    expect(estado).toEqual({
+    expect(state).toEqual({
       isLimited: true,
       privacyState: 'public',
       tradeBanState: 'None',
     });
   });
 
-  it('detecta conta liberada', async () => {
-    responderCom(
+  it('detects an unlocked account', async () => {
+    answerWith(
       xml({
         isLimitedAccount: '0',
         privacyState: 'public',
@@ -58,13 +59,13 @@ describe('SteamAccountStateService', () => {
       }),
     );
 
-    const estado = await service.fetchAccountState('76561198000000000');
+    const state = await service.fetchAccountState('76561198000000000');
 
-    expect(estado?.isLimited).toBe(false);
+    expect(state?.isLimited).toBe(false);
   });
 
-  it('consulta o perfil por steamID64', async () => {
-    responderCom(xml({ isLimitedAccount: '0' }));
+  it('queries the profile by steamID64', async () => {
+    answerWith(xml({ isLimitedAccount: '0' }));
 
     await service.fetchAccountState('76561198659520305');
 
@@ -74,59 +75,59 @@ describe('SteamAccountStateService', () => {
     );
   });
 
-  it('lê campo embrulhado em CDATA', async () => {
-    responderCom(
+  it('reads a field wrapped in CDATA', async () => {
+    answerWith(
       xml({
         isLimitedAccount: '0',
         tradeBanState: '<![CDATA[None]]>',
       }),
     );
 
-    const estado = await service.fetchAccountState('76561198000000000');
+    const state = await service.fetchAccountState('76561198000000000');
 
-    expect(estado?.tradeBanState).toBe('None');
+    expect(state?.tradeBanState).toBe('None');
   });
 
-  describe('quando não dá para apurar', () => {
-    // null não é "está tudo certo". Quem chama precisa distinguir as duas
-    // coisas para não liberar um Trade Bot com base em silêncio.
-    it('devolve null quando o perfil não existe (HTML de erro)', async () => {
-      responderCom('<html><body>The specified profile could not be found.');
+  describe('when it cannot determine the state', () => {
+    // null is not "everything is fine". The caller has to tell the two
+    // apart so it never clears a Trade Bot on the strength of silence.
+    it('returns null when the profile does not exist (error page)', async () => {
+      answerWith('<html><body>The specified profile could not be found.');
 
       expect(await service.fetchAccountState('76561198000000000')).toBeNull();
     });
 
-    it('devolve null quando a Steam responde erro', async () => {
-      responderCom('', false, 500);
+    it('returns null when Steam answers with an error', async () => {
+      answerWith('', false, 500);
 
       expect(await service.fetchAccountState('76561198000000000')).toBeNull();
     });
 
-    it('devolve null quando o campo está ausente', async () => {
-      responderCom(xml({ privacyState: 'private' }));
+    it('returns null when the field is missing', async () => {
+      answerWith(xml({ privacyState: 'private' }));
 
       expect(await service.fetchAccountState('76561198000000000')).toBeNull();
     });
 
-    it('devolve null quando a rede falha', async () => {
+    it('returns null when the network fails', async () => {
       fetchMock.mockRejectedValue(new Error('timeout'));
 
       expect(await service.fetchAccountState('76561198000000000')).toBeNull();
     });
   });
 
-  it('não deixa a resposta da Steam travar a chamada', async () => {
-    responderCom(xml({ isLimitedAccount: '0' }));
+  it('does not let a Steam response hang the call', async () => {
+    answerWith(xml({ isLimitedAccount: '0' }));
 
     await service.fetchAccountState('76561198000000000');
 
-    // AbortSignal.timeout — sem isso, uma Steam lenta prenderia o comando
-    // do operador indefinidamente.
-    const [, opcoes] = fetchMock.mock.calls[0] as [
+    // AbortSignal.timeout — without it, a slow Steam would hold the
+    // operator's command indefinitely.
+    const [, options] = fetchMock.mock.calls[0] as [
       string,
       { signal?: AbortSignal },
     ];
 
-    expect(opcoes.signal).toBeInstanceOf(AbortSignal);
+    expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 });

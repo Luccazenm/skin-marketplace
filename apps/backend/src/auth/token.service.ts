@@ -4,29 +4,30 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
 /**
- * Conteúdo do token de sessão.
+ * Contents of the session token.
  *
- * Só entra aqui o que é imutável. Saldo, banimento e permissões ficam de
- * fora de propósito: o token vive por dias e não pode ser revogado, então
- * qualquer dado mutável embutido nele vira uma cópia desatualizada que o
- * usuário carrega — e, no caso de saldo, uma que ele poderia explorar.
+ * Only immutable data goes in here. Balance, ban status and permissions
+ * are deliberately left out: the token lives for days and cannot be
+ * revoked, so any mutable value embedded in it becomes a stale copy the
+ * user carries around — and, in the case of balance, one they could
+ * exploit.
  */
 export interface JwtPayload {
-  sub: string; // id do usuário
+  sub: string; // user id
   steamId: string;
   /**
-   * Identificador único deste token. É o que permite derrubar UMA sessão
-   * sem afetar as outras — sem ele, o logout num dispositivo teria que
-   * desconectar a pessoa de todos.
+   * Unique identifier for this token. It is what allows dropping ONE
+   * session without touching the others — without it, logging out on one
+   * device would have to disconnect the person everywhere.
    */
   jti: string;
 }
 
-/** Payload como sai do verify, com os campos que o JWT acrescenta. */
-export interface JwtPayloadVerificado extends JwtPayload {
-  /** Emitido em (segundos). Comparado com o corte de "sair de todos". */
+/** Payload as it comes out of verify, with the fields the JWT adds. */
+export interface VerifiedJwtPayload extends JwtPayload {
+  /** Issued at (seconds). Compared against the "log out everywhere" cutoff. */
   iat: number;
-  /** Expira em (segundos). Define o TTL da entrada de revogação. */
+  /** Expires at (seconds). Defines the TTL of the revocation entry. */
   exp: number;
 }
 
@@ -42,34 +43,34 @@ export class TokenService {
   }
 
   /**
-   * Retorna o payload ou null se o token for inválido/expirado.
+   * Returns the payload, or null if the token is invalid or expired.
    */
-  verify(token: string): JwtPayloadVerificado | null {
+  verify(token: string): VerifiedJwtPayload | null {
     try {
-      return this.jwt.verify<JwtPayloadVerificado>(token);
+      return this.jwt.verify<VerifiedJwtPayload>(token);
     } catch {
       return null;
     }
   }
 
   /**
-   * Opções do cookie de sessão.
+   * Session cookie options.
    *
-   * httpOnly: JavaScript da página não consegue ler o cookie. Se um XSS
-   *   entrar no site, o atacante não leva a sessão junto.
-   * sameSite lax: o cookie não é enviado em requisições cross-site de
-   *   terceiros, o que corta CSRF na maior parte dos casos.
-   * secure: só trafega em HTTPS. Falso apenas em dev local.
+   * httpOnly: page JavaScript cannot read the cookie. If an XSS lands on
+   *   the site, the attacker does not take the session with it.
+   * sameSite lax: the cookie is not sent on third-party cross-site
+   *   requests, which cuts off CSRF in most cases.
+   * secure: HTTPS only. False in local development alone.
    */
   cookieOptions() {
-    const segundos = this.config.getOrThrow<number>('JWT_EXPIRES_IN_SECONDS');
+    const seconds = this.config.getOrThrow<number>('JWT_EXPIRES_IN_SECONDS');
 
     return {
       httpOnly: true,
       secure: this.config.getOrThrow<boolean>('COOKIE_SECURE'),
       sameSite: 'lax' as const,
-      // maxAge do cookie é em milissegundos
-      maxAge: segundos * 1000,
+      // The cookie's maxAge is in milliseconds
+      maxAge: seconds * 1000,
       path: '/',
     };
   }

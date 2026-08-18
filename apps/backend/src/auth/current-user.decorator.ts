@@ -3,9 +3,9 @@ import type { User } from '@prisma/client';
 import type { AuthenticatedRequest } from './jwt-auth.guard';
 
 /**
- * Injeta o usuário autenticado no handler.
- * Só funciona em rotas protegidas por JwtAuthGuard — sem o guard, não há
- * usuário no request.
+ * Injects the authenticated user into the handler.
+ * Only works on routes protected by JwtAuthGuard — without the guard,
+ * there is no user on the request.
  */
 export const CurrentUser = createParamDecorator(
   (_data: unknown, context: ExecutionContext): User => {

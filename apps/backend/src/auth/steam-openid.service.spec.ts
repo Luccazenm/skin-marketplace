@@ -4,9 +4,10 @@ import { validateEnv } from '../config/env.validation';
 import { SteamOpenIdService } from './steam-openid.service';
 
 /**
- * A validação do retorno da Steam é o que separa um login legítimo de
- * alguém digitando o steamId que quiser na URL. Os parâmetros chegam pela
- * query string, ou seja, totalmente sob controle de quem faz a requisição.
+ * Validating Steam's return is what separates a legitimate login from
+ * someone typing whatever steamId they like into the URL. The parameters
+ * arrive in the query string, that is, entirely under the control of
+ * whoever makes the request.
  */
 describe('SteamOpenIdService', () => {
   let service: SteamOpenIdService;
@@ -14,25 +15,25 @@ describe('SteamOpenIdService', () => {
 
   const STEAM_ID = '76561198832746931';
 
-  /** Retorno válido da Steam, como chega na query string. */
-  const retornoValido = {
+  /** A valid Steam return, as it arrives in the query string. */
+  const validReturn = {
     'openid.ns': 'http://specs.openid.net/auth/2.0',
     'openid.mode': 'id_res',
     'openid.claimed_id': `https://steamcommunity.com/openid/id/${STEAM_ID}`,
     'openid.identity': `https://steamcommunity.com/openid/id/${STEAM_ID}`,
-    'openid.sig': 'assinatura',
+    'openid.sig': 'signature',
     'openid.signed': 'signed,op_endpoint,claimed_id,identity',
     'openid.assoc_handle': '1234567890',
   };
 
-  /** A Steam responde texto simples ao check_authentication. */
-  const respostaSteam = (valido: boolean) =>
+  /** Steam answers check_authentication with plain text. */
+  const steamResponse = (valid: boolean) =>
     Promise.resolve({
       ok: true,
       status: 200,
       text: () =>
         Promise.resolve(
-          `ns:http://specs.openid.net/auth/2.0\nis_valid:${valido}\n`,
+          `ns:http://specs.openid.net/auth/2.0\nis_valid:${valid}\n`,
         ),
     } as Response);
 
@@ -56,14 +57,14 @@ describe('SteamOpenIdService', () => {
   });
 
   describe('buildLoginUrl', () => {
-    it('aponta para o endpoint da Steam com os parâmetros do OpenID 2.0', () => {
+    it('points at the Steam endpoint with the OpenID 2.0 parameters', () => {
       const url = new URL(service.buildLoginUrl());
 
       expect(url.origin + url.pathname).toBe(
         'https://steamcommunity.com/openid/login',
       );
       expect(url.searchParams.get('openid.mode')).toBe('checkid_setup');
-      // identifier_select: não sabemos quem é ainda, a Steam decide
+      // identifier_select: we do not know who it is yet, Steam decides
       expect(url.searchParams.get('openid.identity')).toContain(
         'identifier_select',
       );
@@ -74,90 +75,92 @@ describe('SteamOpenIdService', () => {
   });
 
   describe('verifyReturn', () => {
-    it('aceita retorno que a Steam confirma', async () => {
-      fetchMock.mockReturnValue(respostaSteam(true));
+    it('accepts a return Steam confirms', async () => {
+      fetchMock.mockReturnValue(steamResponse(true));
 
-      await expect(service.verifyReturn(retornoValido)).resolves.toBe(STEAM_ID);
+      await expect(service.verifyReturn(validReturn)).resolves.toBe(STEAM_ID);
     });
 
-    // O caso central: steamId com formato perfeito, mas assinatura que a
-    // Steam não reconhece. É exatamente a tentativa de se passar por outro.
-    it('RECUSA quando a Steam responde is_valid:false', async () => {
-      fetchMock.mockReturnValue(respostaSteam(false));
+    // The central case: a perfectly formatted steamId with a signature
+    // Steam does not recognise. That is exactly the impersonation
+    // attempt.
+    it('REFUSES when Steam answers is_valid:false', async () => {
+      fetchMock.mockReturnValue(steamResponse(false));
 
-      await expect(service.verifyReturn(retornoValido)).resolves.toBeNull();
+      await expect(service.verifyReturn(validReturn)).resolves.toBeNull();
     });
 
-    it('recusa quando o usuário cancelou na tela da Steam', async () => {
-      const cancelado = { ...retornoValido, 'openid.mode': 'cancel' };
+    it('refuses when the user cancelled on the Steam screen', async () => {
+      const cancelled = { ...validReturn, 'openid.mode': 'cancel' };
 
-      await expect(service.verifyReturn(cancelado)).resolves.toBeNull();
-      // Nem chega a perguntar à Steam
+      await expect(service.verifyReturn(cancelled)).resolves.toBeNull();
+      // It does not even ask Steam
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    // Sem âncora na regex, uma URL contendo o padrão passaria.
-    it('recusa claimed_id de outro domínio', async () => {
-      const falso = {
-        ...retornoValido,
-        'openid.claimed_id': `https://sitefalso.com/?x=https://steamcommunity.com/openid/id/${STEAM_ID}`,
+    // Without anchoring the regex, any URL containing the pattern would
+    // pass.
+    it('refuses a claimed_id from another domain', async () => {
+      const fake = {
+        ...validReturn,
+        'openid.claimed_id': `https://fakesite.com/?x=https://steamcommunity.com/openid/id/${STEAM_ID}`,
       };
 
-      await expect(service.verifyReturn(falso)).resolves.toBeNull();
+      await expect(service.verifyReturn(fake)).resolves.toBeNull();
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('recusa steamId com formato inválido', async () => {
-      const curto = {
-        ...retornoValido,
+    it('refuses a malformed steamId', async () => {
+      const tooShort = {
+        ...validReturn,
         'openid.claimed_id': 'https://steamcommunity.com/openid/id/123',
       };
 
-      await expect(service.verifyReturn(curto)).resolves.toBeNull();
+      await expect(service.verifyReturn(tooShort)).resolves.toBeNull();
     });
 
-    it('recusa requisição sem parâmetros', async () => {
+    it('refuses a request with no parameters', async () => {
       await expect(service.verifyReturn({})).resolves.toBeNull();
     });
 
-    // Indisponibilidade não pode virar porta aberta: recusar é o correto.
-    it('recusa quando a Steam está fora do ar', async () => {
+    // Unavailability must not become an open door: refusing is correct.
+    it('refuses when Steam is down', async () => {
       fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
 
-      await expect(service.verifyReturn(retornoValido)).resolves.toBeNull();
+      await expect(service.verifyReturn(validReturn)).resolves.toBeNull();
     });
 
-    it('recusa quando a Steam responde com erro HTTP', async () => {
+    it('refuses when Steam answers with an HTTP error', async () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 503,
         text: () => Promise.resolve(''),
       });
 
-      await expect(service.verifyReturn(retornoValido)).resolves.toBeNull();
+      await expect(service.verifyReturn(validReturn)).resolves.toBeNull();
     });
 
-    it('devolve à Steam todos os campos openid, com o modo trocado', async () => {
-      fetchMock.mockReturnValue(respostaSteam(true));
+    it('returns every openid field to Steam, with the mode switched', async () => {
+      fetchMock.mockReturnValue(steamResponse(true));
 
-      await service.verifyReturn(retornoValido);
+      await service.verifyReturn(validReturn);
 
       const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       const body = init.body as URLSearchParams;
 
-      // Os campos fazem parte do que foi assinado: alterar qualquer um
-      // invalidaria a verificação.
+      // The fields are part of what was signed: changing any of them
+      // would invalidate the verification.
       expect(body.get('openid.mode')).toBe('check_authentication');
-      expect(body.get('openid.sig')).toBe(retornoValido['openid.sig']);
+      expect(body.get('openid.sig')).toBe(validReturn['openid.sig']);
       expect(body.get('openid.claimed_id')).toBe(
-        retornoValido['openid.claimed_id'],
+        validReturn['openid.claimed_id'],
       );
     });
 
-    it('ignora parâmetros que não são do openid', async () => {
-      fetchMock.mockReturnValue(respostaSteam(true));
+    it('ignores parameters that are not openid ones', async () => {
+      fetchMock.mockReturnValue(steamResponse(true));
 
-      await service.verifyReturn({ ...retornoValido, utm_source: 'x' });
+      await service.verifyReturn({ ...validReturn, utm_source: 'x' });
 
       const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect((init.body as URLSearchParams).get('utm_source')).toBeNull();

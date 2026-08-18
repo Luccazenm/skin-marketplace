@@ -2,17 +2,17 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * A Steam autentica por OpenID 2.0 — um protocolo antigo, mas é o único que
- * ela oferece. Não há OAuth para login na Steam.
+ * Steam authenticates over OpenID 2.0 — an old protocol, but the only one
+ * it offers. There is no OAuth for Steam login.
  *
- * O fluxo tem duas pernas:
- *   1. Mandamos o usuário para a Steam com os parâmetros abaixo (este arquivo)
- *   2. A Steam devolve o usuário para nós com uma assinatura, que PRECISA ser
- *      validada de volta com ela (parte 2)
+ * The flow has two legs:
+ *   1. We send the user to Steam with the parameters below (this file)
+ *   2. Steam sends the user back to us with a signature, which MUST be
+ *      validated with Steam itself (leg 2)
  *
- * A perna 2 é onde mora a segurança. Confiar nos parâmetros do retorno sem
- * validar permite que qualquer um se passe por qualquer conta — é exatamente
- * essa a falha conhecida de algumas bibliotecas de Steam login.
+ * Leg 2 is where the security lives. Trusting the returned parameters
+ * without validating them lets anyone impersonate any account — that is
+ * exactly the known flaw in several Steam login libraries.
  */
 @Injectable()
 export class SteamOpenIdService {
@@ -20,11 +20,11 @@ export class SteamOpenIdService {
     'https://steamcommunity.com/openid/login';
 
   /**
-   * O claimed_id devolvido pela Steam sempre tem esta forma:
+   * The claimed_id Steam returns always has this shape:
    *   https://steamcommunity.com/openid/id/76561198000000000
-   * Ancorado nas duas pontas de propósito: sem isso, uma URL como
-   * "https://sitefalso.com/?x=https://steamcommunity.com/openid/id/123"
-   * passaria na checagem.
+   * Anchored at both ends on purpose: without that, a URL such as
+   * "https://fakesite.com/?x=https://steamcommunity.com/openid/id/123"
+   * would pass the check.
    */
   private static readonly CLAIMED_ID_PATTERN =
     /^https:\/\/steamcommunity\.com\/openid\/id\/(\d{17})$/;
@@ -34,7 +34,7 @@ export class SteamOpenIdService {
   constructor(private readonly config: ConfigService) {}
 
   /**
-   * URL para onde o usuário deve ser enviado ao clicar em "Entrar com Steam".
+   * URL the user must be sent to when they click "Sign in with Steam".
    */
   buildLoginUrl(): string {
     const apiUrl = this.config.getOrThrow<string>('API_URL');
@@ -43,14 +43,14 @@ export class SteamOpenIdService {
       'openid.ns': 'http://specs.openid.net/auth/2.0',
       'openid.mode': 'checkid_setup',
 
-      // Para onde a Steam devolve o usuário depois do login
+      // Where Steam sends the user back after login
       'openid.return_to': `${apiUrl}/api/auth/steam/return`,
 
-      // Domínio que a Steam mostra na tela de login ("deseja entrar em X?")
+      // Domain Steam shows on the login screen ("sign in to X?")
       'openid.realm': apiUrl,
 
-      // "identifier_select" = não sabemos quem é o usuário ainda;
-      // a própria Steam decide qual conta está logando.
+      // "identifier_select" = we do not know who the user is yet;
+      // Steam itself decides which account is signing in.
       'openid.identity': 'http://specs.openid.net/auth/2.0/identifier_select',
       'openid.claimed_id': 'http://specs.openid.net/auth/2.0/identifier_select',
     });
@@ -59,20 +59,20 @@ export class SteamOpenIdService {
   }
 
   /**
-   * Valida o retorno da Steam e devolve o steamId de 64 bits.
+   * Validates Steam's return and yields the 64-bit steamId.
    *
-   * Esta função é o ponto crítico do login inteiro. Os parâmetros chegam pela
-   * query string, ou seja, sob controle de quem faz a requisição — qualquer um
-   * pode montar uma URL dizendo ser dono de qualquer conta. A única coisa que
-   * separa um login legítimo de uma falsificação é a chamada de volta à Steam
-   * feita aqui: devolvemos os parâmetros exatamente como vieram, com o modo
-   * trocado para check_authentication, e só aceitamos se ela responder
-   * is_valid:true.
+   * This function is the critical point of the entire login. The
+   * parameters arrive in the query string, that is, under the control of
+   * whoever makes the request — anyone can craft a URL claiming to own
+   * any account. The only thing separating a legitimate login from a
+   * forgery is the call back to Steam made here: we return the parameters
+   * exactly as they came, with the mode switched to check_authentication,
+   * and only accept the login if Steam answers is_valid:true.
    *
-   * Retorna null para qualquer coisa que não seja um login válido.
+   * Returns null for anything that is not a valid login.
    */
   async verifyReturn(query: Record<string, unknown>): Promise<string | null> {
-    // A Steam manda mode=cancel quando o usuário desiste na tela de login
+    // Steam sends mode=cancel when the user backs out of the login screen
     if (query['openid.mode'] !== 'id_res') {
       return null;
     }
@@ -83,8 +83,9 @@ export class SteamOpenIdService {
       return null;
     }
 
-    // Antes de gastar uma chamada de rede, conferimos o formato. Isso também
-    // impede que um claimed_id apontando para outro provedor seja aceito.
+    // Before spending a network call, we check the format. This also
+    // stops a claimed_id pointing at another provider from being
+    // accepted.
     const match = SteamOpenIdService.CLAIMED_ID_PATTERN.exec(claimedId);
 
     if (!match) {
@@ -93,30 +94,31 @@ export class SteamOpenIdService {
 
     const steamId = match[1];
 
-    const valido = await this.checkAuthentication(query);
+    const valid = await this.checkAuthentication(query);
 
-    return valido ? steamId : null;
+    return valid ? steamId : null;
   }
 
   /**
-   * Devolve os parâmetros para a Steam e pergunta se a assinatura é dela.
+   * Sends the parameters back to Steam and asks whether the signature is
+   * theirs.
    */
   private async checkAuthentication(
     query: Record<string, unknown>,
   ): Promise<boolean> {
     const body = new URLSearchParams();
 
-    // Todos os campos openid.* precisam voltar exatamente como chegaram —
-    // eles fazem parte do que foi assinado. Só o mode muda.
-    for (const [chave, valor] of Object.entries(query)) {
-      if (chave.startsWith('openid.') && typeof valor === 'string') {
-        body.set(chave, valor);
+    // Every openid.* field must go back exactly as it arrived — they are
+    // part of what was signed. Only the mode changes.
+    for (const [key, value] of Object.entries(query)) {
+      if (key.startsWith('openid.') && typeof value === 'string') {
+        body.set(key, value);
       }
     }
 
     body.set('openid.mode', 'check_authentication');
 
-    let resposta: string;
+    let response: string;
 
     try {
       const req = await fetch(SteamOpenIdService.STEAM_OPENID_ENDPOINT, {
@@ -127,21 +129,20 @@ export class SteamOpenIdService {
       });
 
       if (!req.ok) {
-        this.logger.warn(`Steam respondeu ${req.status} na verificação`);
+        this.logger.warn(`Steam answered ${req.status} during verification`);
         return false;
       }
 
-      resposta = await req.text();
-    } catch (erro) {
-      // Steam fora do ar ou timeout: recusamos o login. Nunca liberar por
-      // falha de rede — seria uma porta aberta durante instabilidade.
-      this.logger.error(`Falha ao verificar login na Steam: ${String(erro)}`);
+      response = await req.text();
+    } catch (error) {
+      // Steam down or timed out: we refuse the login. Never let anyone
+      // through on a network failure — that would be an open door during
+      // instability.
+      this.logger.error(`Failed to verify Steam login: ${String(error)}`);
       return false;
     }
 
-    // A resposta é texto simples no formato "chave:valor" por linha
-    return resposta
-      .split('\n')
-      .some((linha) => linha.trim() === 'is_valid:true');
+    // The response is plain text, one "key:value" per line
+    return response.split('\n').some((line) => line.trim() === 'is_valid:true');
   }
 }

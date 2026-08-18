@@ -10,27 +10,27 @@ import { PrismaService } from '../prisma/prisma.service';
 import { validateEnv } from '../config/env.validation';
 
 /**
- * Roda contra o Postgres local (docker compose up -d).
- * Usa steamIds da faixa de teste e limpa o que cria.
+ * Runs against the local Postgres (docker compose up -d).
+ * Uses steamIds from the test range and cleans up what it creates.
  */
 describe('AuthService.loginWithSteam', () => {
   let authService: AuthService;
   let prisma: PrismaService;
 
-  // steamIds fictícios, mas com os 17 dígitos que a Steam usa
-  const STEAM_ID_NOVO = '76561199000000001';
-  const STEAM_ID_BANIDO = '76561199000000002';
-  const TODOS = [STEAM_ID_NOVO, STEAM_ID_BANIDO];
+  // Made-up steamIds, but with the 17 digits Steam uses
+  const STEAM_ID_NEW = '76561199000000001';
+  const STEAM_ID_BANNED = '76561199000000002';
+  const ALL = [STEAM_ID_NEW, STEAM_ID_BANNED];
 
-  const perfilFalso = {
-    username: 'JogadorTeste',
-    avatarUrl: 'https://exemplo/avatar.jpg',
-    profileUrl: 'https://exemplo/perfil',
+  const fakeProfile = {
+    username: 'TestPlayer',
+    avatarUrl: 'https://example/avatar.jpg',
+    profileUrl: 'https://example/profile',
     steamCreatedAt: new Date('2015-01-01'),
   };
 
   const steamProfileMock = {
-    fetchProfile: jest.fn().mockResolvedValue(perfilFalso),
+    fetchProfile: jest.fn().mockResolvedValue(fakeProfile),
   };
 
   const steamBanMock = {
@@ -45,8 +45,8 @@ describe('AuthService.loginWithSteam', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
       ],
-      // AuditService entra de verdade, não mockado: auditoria faz parte do
-      // que precisa funcionar, e o teste deve quebrar se ela quebrar.
+      // AuditService goes in for real, not mocked: auditing is part of
+      // what has to work, and the test should break if it breaks.
       providers: [AuthService, PrismaService, AuditService],
     })
       .useMocker((token) => {
@@ -62,8 +62,8 @@ describe('AuthService.loginWithSteam', () => {
   });
 
   beforeEach(async () => {
-    await prisma.user.deleteMany({ where: { steamId: { in: TODOS } } });
-    steamProfileMock.fetchProfile.mockResolvedValue(perfilFalso);
+    await prisma.user.deleteMany({ where: { steamId: { in: ALL } } });
+    steamProfileMock.fetchProfile.mockResolvedValue(fakeProfile);
     steamBanMock.fetchBanStatus.mockResolvedValue({
       economyBan: SteamEconomyBan.NONE,
       vacBanned: false,
@@ -71,167 +71,167 @@ describe('AuthService.loginWithSteam', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { steamId: { in: TODOS } } });
+    await prisma.user.deleteMany({ where: { steamId: { in: ALL } } });
     await prisma.$disconnect();
   });
 
-  it('cria o usuário no primeiro login', async () => {
-    const user = await authService.loginWithSteam(STEAM_ID_NOVO);
+  it('creates the user on the first login', async () => {
+    const user = await authService.loginWithSteam(STEAM_ID_NEW);
 
-    expect(user.steamId).toBe(STEAM_ID_NOVO);
-    expect(user.username).toBe('JogadorTeste');
+    expect(user.steamId).toBe(STEAM_ID_NEW);
+    expect(user.username).toBe('TestPlayer');
     expect(user.lastLoginAt).not.toBeNull();
     expect(user.isPlatform).toBe(false);
   });
 
-  it('não duplica o usuário em logins seguintes', async () => {
-    const primeiro = await authService.loginWithSteam(STEAM_ID_NOVO);
-    const segundo = await authService.loginWithSteam(STEAM_ID_NOVO);
+  it('does not duplicate the user on subsequent logins', async () => {
+    const first = await authService.loginWithSteam(STEAM_ID_NEW);
+    const second = await authService.loginWithSteam(STEAM_ID_NEW);
 
-    expect(segundo.id).toBe(primeiro.id);
+    expect(second.id).toBe(first.id);
 
     const total = await prisma.user.count({
-      where: { steamId: STEAM_ID_NOVO },
+      where: { steamId: STEAM_ID_NEW },
     });
     expect(total).toBe(1);
   });
 
-  // O teste que mais importa: dado da Steam não pode encostar em saldo.
-  it('preserva o saldo ao relogar', async () => {
-    const user = await authService.loginWithSteam(STEAM_ID_NOVO);
+  // The test that matters most: Steam data must not touch the balance.
+  it('preserves the balance across logins', async () => {
+    const user = await authService.loginWithSteam(STEAM_ID_NEW);
 
     await prisma.user.update({
       where: { id: user.id },
       data: { balance: '150.75' },
     });
 
-    const depois = await authService.loginWithSteam(STEAM_ID_NOVO);
+    const after = await authService.loginWithSteam(STEAM_ID_NEW);
 
-    expect(depois.balance.toString()).toBe('150.75');
+    expect(after.balance.toString()).toBe('150.75');
   });
 
-  it('cria o usuário mesmo sem perfil da Steam', async () => {
+  it('creates the user even without a Steam profile', async () => {
     steamProfileMock.fetchProfile.mockResolvedValue(null);
 
-    const user = await authService.loginWithSteam(STEAM_ID_NOVO);
+    const user = await authService.loginWithSteam(STEAM_ID_NEW);
 
-    // Sem perfil, o steamId vira o nome provisório
-    expect(user.username).toBe(STEAM_ID_NOVO);
+    // With no profile, the steamId becomes the provisional name
+    expect(user.username).toBe(STEAM_ID_NEW);
   });
 
-  it('não apaga o perfil já salvo se a Steam falhar depois', async () => {
-    await authService.loginWithSteam(STEAM_ID_NOVO);
+  it('does not wipe the stored profile if Steam fails later', async () => {
+    await authService.loginWithSteam(STEAM_ID_NEW);
 
     steamProfileMock.fetchProfile.mockResolvedValue(null);
-    const depois = await authService.loginWithSteam(STEAM_ID_NOVO);
+    const after = await authService.loginWithSteam(STEAM_ID_NEW);
 
-    expect(depois.username).toBe('JogadorTeste');
-    expect(depois.avatarUrl).toBe(perfilFalso.avatarUrl);
+    expect(after.username).toBe('TestPlayer');
+    expect(after.avatarUrl).toBe(fakeProfile.avatarUrl);
   });
 
-  it('grava o status de ban vindo da Steam', async () => {
+  it('stores the ban status coming from Steam', async () => {
     steamBanMock.fetchBanStatus.mockResolvedValue({
       economyBan: SteamEconomyBan.BANNED,
       vacBanned: true,
     });
 
-    const user = await authService.loginWithSteam(STEAM_ID_NOVO);
+    const user = await authService.loginWithSteam(STEAM_ID_NEW);
 
     expect(user.steamEconomyBan).toBe(SteamEconomyBan.BANNED);
     expect(user.steamVacBanned).toBe(true);
     expect(user.steamBanCheckedAt).not.toBeNull();
   });
 
-  // Banido pela Steam continua entrando: ele ainda é dono do que está em
-  // custódia e precisa poder vender. Quem bloqueia login é só o isBanned.
-  it('deixa entrar quem foi banido pela Steam', async () => {
+  // Someone banned by Steam still gets in: they still own what is in
+  // custody and need to be able to sell. Only isBanned blocks login.
+  it('lets in someone banned by Steam', async () => {
     steamBanMock.fetchBanStatus.mockResolvedValue({
       economyBan: SteamEconomyBan.BANNED,
       vacBanned: false,
     });
 
-    const user = await authService.loginWithSteam(STEAM_ID_NOVO);
+    const user = await authService.loginWithSteam(STEAM_ID_NEW);
 
     expect(user.id).toBeDefined();
     expect(user.isBanned).toBe(false);
   });
 
-  it('preserva o último status quando a Steam não responde', async () => {
+  it('preserves the last status when Steam does not answer', async () => {
     steamBanMock.fetchBanStatus.mockResolvedValue({
       economyBan: SteamEconomyBan.BANNED,
       vacBanned: false,
     });
-    await authService.loginWithSteam(STEAM_ID_NOVO);
+    await authService.loginWithSteam(STEAM_ID_NEW);
 
-    // Steam fora do ar no login seguinte
+    // Steam down on the next login
     steamBanMock.fetchBanStatus.mockResolvedValue(null);
-    const depois = await authService.loginWithSteam(STEAM_ID_NOVO);
+    const after = await authService.loginWithSteam(STEAM_ID_NEW);
 
-    // Não pode "limpar" o ban só porque a checagem falhou
-    expect(depois.steamEconomyBan).toBe(SteamEconomyBan.BANNED);
+    // It must not "clear" the ban just because the check failed
+    expect(after.steamEconomyBan).toBe(SteamEconomyBan.BANNED);
   });
 
-  it('recusa login de conta banida', async () => {
-    const user = await authService.loginWithSteam(STEAM_ID_BANIDO);
+  it('refuses the login of a banned account', async () => {
+    const user = await authService.loginWithSteam(STEAM_ID_BANNED);
     await prisma.user.update({
       where: { id: user.id },
-      data: { isBanned: true, banReason: 'teste' },
+      data: { isBanned: true, banReason: 'test' },
     });
 
-    await expect(authService.loginWithSteam(STEAM_ID_BANIDO)).rejects.toThrow(
+    await expect(authService.loginWithSteam(STEAM_ID_BANNED)).rejects.toThrow(
       ForbiddenException,
     );
   });
 
-  it('recusa login na conta da plataforma', async () => {
-    const plataforma = await prisma.user.findFirst({
+  it('refuses a login into the platform account', async () => {
+    const platform = await prisma.user.findFirst({
       where: { isPlatform: true },
     });
 
-    // Depende do seed ter rodado
-    expect(plataforma).not.toBeNull();
+    // Depends on the seed having run
+    expect(platform).not.toBeNull();
 
-    await expect(
-      authService.loginWithSteam(plataforma!.steamId),
-    ).rejects.toThrow(ForbiddenException);
+    await expect(authService.loginWithSteam(platform!.steamId)).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
-  // Regressão: a versão anterior fazia o upsert antes de checar isPlatform,
-  // então a tentativa de login sobrescrevia nome e avatar da conta de
-  // sistema com os dados de quem tentou entrar.
-  it('não altera a conta da plataforma numa tentativa de login', async () => {
-    const antes = await prisma.user.findFirst({ where: { isPlatform: true } });
+  // Regression: the previous version ran the upsert before checking
+  // isPlatform, so the login attempt overwrote the system account's name
+  // and avatar with the data of whoever tried to get in.
+  it('does not alter the platform account on a login attempt', async () => {
+    const before = await prisma.user.findFirst({ where: { isPlatform: true } });
 
-    await expect(authService.loginWithSteam(antes!.steamId)).rejects.toThrow(
+    await expect(authService.loginWithSteam(before!.steamId)).rejects.toThrow(
       ForbiddenException,
     );
 
-    const depois = await prisma.user.findUnique({ where: { id: antes!.id } });
+    const after = await prisma.user.findUnique({ where: { id: before!.id } });
 
-    expect(depois!.username).toBe(antes!.username);
-    expect(depois!.avatarUrl).toBe(antes!.avatarUrl);
-    expect(depois!.lastLoginAt).toEqual(antes!.lastLoginAt);
-    expect(depois!.updatedAt).toEqual(antes!.updatedAt);
+    expect(after!.username).toBe(before!.username);
+    expect(after!.avatarUrl).toBe(before!.avatarUrl);
+    expect(after!.lastLoginAt).toEqual(before!.lastLoginAt);
+    expect(after!.updatedAt).toEqual(before!.updatedAt);
   });
 
-  it('registra a tentativa de conta banida sem aceitar dados externos', async () => {
-    const user = await authService.loginWithSteam(STEAM_ID_BANIDO);
+  it('records the banned-account attempt without accepting external data', async () => {
+    const user = await authService.loginWithSteam(STEAM_ID_BANNED);
     await prisma.user.update({
       where: { id: user.id },
-      data: { isBanned: true, username: 'NomeOriginal' },
+      data: { isBanned: true, username: 'OriginalName' },
     });
 
-    await expect(authService.loginWithSteam(STEAM_ID_BANIDO)).rejects.toThrow(
+    await expect(authService.loginWithSteam(STEAM_ID_BANNED)).rejects.toThrow(
       ForbiddenException,
     );
 
-    const depois = await prisma.user.findUnique({ where: { id: user.id } });
+    const after = await prisma.user.findUnique({ where: { id: user.id } });
 
-    // lastLoginAt avança (queremos saber que tentou)...
-    expect(depois!.lastLoginAt!.getTime()).toBeGreaterThan(
+    // lastLoginAt moves forward (we want to know they tried)...
+    expect(after!.lastLoginAt!.getTime()).toBeGreaterThan(
       user.lastLoginAt!.getTime(),
     );
-    // ...mas nada vindo da Steam é gravado numa conta suspensa
-    expect(depois!.username).toBe('NomeOriginal');
+    // ...but nothing coming from Steam is written to a suspended account
+    expect(after!.username).toBe('OriginalName');
   });
 });

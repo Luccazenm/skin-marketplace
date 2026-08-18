@@ -23,28 +23,30 @@ export class AuthService {
   ) {}
 
   /**
-   * Recebe um steamId JÁ VALIDADO pelo OpenID e devolve o usuário
-   * correspondente, criando-o no primeiro login.
+   * Takes a steamId ALREADY VALIDATED by the OpenID and returns the
+   * matching user, creating it on the first login.
    *
-   * Nunca chamar com um steamId que não passou por SteamOpenIdService.
+   * Never call this with a steamId that did not go through
+   * SteamOpenIdService.
    */
   async loginWithSteam(steamId: string, context?: AuditContext): Promise<User> {
-    const agora = new Date();
+    const now = new Date();
 
-    // Barreiras que rodam ANTES de qualquer escrita.
+    // Barriers that run BEFORE any write.
     //
-    // A ordem importa: uma tentativa de login numa conta protegida não pode
-    // modificar essa conta antes de ser recusada. Fazer o upsert primeiro
-    // deixava quem tentou entrar sobrescrever nome e avatar da conta alvo.
-    const existente = await this.prisma.user.findUnique({
+    // The order matters: an attempt to log into a protected account must
+    // not modify that account before being refused. Doing the upsert
+    // first let whoever tried to get in overwrite the target account's
+    // name and avatar.
+    const existing = await this.prisma.user.findUnique({
       where: { steamId },
       select: { id: true, isPlatform: true, isBanned: true },
     });
 
-    // Conta de sistema é intocável: nem escreve, nem responde nada útil.
-    if (existente?.isPlatform) {
+    // The system account is untouchable: no write, and no useful answer.
+    if (existing?.isPlatform) {
       this.logger.error(
-        `Tentativa de login na conta da plataforma via steamId ${steamId}`,
+        `Attempt to log into the platform account via steamId ${steamId}`,
       );
 
       await this.audit.record({
@@ -52,85 +54,86 @@ export class AuthService {
         action: AUDIT_ACTIONS.LOGIN,
         outcome: AuditOutcome.DENIED,
         targetType: 'User',
-        targetId: existente.id,
-        metadata: { reason: 'conta_da_plataforma', steamId },
+        targetId: existing.id,
+        metadata: { reason: 'platform_account', steamId },
         context,
       });
 
-      throw new ForbiddenException('Conta indisponível');
+      throw new ForbiddenException('Account unavailable');
     }
 
-    // Banido registra a tentativa — só o carimbo de horário, nada vindo de
-    // fora. Saber que um suspenso tentou entrar é informação útil.
-    if (existente?.isBanned) {
+    // A banned account still records the attempt — only the timestamp,
+    // nothing coming from outside. Knowing that a suspended user tried to
+    // get in is useful information.
+    if (existing?.isBanned) {
       await this.prisma.user.update({
-        where: { id: existente.id },
-        data: { lastLoginAt: agora },
+        where: { id: existing.id },
+        data: { lastLoginAt: now },
       });
 
-      this.logger.warn(`Login recusado para conta banida: ${steamId}`);
+      this.logger.warn(`Login refused for banned account: ${steamId}`);
 
       await this.audit.record({
         actorType: AuditActorType.USER,
-        actorId: existente.id,
+        actorId: existing.id,
         action: AUDIT_ACTIONS.LOGIN,
         outcome: AuditOutcome.DENIED,
         targetType: 'User',
-        targetId: existente.id,
-        metadata: { reason: 'conta_suspensa', steamId },
+        targetId: existing.id,
+        metadata: { reason: 'suspended_account', steamId },
         context,
       });
 
-      throw new ForbiddenException('Esta conta está suspensa');
+      throw new ForbiddenException('This account is suspended');
     }
 
-    const [perfil, ban] = await Promise.all([
+    const [profile, ban] = await Promise.all([
       this.steamProfile.fetchProfile(steamId),
       this.steamBan.fetchBanStatus(steamId),
     ]);
 
-    // Só gravamos o status de ban se conseguimos apurá-lo. Quando a Steam
-    // não responde, preservamos o último valor conhecido — sobrescrever com
-    // um palpite liberaria ou bloquearia operações por engano.
-    const dadosDeBan = ban
+    // We only write the ban status when we managed to determine it. When
+    // Steam does not answer, we keep the last known value — overwriting
+    // it with a guess would allow or block operations by mistake.
+    const banData = ban
       ? {
           steamEconomyBan: ban.economyBan,
           steamVacBanned: ban.vacBanned,
-          steamBanCheckedAt: agora,
+          steamBanCheckedAt: now,
         }
       : {};
 
     const user = await this.prisma.user.upsert({
       where: { steamId },
 
-      // Primeiro login: cria a conta.
+      // First login: create the account.
       create: {
         steamId,
-        // Sem perfil disponível o steamId serve de nome até a próxima
-        // sincronização. É feio, mas é melhor que barrar o cadastro.
-        username: perfil?.username ?? steamId,
-        avatarUrl: perfil?.avatarUrl,
-        profileUrl: perfil?.profileUrl,
-        steamCreatedAt: perfil?.steamCreatedAt,
-        lastLoginAt: agora,
-        ...dadosDeBan,
+        // With no profile available the steamId serves as a name until
+        // the next sync. It is ugly, but it beats refusing the sign-up.
+        username: profile?.username ?? steamId,
+        avatarUrl: profile?.avatarUrl,
+        profileUrl: profile?.profileUrl,
+        steamCreatedAt: profile?.steamCreatedAt,
+        lastLoginAt: now,
+        ...banData,
       },
 
-      // Logins seguintes: só o que a Steam é dona.
-      // balance, isBanned, tradeUrl, email e isPlatform NÃO entram aqui —
-      // são estado nosso e sobrescrevê-los com dados da Steam apagaria
-      // saldo e banimento a cada login.
+      // Subsequent logins: only what Steam owns.
+      // balance, isBanned, tradeUrl, email and isPlatform do NOT belong
+      // here — they are our own state, and overwriting them with Steam
+      // data would wipe balance and bans on every login.
       update: {
-        ...(perfil
+        ...(profile
           ? {
-              username: perfil.username,
-              avatarUrl: perfil.avatarUrl,
-              profileUrl: perfil.profileUrl,
-              steamCreatedAt: perfil.steamCreatedAt,
+              username: profile.username,
+              avatarUrl: profile.avatarUrl,
+              profileUrl: profile.profileUrl,
+              steamCreatedAt: profile.steamCreatedAt,
             }
           : {}),
-        lastLoginAt: agora,
-        ...dadosDeBan,
+        lastLoginAt: now,
+        ...banData,
       },
     });
 
@@ -141,11 +144,11 @@ export class AuthService {
       outcome: AuditOutcome.SUCCESS,
       targetType: 'User',
       targetId: user.id,
-      // primeiroLogin distingue conta nova de retorno — útil quando
-      // alguém alega nunca ter usado o site.
+      // firstLogin tells a brand-new account from a returning one —
+      // useful when someone claims they never used the site.
       metadata: {
         steamId,
-        firstLogin: existente === null,
+        firstLogin: existing === null,
         steamEconomyBan: user.steamEconomyBan,
       },
       context,

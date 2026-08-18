@@ -8,10 +8,10 @@ describe('SessionRevocationService', () => {
   let service: SessionRevocationService;
   let redis: RedisService;
 
-  const USER = 'user-teste-revogacao';
-  const agora = () => Math.floor(Date.now() / 1000);
+  const USER = 'user-revocation-test';
+  const now = () => Math.floor(Date.now() / 1000);
 
-  const payload = (jti: string, iat = agora()) => ({ jti, sub: USER, iat });
+  const payload = (jti: string, iat = now()) => ({ jti, sub: USER, iat });
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -26,93 +26,93 @@ describe('SessionRevocationService', () => {
   });
 
   beforeEach(async () => {
-    const chaves = await redis.keys('revoked:*teste*');
-    if (chaves.length > 0) await redis.del(...chaves);
+    const keys = await redis.keys('revoked:*test*');
+    if (keys.length > 0) await redis.del(...keys);
     await redis.del(`revoked:user:${USER}`);
   });
 
   afterAll(async () => {
-    const chaves = await redis.keys('revoked:*teste*');
-    if (chaves.length > 0) await redis.del(...chaves);
+    const keys = await redis.keys('revoked:*test*');
+    if (keys.length > 0) await redis.del(...keys);
     await redis.del(`revoked:user:${USER}`);
     await redis.quit();
   });
 
-  it('aceita token que nunca foi revogado', async () => {
-    expect(await service.isRevoked(payload('jti-teste-1'))).toBe(false);
+  it('accepts a token that was never revoked', async () => {
+    expect(await service.isRevoked(payload('jti-test-1'))).toBe(false);
   });
 
-  it('recusa token revogado', async () => {
-    await service.revokeToken('jti-teste-1', agora() + 3600);
+  it('refuses a revoked token', async () => {
+    await service.revokeToken('jti-test-1', now() + 3600);
 
-    expect(await service.isRevoked(payload('jti-teste-1'))).toBe(true);
+    expect(await service.isRevoked(payload('jti-test-1'))).toBe(true);
   });
 
-  // Sair no computador não pode desconectar a pessoa do celular.
-  it('revogar um token não afeta os outros', async () => {
-    await service.revokeToken('jti-teste-1', agora() + 3600);
+  // Signing out on the desktop must not disconnect the person's phone.
+  it('revoking one token does not affect the others', async () => {
+    await service.revokeToken('jti-test-1', now() + 3600);
 
-    expect(await service.isRevoked(payload('jti-teste-2'))).toBe(false);
+    expect(await service.isRevoked(payload('jti-test-2'))).toBe(false);
   });
 
-  it('não grava nada para token que já expirou', async () => {
-    await service.revokeToken('jti-teste-velho', agora() - 60);
+  it('writes nothing for a token that already expired', async () => {
+    await service.revokeToken('jti-test-old', now() - 60);
 
-    expect(await redis.exists('revoked:jti:jti-teste-velho')).toBe(0);
+    expect(await redis.exists('revoked:jti:jti-test-old')).toBe(0);
   });
 
-  describe('sair de todos os dispositivos', () => {
-    it('derruba tokens emitidos antes do corte', async () => {
-      const antigo = payload('jti-teste-antigo', agora() - 300);
+  describe('log out of every device', () => {
+    it('drops tokens issued before the cutoff', async () => {
+      const old = payload('jti-test-older', now() - 300);
 
       await service.revokeAllForUser(USER);
 
-      expect(await service.isRevoked(antigo)).toBe(true);
+      expect(await service.isRevoked(old)).toBe(true);
     });
 
-    // O token que fizer a próxima entrada precisa funcionar, senão o
-    // usuário não consegue mais logar depois de "sair de todos".
-    it('não derruba token emitido depois do corte', async () => {
+    // The token behind the next sign-in has to work, otherwise the user
+    // can never log in again after "log out everywhere".
+    it('does not drop a token issued after the cutoff', async () => {
       await service.revokeAllForUser(USER);
 
-      // +2s para ficar claramente após o corte, mesmo com arredondamento
-      const novo = payload('jti-teste-novo', agora() + 2);
+      // +2s to land clearly past the cutoff, rounding included
+      const fresh = payload('jti-test-new', now() + 2);
 
-      expect(await service.isRevoked(novo)).toBe(false);
+      expect(await service.isRevoked(fresh)).toBe(false);
     });
 
-    // Regressão: o JWT grava iat em segundos, então um token emitido no
-    // mesmo segundo do corte tinha iat igual a ele e escapava de uma
-    // comparação por "menor que". Era uma janela de um segundo em que
-    // "sair de todos" não derrubava a sessão em uso.
-    it('derruba token emitido no mesmo segundo do corte', async () => {
-      const mesmoSegundo = payload('jti-teste-limite', agora());
+    // Regression: a JWT records iat in seconds, so a token issued in the
+    // same second as the cutoff had an equal iat and escaped a "less
+    // than" comparison. That was a one-second window in which "log out
+    // everywhere" failed to drop the session in use.
+    it('drops a token issued in the same second as the cutoff', async () => {
+      const sameSecond = payload('jti-test-boundary', now());
 
       await service.revokeAllForUser(USER);
 
-      expect(await service.isRevoked(mesmoSegundo)).toBe(true);
+      expect(await service.isRevoked(sameSecond)).toBe(true);
     });
 
-    it('não afeta outro usuário', async () => {
+    it('does not affect another user', async () => {
       await service.revokeAllForUser(USER);
 
-      const deOutro = {
-        jti: 'jti-teste-3',
-        sub: 'outro-teste',
-        iat: agora() - 300,
+      const someoneElse = {
+        jti: 'jti-test-3',
+        sub: 'another-test-user',
+        iat: now() - 300,
       };
 
-      expect(await service.isRevoked(deOutro)).toBe(false);
+      expect(await service.isRevoked(someoneElse)).toBe(false);
     });
   });
 
-  it('a entrada expira junto com o token', async () => {
-    await service.revokeToken('jti-teste-ttl', agora() + 120);
+  it('the entry expires together with the token', async () => {
+    await service.revokeToken('jti-test-ttl', now() + 120);
 
-    const ttl = await redis.ttl('revoked:jti:jti-teste-ttl');
+    const ttl = await redis.ttl('revoked:jti:jti-test-ttl');
 
-    // Guardar por mais tempo que a validade do token só ocuparia memória:
-    // depois de expirado, o token já não vale por conta própria.
+    // Keeping it longer than the token's lifetime would only take up
+    // memory: once expired, the token is worthless on its own.
     expect(ttl).toBeGreaterThan(0);
     expect(ttl).toBeLessThanOrEqual(121);
   });

@@ -5,9 +5,10 @@ import { validateEnv } from '../config/env.validation';
 import { SteamBanService } from './steam-ban.service';
 
 /**
- * Decide se alguém pode depositar ou sacar. Errar para o lado permissivo
- * gera trocas que a Steam vai recusar; errar para o restritivo impede uma
- * pessoa legítima de mexer no que é dela.
+ * Decides whether someone can deposit or withdraw. Erring on the
+ * permissive side produces trades Steam will refuse; erring on the
+ * restrictive side keeps a legitimate person from touching what is
+ * theirs.
  */
 describe('SteamBanService', () => {
   let service: SteamBanService;
@@ -16,14 +17,14 @@ describe('SteamBanService', () => {
 
   const STEAM_ID = '76561198832746931';
 
-  const respostaCom = (players: unknown[]) =>
+  const responseWith = (players: unknown[]) =>
     Promise.resolve({
       ok: true,
       status: 200,
       json: () => Promise.resolve({ players }),
     } as Response);
 
-  const semRestricao = {
+  const unrestricted = {
     SteamId: STEAM_ID,
     CommunityBanned: false,
     VACBanned: false,
@@ -53,8 +54,8 @@ describe('SteamBanService', () => {
     jest.restoreAllMocks();
   });
 
-  it('lê conta sem restrição', async () => {
-    fetchMock.mockReturnValue(respostaCom([semRestricao]));
+  it('reads an unrestricted account', async () => {
+    fetchMock.mockReturnValue(responseWith([unrestricted]));
 
     await expect(service.fetchBanStatus(STEAM_ID)).resolves.toEqual({
       economyBan: SteamEconomyBan.NONE,
@@ -62,26 +63,26 @@ describe('SteamBanService', () => {
     });
   });
 
-  it('traduz os três estados de EconomyBan', async () => {
-    const casos: [string, SteamEconomyBan][] = [
+  it('translates the three EconomyBan states', async () => {
+    const cases: [string, SteamEconomyBan][] = [
       ['none', SteamEconomyBan.NONE],
       ['probation', SteamEconomyBan.PROBATION],
       ['banned', SteamEconomyBan.BANNED],
     ];
 
-    for (const [texto, esperado] of casos) {
+    for (const [text, expected] of cases) {
       fetchMock.mockReturnValue(
-        respostaCom([{ ...semRestricao, EconomyBan: texto }]),
+        responseWith([{ ...unrestricted, EconomyBan: text }]),
       );
 
       const r = await service.fetchBanStatus(STEAM_ID);
-      expect(r!.economyBan).toBe(esperado);
+      expect(r!.economyBan).toBe(expected);
     }
   });
 
-  it('aceita variação de caixa vinda da Steam', async () => {
+  it('accepts the casing Steam happens to send', async () => {
     fetchMock.mockReturnValue(
-      respostaCom([{ ...semRestricao, EconomyBan: 'BANNED' }]),
+      responseWith([{ ...unrestricted, EconomyBan: 'BANNED' }]),
     );
 
     const r = await service.fetchBanStatus(STEAM_ID);
@@ -89,11 +90,11 @@ describe('SteamBanService', () => {
     expect(r!.economyBan).toBe(SteamEconomyBan.BANNED);
   });
 
-  // Estado novo da Valve é tratado como restrição: segurar a operação é
-  // mais seguro que liberar às cegas.
-  it('trata EconomyBan desconhecido como restrição', async () => {
+  // A new state from Valve is treated as a restriction: holding the
+  // operation is safer than allowing it blindly.
+  it('treats an unknown EconomyBan as a restriction', async () => {
     fetchMock.mockReturnValue(
-      respostaCom([{ ...semRestricao, EconomyBan: 'coisa_nova' }]),
+      responseWith([{ ...unrestricted, EconomyBan: 'something_new' }]),
     );
 
     const r = await service.fetchBanStatus(STEAM_ID);
@@ -101,9 +102,9 @@ describe('SteamBanService', () => {
     expect(r!.economyBan).toBe(SteamEconomyBan.PROBATION);
   });
 
-  it('reporta VAC ban', async () => {
+  it('reports a VAC ban', async () => {
     fetchMock.mockReturnValue(
-      respostaCom([{ ...semRestricao, VACBanned: true }]),
+      responseWith([{ ...unrestricted, VACBanned: true }]),
     );
 
     const r = await service.fetchBanStatus(STEAM_ID);
@@ -111,17 +112,18 @@ describe('SteamBanService', () => {
     expect(r!.vacBanned).toBe(true);
   });
 
-  describe('devolve null quando não dá para apurar', () => {
-    // null é diferente de "sem ban": quem chama deve preservar o último
-    // valor conhecido. Assumir NONE liberaria operação que vai falhar;
-    // assumir BANNED puniria usuário legítimo por instabilidade da Steam.
-    it('a Steam não retorna o jogador', async () => {
-      fetchMock.mockReturnValue(respostaCom([]));
+  describe('returns null when it cannot determine the status', () => {
+    // null is not the same as "no ban": the caller must preserve the
+    // last known value. Assuming NONE would allow an operation that is
+    // going to fail; assuming BANNED would punish a legitimate user over
+    // a Steam outage.
+    it('Steam does not return the player', async () => {
+      fetchMock.mockReturnValue(responseWith([]));
 
       await expect(service.fetchBanStatus(STEAM_ID)).resolves.toBeNull();
     });
 
-    it('a Steam responde com erro HTTP', async () => {
+    it('Steam answers with an HTTP error', async () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 429,
@@ -131,13 +133,13 @@ describe('SteamBanService', () => {
       await expect(service.fetchBanStatus(STEAM_ID)).resolves.toBeNull();
     });
 
-    it('a rede falha', async () => {
+    it('the network fails', async () => {
       fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
 
       await expect(service.fetchBanStatus(STEAM_ID)).resolves.toBeNull();
     });
 
-    it('não há STEAM_API_KEY configurada', async () => {
+    it('there is no STEAM_API_KEY configured', async () => {
       jest.spyOn(config, 'get').mockReturnValue(undefined);
 
       await expect(service.fetchBanStatus(STEAM_ID)).resolves.toBeNull();

@@ -34,7 +34,7 @@ import { TokenService } from './token.service';
     SessionRevocationService,
     JwtAuthGuard,
   ],
-  // Exportados para os módulos de domínio protegerem suas rotas
+  // Exported so the domain modules can protect their own routes
   exports: [TokenService, SessionRevocationService, JwtAuthGuard],
 })
 export class AuthModule {}

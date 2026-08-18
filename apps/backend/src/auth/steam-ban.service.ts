@@ -8,16 +8,16 @@ export interface SteamBanStatus {
 }
 
 /**
- * Consulta as restrições que a Steam impôs a uma conta.
+ * Queries the restrictions Steam has imposed on an account.
  *
- * Isto NÃO é moderação nossa. Um usuário banido pela Steam continua sendo
- * cliente e continua dono do que está em custódia — ele só perde parte das
- * operações, e cada tipo de ban tira uma coisa diferente.
+ * This is NOT our own moderation. A user banned by Steam is still a
+ * customer and still owns what is in custody — they only lose part of
+ * the operations, and each kind of ban takes away something different.
  *
- * ATENÇÃO: hoje só é chamado no login, então User.steamEconomyBan pode
- * estar desatualizado para quem foi banido depois de entrar. O worker de
- * trocas precisa reconsultar antes de tentar entregar, senão fica em retry
- * infinito contra uma conta bloqueada. Ver apps/bot-service/README.md.
+ * CAUTION: today this is only called at login, so User.steamEconomyBan
+ * can be stale for anyone banned after signing in. The trade worker has
+ * to query it again before attempting a delivery, otherwise it retries
+ * forever against a blocked account. See apps/bot-service/README.md.
  */
 @Injectable()
 export class SteamBanService {
@@ -29,19 +29,19 @@ export class SteamBanService {
   constructor(private readonly config: ConfigService) {}
 
   /**
-   * Retorna o status ou null se não foi possível apurar.
+   * Returns the status, or null when it could not be determined.
    *
-   * null é diferente de "sem ban". Quando não conseguimos verificar, quem
-   * chama deve preservar o último valor conhecido em vez de assumir algo:
-   * assumir NONE liberaria operações que vão falhar, e assumir BANNED
-   * puniria um usuário legítimo por uma instabilidade da Steam.
+   * null is not the same as "no ban". When we cannot check, the caller
+   * must preserve the last known value instead of assuming anything:
+   * assuming NONE would allow operations that are going to fail, and
+   * assuming BANNED would punish a legitimate user over a Steam outage.
    */
   async fetchBanStatus(steamId: string): Promise<SteamBanStatus | null> {
     const apiKey = this.config.get<string>('STEAM_API_KEY');
 
     if (!apiKey) {
       this.logger.warn(
-        'STEAM_API_KEY não configurada — status de ban não será verificado',
+        'STEAM_API_KEY is not configured — ban status will not be checked',
       );
       return null;
     }
@@ -54,7 +54,9 @@ export class SteamBanService {
       const req = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 
       if (!req.ok) {
-        this.logger.warn(`Steam API respondeu ${req.status} ao checar bans`);
+        this.logger.warn(
+          `Steam API answered ${req.status} while checking bans`,
+        );
         return null;
       }
 
@@ -75,19 +77,19 @@ export class SteamBanService {
         economyBan: this.parseEconomyBan(player.EconomyBan),
         vacBanned: player.VACBanned === true,
       };
-    } catch (erro) {
-      this.logger.warn(`Falha ao checar bans na Steam: ${String(erro)}`);
+    } catch (error) {
+      this.logger.warn(`Failed to check bans on Steam: ${String(error)}`);
       return null;
     }
   }
 
   /**
-   * A Steam manda "none", "probation" ou "banned" em texto.
-   * Valor desconhecido é tratado como restrição: se a Steam inventar um
-   * estado novo, é mais seguro segurar a operação do que liberar às cegas.
+   * Steam sends "none", "probation" or "banned" as text.
+   * An unknown value is treated as a restriction: if Steam invents a new
+   * state, holding the operation is safer than allowing it blindly.
    */
-  private parseEconomyBan(valor: string | undefined): SteamEconomyBan {
-    switch (valor?.toLowerCase()) {
+  private parseEconomyBan(value: string | undefined): SteamEconomyBan {
+    switch (value?.toLowerCase()) {
       case 'none':
         return SteamEconomyBan.NONE;
       case 'probation':
@@ -95,7 +97,7 @@ export class SteamBanService {
       case 'banned':
         return SteamEconomyBan.BANNED;
       default:
-        this.logger.warn(`EconomyBan desconhecido da Steam: ${String(valor)}`);
+        this.logger.warn(`Unknown EconomyBan from Steam: ${String(value)}`);
         return SteamEconomyBan.PROBATION;
     }
   }

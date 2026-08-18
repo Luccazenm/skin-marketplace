@@ -4,9 +4,10 @@ import { validateEnv } from '../config/env.validation';
 import { SteamProfileService } from './steam-profile.service';
 
 /**
- * Enriquecimento, não autenticação: quem prova identidade é o OpenID.
- * Por isso toda falha vira "sem perfil" em vez de erro — ficar sem avatar
- * é cosmético, e barrar o login por causa disso não seria.
+ * Enrichment, not authentication: identity is proven by the OpenID. That
+ * is why every failure turns into "no profile" rather than an error —
+ * going without an avatar is cosmetic, and blocking a login over it
+ * would not be.
  */
 describe('SteamProfileService', () => {
   let service: SteamProfileService;
@@ -15,14 +16,14 @@ describe('SteamProfileService', () => {
 
   const STEAM_ID = '76561198832746931';
 
-  const respostaCom = (players: unknown[]) =>
+  const responseWith = (players: unknown[]) =>
     Promise.resolve({
       ok: true,
       status: 200,
       json: () => Promise.resolve({ response: { players } }),
     } as Response);
 
-  const perfilCompleto = {
+  const fullProfile = {
     steamid: STEAM_ID,
     personaname: 'mazzo',
     avatarfull: 'https://avatars.steamstatic.com/abc_full.jpg',
@@ -51,22 +52,22 @@ describe('SteamProfileService', () => {
     jest.restoreAllMocks();
   });
 
-  it('lê nome, avatar, perfil e data de criação', async () => {
-    fetchMock.mockReturnValue(respostaCom([perfilCompleto]));
+  it('reads name, avatar, profile and creation date', async () => {
+    fetchMock.mockReturnValue(responseWith([fullProfile]));
 
-    const perfil = await service.fetchProfile(STEAM_ID);
+    const profile = await service.fetchProfile(STEAM_ID);
 
-    expect(perfil).toEqual({
+    expect(profile).toEqual({
       username: 'mazzo',
       avatarUrl: 'https://avatars.steamstatic.com/abc_full.jpg',
       profileUrl: 'https://steamcommunity.com/id/mazzoccato/',
-      // timecreated vem em segundos; Date espera milissegundos
+      // timecreated comes in seconds; Date expects milliseconds
       steamCreatedAt: new Date(1524850968 * 1000),
     });
   });
 
-  it('não expõe a chave na URL do log nem esquece de enviá-la', async () => {
-    fetchMock.mockReturnValue(respostaCom([perfilCompleto]));
+  it('sends the key and asks for the right steamId', async () => {
+    fetchMock.mockReturnValue(responseWith([fullProfile]));
 
     await service.fetchProfile(STEAM_ID);
 
@@ -76,36 +77,37 @@ describe('SteamProfileService', () => {
     expect(url.searchParams.get('key')).toBeTruthy();
   });
 
-  // Conta recém-criada pode vir sem nome; o steamId serve de rótulo até
-  // a próxima sincronização, e é melhor que barrar o cadastro.
-  it('usa o steamId quando o nome vem vazio', async () => {
+  // A freshly created account can come through without a name; the
+  // steamId works as a label until the next sync, and beats refusing the
+  // sign-up.
+  it('falls back to the steamId when the name comes back empty', async () => {
     fetchMock.mockReturnValue(
-      respostaCom([{ ...perfilCompleto, personaname: '   ' }]),
+      responseWith([{ ...fullProfile, personaname: '   ' }]),
     );
 
-    const perfil = await service.fetchProfile(STEAM_ID);
+    const profile = await service.fetchProfile(STEAM_ID);
 
-    expect(perfil!.username).toBe(STEAM_ID);
+    expect(profile!.username).toBe(STEAM_ID);
   });
 
-  it('aceita perfil sem data de criação', async () => {
+  it('accepts a profile with no creation date', async () => {
     fetchMock.mockReturnValue(
-      respostaCom([{ ...perfilCompleto, timecreated: undefined }]),
+      responseWith([{ ...fullProfile, timecreated: undefined }]),
     );
 
-    const perfil = await service.fetchProfile(STEAM_ID);
+    const profile = await service.fetchProfile(STEAM_ID);
 
-    expect(perfil!.steamCreatedAt).toBeNull();
+    expect(profile!.steamCreatedAt).toBeNull();
   });
 
-  describe('devolve null sem estourar quando', () => {
-    it('a Steam não retorna nenhum jogador', async () => {
-      fetchMock.mockReturnValue(respostaCom([]));
+  describe('returns null without throwing when', () => {
+    it('Steam returns no player at all', async () => {
+      fetchMock.mockReturnValue(responseWith([]));
 
       await expect(service.fetchProfile(STEAM_ID)).resolves.toBeNull();
     });
 
-    it('a Steam responde com erro HTTP', async () => {
+    it('Steam answers with an HTTP error', async () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 503,
@@ -115,14 +117,15 @@ describe('SteamProfileService', () => {
       await expect(service.fetchProfile(STEAM_ID)).resolves.toBeNull();
     });
 
-    it('a rede falha', async () => {
+    it('the network fails', async () => {
       fetchMock.mockRejectedValue(new Error('ETIMEDOUT'));
 
       await expect(service.fetchProfile(STEAM_ID)).resolves.toBeNull();
     });
 
-    // Sem chave o login continua funcionando: quem autentica é o OpenID.
-    it('não há STEAM_API_KEY configurada', async () => {
+    // Without a key the login still works: the OpenID is what
+    // authenticates.
+    it('there is no STEAM_API_KEY configured', async () => {
       jest.spyOn(config, 'get').mockReturnValue(undefined);
 
       await expect(service.fetchProfile(STEAM_ID)).resolves.toBeNull();

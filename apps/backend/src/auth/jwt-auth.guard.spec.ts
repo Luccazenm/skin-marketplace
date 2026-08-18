@@ -11,8 +11,9 @@ import { SessionRevocationService } from './session-revocation.service';
 import { TokenService } from './token.service';
 
 /**
- * O guard protege TODAS as rotas autenticadas. Uma condição invertida aqui
- * abre o site inteiro, e é o tipo de erro que passa numa revisão rápida.
+ * The guard protects EVERY authenticated route. An inverted condition
+ * here opens up the whole site, and it is the kind of mistake that slips
+ * past a quick review.
  */
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
@@ -22,24 +23,24 @@ describe('JwtAuthGuard', () => {
   let revocation: SessionRevocationService;
 
   const STEAM_ID_OK = '76561199000000090';
-  const STEAM_ID_BANIDO = '76561199000000091';
-  const TODOS = [STEAM_ID_OK, STEAM_ID_BANIDO];
+  const STEAM_ID_BANNED = '76561199000000091';
+  const ALL = [STEAM_ID_OK, STEAM_ID_BANNED];
 
   let user: User;
-  let banido: User;
+  let banned: User;
 
-  /** ExecutionContext mínimo com o request que queremos testar. */
-  function contextoCom(req: Record<string, unknown>): ExecutionContext {
+  /** Minimal ExecutionContext wrapping the request we want to test. */
+  function contextWith(req: Record<string, unknown>): ExecutionContext {
     return {
       switchToHttp: () => ({ getRequest: () => req }),
     } as unknown as ExecutionContext;
   }
 
-  const comHeader = (token: string) => ({
+  const withHeader = (token: string) => ({
     headers: { authorization: `Bearer ${token}` },
   });
 
-  const comCookie = (token: string) => ({
+  const withCookie = (token: string) => ({
     headers: {},
     cookies: { session: token },
   });
@@ -73,135 +74,137 @@ describe('JwtAuthGuard', () => {
     redis = moduleRef.get(RedisService);
     revocation = moduleRef.get(SessionRevocationService);
 
-    await prisma.user.deleteMany({ where: { steamId: { in: TODOS } } });
+    await prisma.user.deleteMany({ where: { steamId: { in: ALL } } });
 
     user = await prisma.user.create({
-      data: { steamId: STEAM_ID_OK, username: 'Autorizado' },
+      data: { steamId: STEAM_ID_OK, username: 'Authorized' },
     });
 
-    banido = await prisma.user.create({
+    banned = await prisma.user.create({
       data: {
-        steamId: STEAM_ID_BANIDO,
-        username: 'Suspenso',
+        steamId: STEAM_ID_BANNED,
+        username: 'Suspended',
         isBanned: true,
       },
     });
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { steamId: { in: TODOS } } });
-    const chaves = await redis.keys('revoked:*');
-    if (chaves.length > 0) await redis.del(...chaves);
+    await prisma.user.deleteMany({ where: { steamId: { in: ALL } } });
+    const keys = await redis.keys('revoked:*');
+    if (keys.length > 0) await redis.del(...keys);
     await prisma.$disconnect();
     await redis.quit();
   });
 
-  const tokenDe = (u: User) => tokens.sign({ sub: u.id, steamId: u.steamId });
+  const tokenFor = (u: User) => tokens.sign({ sub: u.id, steamId: u.steamId });
 
-  describe('aceita', () => {
-    it('token válido pelo header Authorization', async () => {
-      const req = comHeader(tokenDe(user));
+  describe('accepts', () => {
+    it('a valid token in the Authorization header', async () => {
+      const req = withHeader(tokenFor(user));
 
-      await expect(guard.canActivate(contextoCom(req))).resolves.toBe(true);
+      await expect(guard.canActivate(contextWith(req))).resolves.toBe(true);
     });
 
-    it('token válido pelo cookie', async () => {
-      const req = comCookie(tokenDe(user));
+    it('a valid token in the cookie', async () => {
+      const req = withCookie(tokenFor(user));
 
-      await expect(guard.canActivate(contextoCom(req))).resolves.toBe(true);
+      await expect(guard.canActivate(contextWith(req))).resolves.toBe(true);
     });
 
-    // O handler depende disso: sem anexar, @CurrentUser vem undefined.
-    it('anexa usuário e payload ao request', async () => {
-      const req: Record<string, unknown> = comHeader(tokenDe(user));
+    // The handler depends on this: without attaching, @CurrentUser comes
+    // through undefined.
+    it('attaches the user and the payload to the request', async () => {
+      const req: Record<string, unknown> = withHeader(tokenFor(user));
 
-      await guard.canActivate(contextoCom(req));
+      await guard.canActivate(contextWith(req));
 
       expect((req.user as User).id).toBe(user.id);
       expect((req.tokenPayload as { sub: string }).sub).toBe(user.id);
     });
   });
 
-  describe('recusa', () => {
-    it('requisição sem token', async () => {
+  describe('refuses', () => {
+    it('a request with no token', async () => {
       await expect(
-        guard.canActivate(contextoCom({ headers: {} })),
+        guard.canActivate(contextWith({ headers: {} })),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('token que não é um JWT', async () => {
+    it('a token that is not a JWT', async () => {
       await expect(
-        guard.canActivate(contextoCom(comHeader('isso.nao.e-token'))),
+        guard.canActivate(contextWith(withHeader('this.is.not-a-token'))),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    // Assinado com outro segredo: é a tentativa de forjar sessão.
-    it('token assinado por outra chave', async () => {
-      const forjado =
+    // Signed with another secret: this is the session-forging attempt.
+    it('a token signed with another key', async () => {
+      const forged =
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
         'eyJzdWIiOiJxdWFscXVlciIsInN0ZWFtSWQiOiIxIiwiaWF0IjoxfQ.' +
-        'assinatura_invalida';
+        'invalid_signature';
 
       await expect(
-        guard.canActivate(contextoCom(comHeader(forjado))),
+        guard.canActivate(contextWith(withHeader(forged))),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('header sem o prefixo Bearer', async () => {
-      const req = { headers: { authorization: tokenDe(user) } };
+    it('a header without the Bearer prefix', async () => {
+      const req = { headers: { authorization: tokenFor(user) } };
 
-      await expect(guard.canActivate(contextoCom(req))).rejects.toThrow(
+      await expect(guard.canActivate(contextWith(req))).rejects.toThrow(
         UnauthorizedException,
       );
     });
 
-    it('token revogado', async () => {
-      const token = tokenDe(user);
+    it('a revoked token', async () => {
+      const token = tokenFor(user);
       const payload = tokens.verify(token)!;
 
       await revocation.revokeToken(payload.jti, payload.exp);
 
       await expect(
-        guard.canActivate(contextoCom(comHeader(token))),
+        guard.canActivate(contextWith(withHeader(token))),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    // Banimento tem efeito imediato porque o guard consulta o banco. Se
-    // passasse a confiar só no token, o banido entraria por dias.
-    it('token válido de conta banida', async () => {
+    // A ban takes effect immediately because the guard queries the
+    // database. Were it to trust the token alone, a banned user would
+    // keep getting in for days.
+    it('a valid token from a banned account', async () => {
       await expect(
-        guard.canActivate(contextoCom(comHeader(tokenDe(banido)))),
+        guard.canActivate(contextWith(withHeader(tokenFor(banned)))),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('token de usuário que não existe mais', async () => {
-      const fantasma = await prisma.user.create({
-        data: { steamId: '76561199000000092', username: 'Apagado' },
+    it('a token from a user that no longer exists', async () => {
+      const ghost = await prisma.user.create({
+        data: { steamId: '76561199000000092', username: 'Deleted' },
       });
       const token = tokens.sign({
-        sub: fantasma.id,
-        steamId: fantasma.steamId,
+        sub: ghost.id,
+        steamId: ghost.steamId,
       });
-      await prisma.user.delete({ where: { id: fantasma.id } });
+      await prisma.user.delete({ where: { id: ghost.id } });
 
       await expect(
-        guard.canActivate(contextoCom(comHeader(token))),
+        guard.canActivate(contextWith(withHeader(token))),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('token da conta da plataforma', async () => {
-      const plataforma = await prisma.user.findFirst({
+    it('a token from the platform account', async () => {
+      const platform = await prisma.user.findFirst({
         where: { isPlatform: true },
       });
-      expect(plataforma).not.toBeNull();
+      expect(platform).not.toBeNull();
 
       const token = tokens.sign({
-        sub: plataforma!.id,
-        steamId: plataforma!.steamId,
+        sub: platform!.id,
+        steamId: platform!.steamId,
       });
 
       await expect(
-        guard.canActivate(contextoCom(comHeader(token))),
+        guard.canActivate(contextWith(withHeader(token))),
       ).rejects.toThrow(UnauthorizedException);
     });
   });

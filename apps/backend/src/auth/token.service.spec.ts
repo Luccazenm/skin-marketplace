@@ -34,16 +34,17 @@ describe('TokenService', () => {
   });
 
   describe('sign', () => {
-    it('gera token que a própria verificação aceita', () => {
-      const verificado = service.verify(service.sign(payload));
+    it('produces a token its own verification accepts', () => {
+      const verified = service.verify(service.sign(payload));
 
-      expect(verificado?.sub).toBe(payload.sub);
-      expect(verificado?.steamId).toBe(payload.steamId);
+      expect(verified?.sub).toBe(payload.sub);
+      expect(verified?.steamId).toBe(payload.steamId);
     });
 
-    // Sem jti único, revogar um logout derrubaria todas as sessões da
-    // pessoa — sair no computador desconectaria o celular.
-    it('gera jti diferente a cada emissão', () => {
+    // Without a unique jti, revoking one logout would drop all of the
+    // person's sessions — signing out on the desktop would disconnect
+    // the phone.
+    it('produces a different jti on every issue', () => {
       const a = service.verify(service.sign(payload))!;
       const b = service.verify(service.sign(payload))!;
 
@@ -51,7 +52,7 @@ describe('TokenService', () => {
       expect(a.jti).not.toBe(b.jti);
     });
 
-    it('inclui iat e exp', () => {
+    it('includes iat and exp', () => {
       const v = service.verify(service.sign(payload))!;
       const ttl = config.getOrThrow<number>('JWT_EXPIRES_IN_SECONDS');
 
@@ -59,62 +60,62 @@ describe('TokenService', () => {
       expect(v.exp - v.iat).toBe(ttl);
     });
 
-    // O token vive dias e não pode ser revisto: dado mutável embutido
-    // vira uma cópia desatualizada que o usuário carrega por aí.
-    it('não carrega saldo nem estado de banimento', () => {
-      const bruto = jwt.decode<Record<string, unknown>>(service.sign(payload));
+    // The token lives for days and cannot be revised: mutable data
+    // embedded in it becomes a stale copy the user carries around.
+    it('carries neither balance nor ban state', () => {
+      const raw = jwt.decode<Record<string, unknown>>(service.sign(payload));
 
-      expect(Object.keys(bruto).sort()).toEqual(
+      expect(Object.keys(raw).sort()).toEqual(
         ['exp', 'iat', 'jti', 'steamId', 'sub'].sort(),
       );
     });
   });
 
   describe('verify', () => {
-    it('recusa texto que não é token', () => {
-      expect(service.verify('qualquer coisa')).toBeNull();
+    it('refuses text that is not a token', () => {
+      expect(service.verify('anything at all')).toBeNull();
     });
 
-    it('recusa token assinado com outra chave', () => {
-      const outro = new JwtService({ secret: 'chave-diferente-de-teste-123' });
-      const forjado = outro.sign(payload);
+    it('refuses a token signed with another key', () => {
+      const other = new JwtService({ secret: 'a-different-test-key-123' });
+      const forged = other.sign(payload);
 
-      expect(service.verify(forjado)).toBeNull();
+      expect(service.verify(forged)).toBeNull();
     });
 
-    it('recusa token expirado', () => {
-      const expirado = jwt.sign(payload, { expiresIn: '-1s' });
+    it('refuses an expired token', () => {
+      const expired = jwt.sign(payload, { expiresIn: '-1s' });
 
-      expect(service.verify(expirado)).toBeNull();
+      expect(service.verify(expired)).toBeNull();
     });
 
-    // Alterar o payload sem reassinar é a tentativa mais simples de
-    // trocar de identidade.
-    it('recusa token adulterado', () => {
+    // Editing the payload without re-signing is the simplest attempt at
+    // switching identities.
+    it('refuses a tampered token', () => {
       const [head, , sig] = service.sign(payload).split('.');
-      const outroPayload = Buffer.from(
-        JSON.stringify({ ...payload, sub: 'outro-usuario' }),
+      const otherPayload = Buffer.from(
+        JSON.stringify({ ...payload, sub: 'another-user' }),
       ).toString('base64url');
 
-      expect(service.verify(`${head}.${outroPayload}.${sig}`)).toBeNull();
+      expect(service.verify(`${head}.${otherPayload}.${sig}`)).toBeNull();
     });
   });
 
   describe('cookieOptions', () => {
-    it('impede leitura por JavaScript da página', () => {
-      // Sem httpOnly, um XSS levaria a sessão junto.
+    it('keeps page JavaScript from reading the cookie', () => {
+      // Without httpOnly, an XSS would take the session with it.
       expect(service.cookieOptions().httpOnly).toBe(true);
     });
 
-    it('usa sameSite lax contra CSRF', () => {
+    it('uses sameSite lax against CSRF', () => {
       expect(service.cookieOptions().sameSite).toBe('lax');
     });
 
-    it('expira junto com o token', () => {
+    it('expires together with the token', () => {
       const ttl = config.getOrThrow<number>('JWT_EXPIRES_IN_SECONDS');
 
-      // maxAge do cookie é em milissegundos; se divergirem, o cookie some
-      // antes do token expirar ou o contrário.
+      // The cookie's maxAge is in milliseconds; if they diverge, either
+      // the cookie disappears before the token expires or the reverse.
       expect(service.cookieOptions().maxAge).toBe(ttl * 1000);
     });
   });

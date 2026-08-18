@@ -2,38 +2,38 @@ import { Injectable, Logger } from '@nestjs/common';
 
 export interface SteamAccountState {
   /**
-   * Conta que ainda não gastou US$ 5 na Steam. Não consegue negociar,
-   * então não serve como Trade Bot.
+   * An account that has not yet spent US$ 5 on Steam. It cannot trade,
+   * so it is no use as a Trade Bot.
    */
   isLimited: boolean;
-  /** "public", "friendsonly", "private" — vazio quando a Steam omite. */
+  /** "public", "friendsonly", "private" — empty when Steam omits it. */
   privacyState: string | null;
-  /** "None" quando não há restrição de troca. */
+  /** "None" when there is no trade restriction. */
   tradeBanState: string | null;
 }
 
 /**
- * Lê o estado da conta pelo perfil público da comunidade.
+ * Reads account state from the public community profile.
  *
- * Existe separado do SteamBanService porque a informação vem de outro
- * lugar: a Web API (GetPlayerBans) **não reporta conta limitada**, e
- * conta limitada não é ban — é conta que ainda não gastou os US$ 5. Sem
- * esta checagem, cadastrar um Trade Bot recém-criado passaria por todas
- * as barreiras e a descoberta só viria quando ele fosse escolhido para
- * receber um depósito.
+ * It lives apart from SteamBanService because the information comes from
+ * somewhere else: the Web API (GetPlayerBans) **does not report a
+ * limited account**, and a limited account is not a ban — it is an
+ * account that has not yet spent the US$ 5. Without this check,
+ * registering a freshly created Trade Bot would pass every barrier and
+ * we would only find out when it got picked to receive a deposit.
  *
- * O endpoint `?xml=1` é o próprio perfil público, sem chave de API.
+ * The `?xml=1` endpoint is the public profile itself, no API key.
  */
 @Injectable()
 export class SteamAccountStateService {
   private readonly logger = new Logger(SteamAccountStateService.name);
 
   /**
-   * Retorna o estado ou null se não foi possível apurar.
+   * Returns the state, or null when it could not be determined.
    *
-   * Como no SteamBanService, null é diferente de "está tudo certo": quem
-   * chama decide o que fazer com a incerteza, em vez de receber um
-   * palpite disfarçado de resposta.
+   * As in SteamBanService, null is not the same as "everything is fine":
+   * the caller decides what to do with the uncertainty, instead of
+   * receiving a guess dressed up as an answer.
    */
   async fetchAccountState(steamId: string): Promise<SteamAccountState | null> {
     try {
@@ -43,44 +43,45 @@ export class SteamAccountStateService {
 
       if (!req.ok) {
         this.logger.warn(
-          `Steam respondeu ${req.status} ao ler o perfil ${steamId}`,
+          `Steam answered ${req.status} while reading profile ${steamId}`,
         );
         return null;
       }
 
       const xml = await req.text();
 
-      const limitado = this.extrair(xml, 'isLimitedAccount');
+      const limited = this.extract(xml, 'isLimitedAccount');
 
-      // Perfil inexistente devolve HTML de erro, e perfil privado pode
-      // omitir o campo. Sem ele não há resposta a dar.
-      if (limitado === null) {
+      // A non-existent profile returns an error page, and a private
+      // profile can omit the field. Without it there is no answer to
+      // give.
+      if (limited === null) {
         this.logger.warn(
-          `Perfil ${steamId} não trouxe isLimitedAccount — pode não existir ` +
-            `ou estar privado`,
+          `Profile ${steamId} did not carry isLimitedAccount — it may not ` +
+            `exist or may be private`,
         );
         return null;
       }
 
       return {
-        isLimited: limitado === '1',
-        privacyState: this.extrair(xml, 'privacyState'),
-        tradeBanState: this.extrair(xml, 'tradeBanState'),
+        isLimited: limited === '1',
+        privacyState: this.extract(xml, 'privacyState'),
+        tradeBanState: this.extract(xml, 'tradeBanState'),
       };
-    } catch (erro) {
-      this.logger.warn(`Falha ao ler o perfil na Steam: ${String(erro)}`);
+    } catch (error) {
+      this.logger.warn(`Failed to read the Steam profile: ${String(error)}`);
       return null;
     }
   }
 
   /**
-   * Lê uma tag simples do XML.
+   * Reads one simple tag out of the XML.
    *
-   * Sem biblioteca de XML de propósito: são três campos de formato fixo, e
-   * a alternativa seria uma dependência inteira para isso. O conteúdo pode
-   * vir embrulhado em CDATA, que a Steam usa em campos de texto livre.
+   * No XML library on purpose: these are three fixed-format fields, and
+   * the alternative would be a whole dependency for that. The content
+   * can arrive wrapped in CDATA, which Steam uses on free-text fields.
    */
-  private extrair(xml: string, tag: string): string | null {
+  private extract(xml: string, tag: string): string | null {
     const m = new RegExp(
       `<${tag}>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?</${tag}>`,
       's',

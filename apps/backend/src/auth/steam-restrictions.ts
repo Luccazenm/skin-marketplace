@@ -1,16 +1,16 @@
 import { SteamEconomyBan } from '@prisma/client';
 
-/** O que a conta consegue fazer, dado o estado dela na Steam. */
+/** What the account can do, given its state on Steam. */
 export interface UserCapabilities {
-  /** Entregar skins para o nosso bot. Exige ENVIAR. */
+  /** Hand skins over to our bot. Requires SENDING. */
   canDeposit: boolean;
-  /** Receber skins do nosso bot (entrega de compra ou devolução). Exige RECEBER. */
+  /** Receive skins from our bot (purchase delivery or return). Requires RECEIVING. */
   canWithdraw: boolean;
-  /** Vender pelo site o que já está em custódia. Não envolve a Steam. */
+  /** Sell through the site what is already in custody. Steam is not involved. */
   canSell: boolean;
-  /** Explicação para mostrar ao usuário quando algo está bloqueado. */
+  /** Explanation to show the user when something is blocked. */
   blockedReason: string | null;
-  /** Alertas que não bloqueiam, mas o usuário precisa saber. */
+  /** Warnings that do not block, but the user needs to know. */
   warnings: string[];
 }
 
@@ -20,27 +20,28 @@ type BanState = Pick<
 >;
 
 /**
- * Regras de restrição da Steam.
+ * Steam restriction rules.
  *
- * O ponto que não é óbvio: vender pelo site NUNCA é bloqueado por ban da
- * Steam. O item já está no nosso bot, e a venda é troca de dono no nosso
- * banco — a Steam não participa. Para quem foi banido, isso é a única
- * liquidez que sobrou, e tirá-la seria transformar o ban da Valve num
- * confisco nosso.
+ * The non-obvious point: selling through the site is NEVER blocked by a
+ * Steam ban. The item is already in our bot, and the sale is a change of
+ * owner in our database — Steam takes no part. For someone who has been
+ * banned, that is the only liquidity left, and taking it away would turn
+ * Valve's punishment into confiscation by us.
  */
 export function capabilitiesFor(user: BanState): UserCapabilities {
   const warnings: string[] = [];
 
-  // Economy ban corta a conta da economia da Steam nas duas direções.
+  // An economy ban cuts the account out of Steam's economy in both
+  // directions.
   if (user.steamEconomyBan === SteamEconomyBan.BANNED) {
     return {
       canDeposit: false,
       canWithdraw: false,
       canSell: true,
       blockedReason:
-        'Sua conta Steam está impedida de negociar itens, então não é ' +
-        'possível depositar nem receber skins. As skins que já estão em ' +
-        'custódia podem ser vendidas normalmente aqui.',
+        'Your Steam account is barred from trading items, so you cannot ' +
+        'deposit or receive skins. The skins already in custody can still ' +
+        'be sold here as usual.',
       warnings,
     };
   }
@@ -51,21 +52,22 @@ export function capabilitiesFor(user: BanState): UserCapabilities {
       canWithdraw: false,
       canSell: true,
       blockedReason:
-        'Sua conta Steam está em período de restrição de trocas. Depósitos ' +
-        'e saques ficam indisponíveis até a Steam liberar. A venda das ' +
-        'skins em custódia continua funcionando.',
+        'Your Steam account is under a trading restriction period. ' +
+        'Deposits and withdrawals are unavailable until Steam lifts it. ' +
+        'Selling the skins in custody keeps working.',
       warnings,
     };
   }
 
-  // VAC não bloqueia por conta própria: a API da Steam não informa de qual
-  // jogo é o ban, e um VAC em outro jogo não afeta os itens de CS2.
-  // Bloquear aqui puniria usuário legítimo por um dado impreciso — então
-  // avisamos e deixamos a tentativa de troca dar o veredito real.
+  // A VAC ban does not block on its own: Steam's API does not say which
+  // game the ban is from, and a VAC in another game does not affect CS2
+  // items. Blocking here would punish a legitimate user over imprecise
+  // data — so we warn and let the actual trade attempt deliver the
+  // verdict.
   if (user.steamVacBanned) {
     warnings.push(
-      'Sua conta Steam tem um VAC ban registrado. Se ele for de CS2, o ' +
-        'depósito de skins não vai funcionar — o recebimento continua normal.',
+      'Your Steam account has a VAC ban on record. If it is from CS2, ' +
+        'depositing skins will not work — receiving still does.',
     );
   }
 

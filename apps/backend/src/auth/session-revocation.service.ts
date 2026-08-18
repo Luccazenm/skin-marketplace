@@ -3,24 +3,25 @@ import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
 
 /**
- * Invalida sessões antes de o token expirar.
+ * Invalidates sessions before the token expires.
  *
- * JWT é autocontido: uma vez assinado, vale até a data de expiração e o
- * servidor não tem como "desassinar". Apagar o cookie no logout resolve
- * para quem usa o navegador normalmente, mas quem tiver copiado o token
- * continua entrando pelos dias restantes. Num sistema com saldo, isso não
- * serve.
+ * A JWT is self-contained: once signed, it is valid until its expiry
+ * date and the server has no way to "unsign" it. Clearing the cookie on
+ * logout is enough for someone using the browser normally, but anyone
+ * who copied the token keeps getting in for the remaining days. In a
+ * system holding balances, that will not do.
  *
- * São duas revogações, para dois problemas diferentes:
+ * There are two revocations, for two different problems:
  *
- *   jti          -> derruba UM token. É o logout comum: sair aqui não pode
- *                   desconectar a pessoa do celular.
- *   revokedAt    -> derruba TODOS os tokens do usuário emitidos antes de
- *                   agora. É o caso de conta comprometida, em que não se
- *                   sabe quantas sessões existem nem onde.
+ *   jti          -> drops ONE token. This is the ordinary logout: signing
+ *                   out here must not disconnect the person's phone.
+ *   revokedAt    -> drops ALL of the user's tokens issued before now.
+ *                   This is the compromised-account case, where we do not
+ *                   know how many sessions exist or where.
  *
- * Tudo com TTL igual ao que resta de vida do token: passada a expiração
- * natural, a entrada não protege mais nada e só ocuparia memória.
+ * Everything carries a TTL equal to the token's remaining lifetime: past
+ * its natural expiry the entry protects nothing and would only take up
+ * memory.
  */
 @Injectable()
 export class SessionRevocationService {
@@ -29,44 +30,50 @@ export class SessionRevocationService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Derruba um token específico. */
-  async revokeToken(jti: string, expiraEm: number): Promise<void> {
-    const segundos = this.segundosRestantes(expiraEm);
+  /** Drops one specific token. */
+  async revokeToken(jti: string, expiresAt: number): Promise<void> {
+    const seconds = this.secondsRemaining(expiresAt);
 
-    if (segundos <= 0) {
-      return; // já expirou sozinho
+    if (seconds <= 0) {
+      return; // it already expired on its own
     }
 
-    await this.redis.set(`revoked:jti:${jti}`, '1', 'EX', segundos);
+    await this.redis.set(`revoked:jti:${jti}`, '1', 'EX', seconds);
   }
 
-  /** Derruba todos os tokens do usuário emitidos até agora. */
+  /** Drops every token issued to this user up to now. */
   async revokeAllForUser(userId: string): Promise<void> {
     const ttl = this.config.getOrThrow<number>('JWT_EXPIRES_IN_SECONDS');
 
-    // O corte é o fim do segundo atual, não o instante exato.
+    // The cutoff is the end of the current second, not the exact instant.
     //
-    // O JWT grava iat com precisão de segundos: um token emitido no mesmo
-    // segundo do corte teria iat igual a ele e escaparia de uma comparação
-    // por "menor que". Seria uma janela de um segundo em que "sair de
-    // todos" não derruba a sessão que acabou de ser usada — justamente o
-    // caso de conta comprometida, em que o atacante está ativo agora.
+    // A JWT records iat with second precision: a token issued in the same
+    // second as the cutoff would have an equal iat and would escape a
+    // "less than" comparison. That would be a one-second window in which
+    // "log out everywhere" fails to drop the session that was just used —
+    // exactly the compromised-account case, where the attacker is active
+    // right now.
     //
-    // Arredondar para cima resolve, ao custo de invalidar também um login
-    // feito no mesmo segundo. Na prática isso não acontece: entrar de novo
-    // passa pelo redirecionamento da Steam, que leva bem mais que isso.
-    const corte = Math.floor(Date.now() / 1000) + 1;
+    // Rounding up fixes it, at the cost of also invalidating a login made
+    // in that same second. In practice that does not happen: signing in
+    // again goes through the Steam redirect, which takes far longer.
+    const cutoff = Math.floor(Date.now() / 1000) + 1;
 
-    // Guardamos o instante do corte, não uma lista de tokens: não temos
-    // como enumerar o que foi emitido, e não precisamos.
-    await this.redis.set(`revoked:user:${userId}`, corte.toString(), 'EX', ttl);
+    // We store the cutoff instant, not a list of tokens: we have no way
+    // to enumerate what was issued, and we do not need one.
+    await this.redis.set(
+      `revoked:user:${userId}`,
+      cutoff.toString(),
+      'EX',
+      ttl,
+    );
   }
 
   /**
-   * Este token ainda vale?
+   * Is this token still valid?
    *
-   * As duas consultas vão numa pipeline só para não custar duas idas ao
-   * Redis em cada requisição autenticada.
+   * Both lookups go in a single pipeline so an authenticated request does
+   * not cost two round trips to Redis.
    */
   async isRevoked(payload: {
     jti?: string;
@@ -77,34 +84,35 @@ export class SessionRevocationService {
     pipeline.exists(`revoked:jti:${payload.jti ?? ''}`);
     pipeline.get(`revoked:user:${payload.sub}`);
 
-    const resultados = await pipeline.exec();
+    const results = await pipeline.exec();
 
-    if (!resultados) {
-      // Redis fora do ar. Deixamos passar: o guard ainda consulta o banco
-      // e bloqueia conta banida, que é o caso grave. Recusar toda sessão
-      // por indisponibilidade do cache derrubaria o site inteiro.
+    if (!results) {
+      // Redis is down. We let the request through: the guard still queries
+      // the database and blocks banned accounts, which is the serious
+      // case. Refusing every session because the cache is unavailable
+      // would take the whole site down.
       return false;
     }
 
-    const [[, tokenRevogado], [, corte]] = resultados as [
+    const [[, tokenRevoked], [, cutoff]] = results as [
       [Error | null, number],
       [Error | null, string | null],
     ];
 
-    if (tokenRevogado === 1) {
+    if (tokenRevoked === 1) {
       return true;
     }
 
-    if (corte && payload.iat !== undefined) {
-      // Emitido antes do corte: veio de uma sessão que o usuário mandou
-      // encerrar.
-      return payload.iat < Number(corte);
+    if (cutoff && payload.iat !== undefined) {
+      // Issued before the cutoff: it came from a session the user asked
+      // to end.
+      return payload.iat < Number(cutoff);
     }
 
     return false;
   }
 
-  private segundosRestantes(expiraEm: number): number {
-    return Math.ceil(expiraEm - Date.now() / 1000);
+  private secondsRemaining(expiresAt: number): number {
+    return Math.ceil(expiresAt - Date.now() / 1000);
   }
 }

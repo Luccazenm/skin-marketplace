@@ -8,16 +8,17 @@ import {
 import { clearAuditLog } from '../test-utils/clear-audit-log';
 
 /**
- * A camada HTTP: é onde exceção vira status. Um 403 que escapa como 500
- * muda o que o usuário vê e esconde a causa do suporte.
+ * The HTTP layer: this is where an exception becomes a status. A 403 that
+ * escapes as a 500 changes what the user sees and hides the cause from
+ * support.
  */
 describe('AuthController', () => {
   let ctx: TestApp;
   let user: User;
 
   const STEAM_ID = '76561199000000100';
-  const STEAM_ID_BANIDO = '76561199000000101';
-  const TODOS = [STEAM_ID, STEAM_ID_BANIDO];
+  const STEAM_ID_BANNED = '76561199000000101';
+  const ALL = [STEAM_ID, STEAM_ID_BANNED];
 
   const http = () => request(ctx.server);
 
@@ -26,21 +27,21 @@ describe('AuthController', () => {
   });
 
   beforeEach(async () => {
-    await ctx.prisma.user.deleteMany({ where: { steamId: { in: TODOS } } });
+    await ctx.prisma.user.deleteMany({ where: { steamId: { in: ALL } } });
     user = await ctx.prisma.user.create({
-      data: { steamId: STEAM_ID, username: 'Autenticado' },
+      data: { steamId: STEAM_ID, username: 'Authenticated' },
     });
     jest.clearAllMocks();
   });
 
   afterAll(async () => {
-    await ctx.prisma.user.deleteMany({ where: { steamId: { in: TODOS } } });
+    await ctx.prisma.user.deleteMany({ where: { steamId: { in: ALL } } });
     await clearAuditLog(ctx.prisma);
     await ctx.close();
   });
 
   describe('GET /api/auth/steam', () => {
-    it('redireciona para a Steam', async () => {
+    it('redirects to Steam', async () => {
       const r = await http().get('/api/auth/steam').expect(302);
 
       expect(r.headers.location).toContain('steamcommunity.com/openid/login');
@@ -48,7 +49,7 @@ describe('AuthController', () => {
   });
 
   describe('GET /api/auth/steam/return', () => {
-    it('cria a sessão em cookie e manda para o frontend', async () => {
+    it('creates the session in a cookie and sends the user to the frontend', async () => {
       ctx.steam.openId.verifyReturn.mockResolvedValue(STEAM_ID);
 
       const r = await http()
@@ -57,40 +58,41 @@ describe('AuthController', () => {
 
       expect(r.headers.location).toBe('http://localhost:5173');
 
-      // httpOnly: JavaScript da página não pode ler a sessão.
+      // httpOnly: page JavaScript cannot read the session.
       const cookie = String(r.headers['set-cookie']);
       expect(cookie).toContain('session=');
       expect(cookie).toContain('HttpOnly');
     });
 
-    it('recusa retorno que a Steam não valida', async () => {
+    it('refuses a return Steam does not validate', async () => {
       ctx.steam.openId.verifyReturn.mockResolvedValue(null);
 
       await http().get('/api/auth/steam/return?openid.mode=id_res').expect(401);
     });
 
-    it('recusa conta suspensa com 403, não 401', async () => {
+    it('refuses a suspended account with 403, not 401', async () => {
       await ctx.prisma.user.create({
         data: {
-          steamId: STEAM_ID_BANIDO,
-          username: 'Suspenso',
+          steamId: STEAM_ID_BANNED,
+          username: 'Suspended',
           isBanned: true,
         },
       });
-      ctx.steam.openId.verifyReturn.mockResolvedValue(STEAM_ID_BANIDO);
+      ctx.steam.openId.verifyReturn.mockResolvedValue(STEAM_ID_BANNED);
 
-      // 403 e não 401: a diferença entre "não sei quem é você" e "sei, e
-      // você não pode entrar" muda a mensagem que a tela mostra.
+      // 403 and not 401: the difference between "I do not know who you
+      // are" and "I do, and you may not come in" changes the message the
+      // screen shows.
       await http().get('/api/auth/steam/return?openid.mode=id_res').expect(403);
     });
   });
 
   describe('GET /api/auth/me', () => {
-    it('exige sessão', async () => {
+    it('requires a session', async () => {
       await http().get('/api/auth/me').expect(401);
     });
 
-    it('devolve o perfil e o que a conta pode fazer', async () => {
+    it('returns the profile and what the account can do', async () => {
       const r = await http()
         .get('/api/auth/me')
         .set(ctx.authFor(user))
@@ -107,9 +109,9 @@ describe('AuthController', () => {
       expect(me.hasTradeUrl).toBe(false);
     });
 
-    // Saldo como texto: Decimal vira número em JSON e 0.1+0.2 deixa de
-    // ser 0.3. Em dinheiro isso não é aceitável.
-    it('serializa o saldo como string', async () => {
+    // Balance as text: a Decimal turns into a number in JSON and 0.1+0.2
+    // stops being 0.3. With money that is not acceptable.
+    it('serialises the balance as a string', async () => {
       await ctx.prisma.user.update({
         where: { id: user.id },
         data: { balance: '1234.56' },
@@ -123,7 +125,7 @@ describe('AuthController', () => {
       expect(body<{ balance: string }>(r).balance).toBe('1234.56');
     });
 
-    it('aceita sessão por cookie', async () => {
+    it('accepts a session from the cookie', async () => {
       const token = ctx.tokens.sign({ sub: user.id, steamId: user.steamId });
 
       await http()
@@ -134,31 +136,31 @@ describe('AuthController', () => {
   });
 
   describe('POST /api/auth/logout', () => {
-    it('exige sessão', async () => {
+    it('requires a session', async () => {
       await http().post('/api/auth/logout').expect(401);
     });
 
-    it('apaga o cookie e invalida o token', async () => {
+    it('clears the cookie and invalidates the token', async () => {
       const auth = ctx.authFor(user);
 
       const r = await http().post('/api/auth/logout').set(auth).expect(201);
 
       expect(String(r.headers['set-cookie'])).toContain('session=;');
 
-      // O mesmo token não vale mais �?" apagar o cookie não bastaria para
-      // quem já tivesse copiado o valor.
+      // The same token no longer works — clearing the cookie alone would
+      // not be enough for anyone who had already copied the value.
       await http().get('/api/auth/me').set(auth).expect(401);
     });
   });
 
   describe('POST /api/auth/logout-all', () => {
-    it('derruba as demais sessões', async () => {
-      const sessaoA = ctx.authFor(user);
-      const sessaoB = ctx.authFor(user);
+    it('drops the other sessions', async () => {
+      const sessionA = ctx.authFor(user);
+      const sessionB = ctx.authFor(user);
 
-      await http().post('/api/auth/logout-all').set(sessaoA).expect(201);
+      await http().post('/api/auth/logout-all').set(sessionA).expect(201);
 
-      await http().get('/api/auth/me').set(sessaoB).expect(401);
+      await http().get('/api/auth/me').set(sessionB).expect(401);
     });
   });
 });

@@ -9,13 +9,13 @@ import type { Request } from 'express';
 import { enrichContext } from '../observability/request-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { SessionRevocationService } from './session-revocation.service';
-import { TokenService, type JwtPayloadVerificado } from './token.service';
+import { TokenService, type VerifiedJwtPayload } from './token.service';
 
-/** Request com o usuário já resolvido pelo guard. */
+/** Request with the user already resolved by the guard. */
 export interface AuthenticatedRequest extends Request {
   user: User;
-  /** Guardado para o logout conseguir revogar o token em uso. */
-  tokenPayload: JwtPayloadVerificado;
+  /** Kept so logout can revoke the token in use. */
+  tokenPayload: VerifiedJwtPayload;
 }
 
 @Injectable()
@@ -32,56 +32,57 @@ export class JwtAuthGuard implements CanActivate {
     const token = this.extractToken(req);
 
     if (!token) {
-      throw new UnauthorizedException('Sessão ausente');
+      throw new UnauthorizedException('Missing session');
     }
 
     const payload = this.tokens.verify(token);
 
     if (!payload) {
-      throw new UnauthorizedException('Sessão inválida ou expirada');
+      throw new UnauthorizedException('Invalid or expired session');
     }
 
-    // Encerrada antes de expirar: logout neste dispositivo, ou o usuário
-    // mandou sair de todos.
+    // Ended before expiring: logout on this device, or the user asked to
+    // log out everywhere.
     if (await this.revocation.isRevoked(payload)) {
-      throw new UnauthorizedException('Sessão encerrada');
+      throw new UnauthorizedException('Session ended');
     }
 
-    // Consultamos o banco em vez de confiar só no token.
+    // We query the database instead of trusting the token alone.
     //
-    // JWT não é revogável: uma vez emitido, vale até expirar. Se alguém for
-    // banido, ou a conta for apagada, o token na mão da pessoa continuaria
-    // funcionando por dias. Num site que movimenta dinheiro isso é
-    // inaceitável, então trocamos um pouco de desempenho por poder cortar
-    // acesso na hora. A consulta é por chave primária — barata.
+    // A JWT is not revocable: once issued, it is valid until it expires.
+    // If someone gets banned, or the account is deleted, the token in
+    // their hands would keep working for days. On a site that moves
+    // money that is unacceptable, so we trade a little performance for
+    // the ability to cut access immediately. The lookup is by primary
+    // key — cheap.
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
 
     if (!user || user.isBanned || user.isPlatform) {
-      throw new UnauthorizedException('Sessão inválida');
+      throw new UnauthorizedException('Invalid session');
     }
 
     req.user = user;
     req.tokenPayload = payload;
 
-    // A partir daqui os logs desta requisição saem com dono. Os anteriores
-    // ficam sem — o que é correto: ainda não se sabia quem era.
+    // From here on the logs for this request carry an owner. The earlier
+    // ones do not — which is correct: we did not know who it was yet.
     enrichContext({ userId: user.id });
 
     return true;
   }
 
   /**
-   * Aceita o cookie httpOnly (uso normal, pelo navegador) ou o header
-   * Authorization (Swagger, testes, clientes de API).
+   * Accepts the httpOnly cookie (normal browser use) or the Authorization
+   * header (Swagger, tests, API clients).
    */
   private extractToken(req: Request): string | null {
     const cookies = req.cookies as Record<string, unknown> | undefined;
-    const doCookie = cookies?.[TokenService.COOKIE_NAME];
+    const fromCookie = cookies?.[TokenService.COOKIE_NAME];
 
-    if (typeof doCookie === 'string' && doCookie.length > 0) {
-      return doCookie;
+    if (typeof fromCookie === 'string' && fromCookie.length > 0) {
+      return fromCookie;
     }
 
     const header = req.headers.authorization;

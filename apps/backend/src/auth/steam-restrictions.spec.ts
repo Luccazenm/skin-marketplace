@@ -2,13 +2,13 @@ import { SteamEconomyBan } from '@prisma/client';
 import { capabilitiesFor } from './steam-restrictions';
 
 describe('capabilitiesFor', () => {
-  const semRestricao = {
+  const unrestricted = {
     steamEconomyBan: SteamEconomyBan.NONE,
     steamVacBanned: false,
   };
 
-  it('libera tudo para conta sem restrição', () => {
-    const cap = capabilitiesFor(semRestricao);
+  it('allows everything for an unrestricted account', () => {
+    const cap = capabilitiesFor(unrestricted);
 
     expect(cap.canDeposit).toBe(true);
     expect(cap.canWithdraw).toBe(true);
@@ -18,9 +18,9 @@ describe('capabilitiesFor', () => {
   });
 
   describe('economy ban', () => {
-    it('bloqueia depósito e saque quando BANNED', () => {
+    it('blocks deposit and withdrawal when BANNED', () => {
       const cap = capabilitiesFor({
-        ...semRestricao,
+        ...unrestricted,
         steamEconomyBan: SteamEconomyBan.BANNED,
       });
 
@@ -29,9 +29,9 @@ describe('capabilitiesFor', () => {
       expect(cap.blockedReason).toBeTruthy();
     });
 
-    it('bloqueia depósito e saque quando PROBATION', () => {
+    it('blocks deposit and withdrawal when on PROBATION', () => {
       const cap = capabilitiesFor({
-        ...semRestricao,
+        ...unrestricted,
         steamEconomyBan: SteamEconomyBan.PROBATION,
       });
 
@@ -39,9 +39,10 @@ describe('capabilitiesFor', () => {
       expect(cap.canWithdraw).toBe(false);
     });
 
-    // A regra mais importante do arquivo: o ban da Steam não pode virar
-    // confisco nosso. Vender é a única liquidez que sobra para essa pessoa.
-    it('NUNCA bloqueia a venda do que já está em custódia', () => {
+    // The most important rule in the file: a Steam ban must not become
+    // confiscation by us. Selling is the only liquidity this person has
+    // left.
+    it('NEVER blocks selling what is already in custody', () => {
       for (const ban of [SteamEconomyBan.BANNED, SteamEconomyBan.PROBATION]) {
         const cap = capabilitiesFor({
           steamEconomyBan: ban,
@@ -54,14 +55,14 @@ describe('capabilitiesFor', () => {
   });
 
   describe('VAC ban', () => {
-    it('avisa mas não bloqueia nada sozinho', () => {
+    it('warns but blocks nothing on its own', () => {
       const cap = capabilitiesFor({
-        ...semRestricao,
+        ...unrestricted,
         steamVacBanned: true,
       });
 
-      // A Steam não informa de qual jogo é o VAC; bloquear seria punir
-      // quem tomou ban em outro jogo qualquer.
+      // Steam does not say which game the VAC is from; blocking would
+      // punish someone banned in an entirely different game.
       expect(cap.canDeposit).toBe(true);
       expect(cap.canWithdraw).toBe(true);
       expect(cap.blockedReason).toBeNull();
