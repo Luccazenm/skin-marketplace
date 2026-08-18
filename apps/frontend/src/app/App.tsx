@@ -23,6 +23,7 @@ import { useSession } from "@/lib/use-session";
 import { SellPage } from "./SellPage";
 import { TradeUrlBanner } from "./TradeUrlBanner";
 import { NotificationBell } from "./NotificationBell";
+import { MiniSortDropdown } from "./MiniSortDropdown";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
 const RARITY: Record<string, { label: string; color: string; glow: string; from: string; to: string }> = {
@@ -1171,58 +1172,6 @@ function TradeSkinCard({
 }
 
 /* ─── Mini sort dropdown (inline, for Trade panels) ─────────────────── */
-const TRADE_SORTS = ["Default", "Highest Price", "Lowest Price", "Highest Float", "Lowest Float", "Discount"];
-const SELL_SORTS  = ["Default", "Highest Price", "Lowest Price", "Highest Float", "Lowest Float"];
-
-function MiniSortDropdown({ value, onChange, options = TRADE_SORTS }: { value: string; onChange: (v: string) => void; options?: string[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative flex-shrink-0">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 px-2 py-1.5 rounded font-mono text-xs transition-colors"
-        style={{
-          background: open ? "rgba(240,192,64,0.1)" : "rgba(255,255,255,0.05)",
-          border: `1px solid ${open ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
-          color: value !== "Default" ? "#f0c040" : "#9da3c0",
-        }}
-        title="Sort"
-      >
-        <SlidersHorizontal className="w-3 h-3" />
-        <ChevronDown className="w-2.5 h-2.5" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }} />
-      </button>
-      {open && (
-        <div
-          className="absolute top-full right-0 mt-1 z-50 rounded overflow-hidden"
-          style={{ background: "#10121a", border: "1px solid rgba(255,255,255,0.08)", minWidth: "140px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}
-        >
-          {options.map((s) => (
-            <button
-              key={s}
-              onClick={() => { onChange(s); setOpen(false); }}
-              className="w-full text-left px-3 py-2 font-mono text-xs flex items-center justify-between gap-3 transition-colors"
-              style={{ background: value === s ? "rgba(240,192,64,0.08)" : "transparent", color: value === s ? "#f0c040" : "#9da3c0" }}
-              onMouseEnter={e => (e.currentTarget.style.background = value === s ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.04)")}
-              onMouseLeave={e => (e.currentTarget.style.background = value === s ? "rgba(240,192,64,0.08)" : "transparent")}
-            >
-              {s}
-              {value === s && <Check className="w-3 h-3 flex-shrink-0" style={{ color: "#f0c040" }} />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ─── Trade page ─────────────────────────────────────────────────────── */
 
 /**
@@ -1992,7 +1941,11 @@ const WEAPON_GROUPS: { label: string; items: string[] }[] = [
   { label: "Heavy", items: ["M249", "MAG-7", "Negev", "Nova", "Sawed-Off", "XM1014"] },
   { label: "Miscellany", items: ["Case Key", "Capsule Key", "Charms", "Stickers", "Cases", "Graffiti", "Music Kits", "Pins", "Agents", "Patches", "Zeus"] },
 ];
-const SORTS    = ["Default", "Discount", "Highest Price", "Lowest Price", "Oldest", "Newest", "Highest Float", "Lowest Float"];
+// No "Newest"/"Oldest": the only thing resembling an age here is the
+// assetId, which changes on every trade. Sorting by it would order items
+// by when they last moved between accounts, which is not what the label
+// promises.
+const SORTS    = ["Default", "Discount", "Highest Price", "Lowest Price", "Highest Float", "Lowest Float"];
 
 export default function App() {
   const [search, setSearch]         = useState("");
@@ -2087,8 +2040,6 @@ export default function App() {
     if (sort === "Discount") out = [...out].sort((a, b) => a.discount - b.discount);
     if (sort === "Highest Price")    out = [...out].sort((a, b) => b.price - a.price);
     if (sort === "Lowest Price")     out = [...out].sort((a, b) => a.price - b.price);
-    if (sort === "Oldest")           out = [...out].sort((a, b) => a.id - b.id);
-    if (sort === "Newest")           out = [...out].sort((a, b) => b.id - a.id);
     if (sort === "Highest Float")    out = [...out].sort((a, b) => b.float - a.float);
     if (sort === "Lowest Float")     out = [...out].sort((a, b) => a.float - b.float);
     return out;

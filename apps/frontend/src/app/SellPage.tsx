@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Package, Lock, X } from 'lucide-react';
 import { ApiError, requestDeposit, type InventoryItem } from '@/lib/api';
 import { rarityStyle } from '@/lib/rarity';
+import { MiniSortDropdown, SELL_SORTS } from './MiniSortDropdown';
 import {
   isStatTrak,
   rarityKeyForItem,
@@ -31,6 +32,7 @@ export function SellPage({
   const inventory = useInventory(signedIn);
 
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('Default');
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -46,11 +48,49 @@ export function SellPage({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return sellable;
-    return sellable.filter((i) =>
-      i.marketHashName.toLowerCase().includes(q),
-    );
-  }, [sellable, search]);
+    const matched = q
+      ? sellable.filter((i) => i.marketHashName.toLowerCase().includes(q))
+      : sellable;
+
+    if (sort === 'Default') return matched;
+
+    // Items with nothing to sort by go last, whichever direction is
+    // asked for. Treating a missing float as 0 would put every sticker,
+    // case and graffiti — three quarters of a real inventory — at the top
+    // of "Lowest Float", which is worse than not sorting at all.
+    const by = (
+      value: (i: InventoryItem) => number | null,
+      descending: boolean,
+    ) =>
+      [...matched].sort((a, b) => {
+        const x = value(a);
+        const y = value(b);
+
+        if (x === null && y === null) return 0;
+        if (x === null) return 1;
+        if (y === null) return -1;
+
+        return descending ? y - x : x - y;
+      });
+
+    const priceOf = (i: InventoryItem) => {
+      const p = prices[i.assetId];
+      return isValidPrice(p) ? Number(p) : null;
+    };
+
+    switch (sort) {
+      case 'Highest Price':
+        return by(priceOf, true);
+      case 'Lowest Price':
+        return by(priceOf, false);
+      case 'Highest Float':
+        return by((i) => i.float, true);
+      case 'Lowest Float':
+        return by((i) => i.float, false);
+      default:
+        return matched;
+    }
+  }, [sellable, search, sort, prices]);
 
   const selectedItems = useMemo(
     () => sellable.filter((i) => selected.includes(i.assetId)),
@@ -125,6 +165,7 @@ export function SellPage({
             className="flex-1 px-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#e8eaf0' }}
           />
+          <MiniSortDropdown value={sort} onChange={setSort} options={SELL_SORTS} />
           <span className="font-mono text-xs flex-shrink-0" style={{ color: '#9da3c0' }}>
             <span className="font-semibold" style={{ color: '#e8eaf0' }}>{filtered.length}</span> sellable
           </span>
