@@ -2,7 +2,7 @@ import type { Server } from 'node:http';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { User } from '@prisma/client';
-import { configurarApp } from '../app-setup';
+import { setupApp } from '../app-setup';
 import { AppModule } from '../app.module';
 import { TokenService } from '../auth/token.service';
 import { SteamBanService } from '../auth/steam-ban.service';
@@ -13,19 +13,20 @@ import { RedisService } from '../redis/redis.service';
 import { SteamInventoryService } from '../inventory/steam-inventory.service';
 
 /**
- * Sobe a aplicação inteira para teste, com as chamadas à Steam trocadas
- * por dublês.
+ * Boots the whole application for testing, with Steam calls replaced by
+ * doubles.
  *
- * Usa configurarApp, o mesmo do bootstrap: sem isso faltariam prefixo de
- * rota, validação de corpo e leitura de cookie, e o teste passaria a
- * medir um app que não existe em produção.
+ * It uses setupApp, the same one the bootstrap uses: without it we would
+ * be missing the route prefix, body validation and cookie parsing, and
+ * the test would be measuring an app that does not exist in production.
  *
- * Só a Steam é substituída. Postgres e Redis são reais — testar a
- * tradução de exceção em status HTTP com banco falso não provaria nada.
+ * Only Steam is replaced. Postgres and Redis are real — testing how an
+ * exception becomes an HTTP status against a fake database would prove
+ * nothing.
  */
 export interface TestApp {
   app: INestApplication;
-  /** Já tipado — getHttpServer() devolve any e contamina os testes. */
+  /** Already typed — getHttpServer() returns any and infects the tests. */
   server: Server;
   prisma: PrismaService;
   redis: RedisService;
@@ -36,7 +37,7 @@ export interface TestApp {
     ban: { fetchBanStatus: jest.Mock };
     inventory: { fetchInventory: jest.Mock };
   };
-  /** Header de autenticação para um usuário. */
+  /** Authentication header for a user. */
   authFor: (user: User) => Record<string, string>;
   close: () => Promise<void>;
 }
@@ -66,7 +67,7 @@ export async function createTestApp(): Promise<TestApp> {
     .compile();
 
   const app = moduleRef.createNestApplication();
-  configurarApp(app);
+  setupApp(app);
   await app.init();
 
   const prisma = app.get(PrismaService);
@@ -90,10 +91,10 @@ export async function createTestApp(): Promise<TestApp> {
 }
 
 /**
- * Corpo da resposta com tipo. O supertest devolve `any`, o que espalharia
- * acesso não tipado por todos os testes e deixaria erro de campo passar
- * despercebido.
+ * Typed response body. supertest returns `any`, which would spread
+ * untyped access across every test and let a field mistake slip through
+ * unnoticed.
  */
-export function corpo<T>(resposta: { body: unknown }): T {
-  return resposta.body as T;
+export function body<T>(response: { body: unknown }): T {
+  return response.body as T;
 }

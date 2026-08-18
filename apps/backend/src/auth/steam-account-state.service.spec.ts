@@ -11,11 +11,11 @@ describe('SteamAccountStateService', () => {
       .join('') +
     `</profile>`;
 
-  const responderCom = (corpo: string, ok = true, status = 200) => {
+  const responderCom = (body: string, ok = true, status = 200) => {
     fetchMock.mockResolvedValue({
       ok,
       status,
-      text: () => Promise.resolve(corpo),
+      text: () => Promise.resolve(body),
     });
   };
 

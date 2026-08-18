@@ -1,11 +1,11 @@
 import type { User } from '@prisma/client';
 import request from 'supertest';
 import {
-  corpo,
+  body,
   createTestApp,
   type TestApp,
 } from '../test-utils/create-test-app';
-import { limparAuditoria as limpar } from '../test-utils/limpar-auditoria';
+import { clearAuditLog } from '../test-utils/clear-audit-log';
 
 /**
  * A camada HTTP: é onde exceção vira status. Um 403 que escapa como 500
@@ -35,7 +35,7 @@ describe('AuthController', () => {
 
   afterAll(async () => {
     await ctx.prisma.user.deleteMany({ where: { steamId: { in: TODOS } } });
-    await limparAuditoria(ctx);
+    await clearAuditLog(ctx.prisma);
     await ctx.close();
   });
 
@@ -96,7 +96,7 @@ describe('AuthController', () => {
         .set(ctx.authFor(user))
         .expect(200);
 
-      const me = corpo<{
+      const me = body<{
         steamId: string;
         capabilities: { canSell: boolean };
         hasTradeUrl: boolean;
@@ -120,7 +120,7 @@ describe('AuthController', () => {
         .set(ctx.authFor(user))
         .expect(200);
 
-      expect(corpo<{ balance: string }>(r).balance).toBe('1234.56');
+      expect(body<{ balance: string }>(r).balance).toBe('1234.56');
     });
 
     it('aceita sessão por cookie', async () => {
@@ -162,5 +162,3 @@ describe('AuthController', () => {
     });
   });
 });
-
-const limparAuditoria = (ctx: TestApp) => limpar(ctx.prisma);

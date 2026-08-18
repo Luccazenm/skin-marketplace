@@ -1,16 +1,17 @@
 import { config } from 'dotenv';
 import {
-  exigirBancoDeTeste,
-  redisDeTeste,
-  urlDeTeste,
+  requireTestDatabase,
+  testRedisUrl,
+  testUrl,
 } from '../src/test-utils/test-database';
 
 /**
- * Aponta cada worker do jest para o banco de teste, antes de qualquer
- * módulo do Nest ser carregado.
+ * Points each jest worker at the test database, before any Nest module
+ * loads.
  *
- * O `ConfigModule` lê `process.env`, e o dotenv não sobrescreve o que já
- * está definido — então basta chegar antes, que é o que este arquivo faz.
+ * `ConfigModule` reads `process.env`, and dotenv does not overwrite what
+ * is already set — so getting there first is enough, which is what this
+ * file does.
  */
 config();
 
@@ -18,31 +19,30 @@ const url = process.env.DATABASE_URL;
 
 if (!url) {
   throw new Error(
-    'DATABASE_URL não definida. Os testes derivam o banco de teste dela.',
+    'DATABASE_URL is not set. The tests derive the test database from it.',
   );
 }
 
-process.env.DATABASE_URL = urlDeTeste(url);
+process.env.DATABASE_URL = testUrl(url);
 
 if (process.env.REDIS_URL) {
-  process.env.REDIS_URL = redisDeTeste(process.env.REDIS_URL);
+  process.env.REDIS_URL = testRedisUrl(process.env.REDIS_URL);
 }
 
 /**
- * Chave fixa, sempre — inclusive por cima de uma real que exista no
- * `.env`.
+ * A fixed key, always — including over a real one present in `.env`.
  *
- * Os testes que tocam a Steam mockam o `fetch`, então o valor nunca é
- * usado de verdade; o que importa é ele **existir**, porque os serviços
- * devolvem `null` sem chave. Antes disso, a suíte passava para quem
- * tinha chave e quebrava para quem não tinha, com oito falhas dizendo
- * apenas "Cannot read properties of null" — que não aponta a causa.
+ * The tests that touch Steam mock `fetch`, so the value is never really
+ * used; what matters is that it **exists**, because the services return
+ * `null` without a key. Before this, the suite passed for whoever had a
+ * key and broke for whoever did not, with eight failures saying only
+ * "Cannot read properties of null" — which points at nothing.
  *
- * Sobrescrever em vez de completar mantém o resultado igual em toda
- * máquina, que é o ponto.
+ * Overwriting rather than filling in keeps the result identical on every
+ * machine, which is the point.
  */
-process.env.STEAM_API_KEY = 'chave-de-teste-nunca-usada-de-verdade';
+process.env.STEAM_API_KEY = 'test-key-never-actually-used';
 
-// Última barreira, já com o valor final: se algo acima falhar, é aqui
-// que a suíte para em vez de apagar dado real.
-exigirBancoDeTeste(process.env.DATABASE_URL);
+// Last barrier, now with the final value: if anything above fails, this
+// is where the suite stops instead of erasing real data.
+requireTestDatabase(process.env.DATABASE_URL);

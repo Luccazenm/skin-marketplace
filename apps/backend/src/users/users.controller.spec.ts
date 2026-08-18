@@ -1,11 +1,11 @@
 import type { User } from '@prisma/client';
 import request from 'supertest';
 import {
-  corpo,
+  body,
   createTestApp,
   type TestApp,
 } from '../test-utils/create-test-app';
-import { limparAuditoria } from '../test-utils/limpar-auditoria';
+import { clearAuditLog } from '../test-utils/clear-audit-log';
 
 describe('UsersController', () => {
   let ctx: TestApp;
@@ -49,7 +49,7 @@ describe('UsersController', () => {
         .send({ tradeUrl: TRADE_URL })
         .expect(200);
 
-      expect(corpo<{ tradeUrl: string }>(r).tradeUrl).toBe(TRADE_URL);
+      expect(body<{ tradeUrl: string }>(r).tradeUrl).toBe(TRADE_URL);
     });
 
     // A recusa que impede o bot de entregar na conta errada.
@@ -63,7 +63,7 @@ describe('UsersController', () => {
         .send({ tradeUrl: deOutro })
         .expect(400);
 
-      expect(corpo<{ message: string }>(r).message).toContain('outra conta');
+      expect(body<{ message: string }>(r).message).toContain('outra conta');
     });
 
     it('recusa link de domínio parecido', async () => {
@@ -89,7 +89,7 @@ describe('UsersController', () => {
       expect(salvo!.tradeUrl).toBe(TRADE_URL);
     });
 
-    it('recusa corpo sem o campo', async () => {
+    it('recusa body sem o campo', async () => {
       await http()
         .put('/api/users/me/trade-url')
         .set(ctx.authFor(user))
@@ -99,7 +99,7 @@ describe('UsersController', () => {
 
     // forbidNonWhitelisted: campo a mais indica cliente desatualizado ou
     // tentativa de mexer em algo que não é dele.
-    it('recusa campo desconhecido no corpo', async () => {
+    it('recusa campo desconhecido no body', async () => {
       await http()
         .put('/api/users/me/trade-url')
         .set(ctx.authFor(user))
@@ -145,7 +145,7 @@ async function limpar(ctx: TestApp, steamId: string) {
   const user = await ctx.prisma.user.findUnique({ where: { steamId } });
 
   if (user) {
-    await limparAuditoria(ctx.prisma);
+    await clearAuditLog(ctx.prisma);
     await ctx.prisma.user.delete({ where: { id: user.id } });
   }
 }

@@ -58,14 +58,14 @@ export class SteamBanService {
         return null;
       }
 
-      const corpo = (await req.json()) as {
+      const body = (await req.json()) as {
         players?: Array<{
           EconomyBan?: string;
           VACBanned?: boolean;
         }>;
       };
 
-      const player = corpo.players?.[0];
+      const player = body.players?.[0];
 
       if (!player) {
         return null;

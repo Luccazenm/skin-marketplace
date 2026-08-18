@@ -1,11 +1,11 @@
 import { BotStatus, ItemCategory, type User } from '@prisma/client';
 import request from 'supertest';
 import {
-  corpo,
+  body,
   createTestApp,
   type TestApp,
 } from '../test-utils/create-test-app';
-import { limparAuditoria } from '../test-utils/limpar-auditoria';
+import { clearAuditLog } from '../test-utils/clear-audit-log';
 import type { InventoryItem } from '../inventory/steam-inventory.service';
 
 describe('DepositsController', () => {
@@ -98,7 +98,7 @@ describe('DepositsController', () => {
       .send({ assetIds: ['111', '222'] })
       .expect(201);
 
-    const criado = corpo<{ id: string; status: string; itemCount: number }>(r);
+    const criado = body<{ id: string; status: string; itemCount: number }>(r);
 
     expect(criado.status).toBe('CREATED');
     expect(criado.itemCount).toBe(2);
@@ -159,7 +159,7 @@ describe('DepositsController', () => {
         .send({ assetIds: ['111'] })
         .expect(400);
 
-      expect(corpo<{ message: string }>(r).message).toContain('trade URL');
+      expect(body<{ message: string }>(r).message).toContain('trade URL');
     });
 
     it('item bloqueado devolve 400 nomeando o item', async () => {
@@ -169,7 +169,7 @@ describe('DepositsController', () => {
         .send({ assetIds: ['333'] })
         .expect(400);
 
-      expect(corpo<{ message: string }>(r).message).toContain(
+      expect(body<{ message: string }>(r).message).toContain(
         'AK-47 | Teste 333',
       );
     });
@@ -229,7 +229,7 @@ async function limpar(ctx: TestApp, steamId: string, botSteamId: string) {
 
   if (user) {
     await ctx.prisma.tradeOffer.deleteMany({ where: { userId: user.id } });
-    await limparAuditoria(ctx.prisma);
+    await clearAuditLog(ctx.prisma);
     await ctx.prisma.user.delete({ where: { id: user.id } });
   }
 

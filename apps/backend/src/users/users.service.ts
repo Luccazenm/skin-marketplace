@@ -22,7 +22,7 @@ export class UsersService {
   /**
    * Salva a trade URL, conferindo que ela é da conta de quem está pedindo.
    *
-   * O steamId vem do usuário autenticado, nunca do corpo da requisição —
+   * O steamId vem do usuário autenticado, nunca do body da requisição —
    * é isso que impede alguém de cadastrar a URL de terceiros.
    */
   async updateTradeUrl(

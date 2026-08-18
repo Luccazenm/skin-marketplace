@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AuditActorType, AuditOutcome } from '@prisma/client';
 import { validateEnv } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
-import { limparAuditoria } from '../test-utils/limpar-auditoria';
+import { clearAuditLog } from '../test-utils/clear-audit-log';
 import { AUDIT_ACTIONS, AuditService } from './audit.service';
 
 describe('AuditService', () => {
@@ -26,7 +26,7 @@ describe('AuditService', () => {
   });
 
   afterEach(async () => {
-    await limparAuditoria(prisma);
+    await clearAuditLog(prisma);
   });
 
   afterAll(async () => {

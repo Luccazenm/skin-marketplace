@@ -10,10 +10,10 @@ import { requestContextMiddleware } from './observability/request-context.middle
  * exatamente o mesmo app que roda em produção. Prefixo de rota, validação
  * de entrada e leitura de cookie ficam fora do módulo do Nest — um teste
  * que montasse o app por conta própria passaria sem eles e daria falsa
- * confiança: rota respondendo 200 onde produção devolve 404, ou corpo
+ * confiança: rota respondendo 200 onde produção devolve 404, ou body
  * inválido sendo aceito.
  */
-export function configurarApp(app: INestApplication): void {
+export function setupApp(app: INestApplication): void {
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');

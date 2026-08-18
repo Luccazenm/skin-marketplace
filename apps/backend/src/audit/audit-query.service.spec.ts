@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AuditActorType, AuditOutcome, type User } from '@prisma/client';
 import { validateEnv } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
-import { limparAuditoria } from '../test-utils/limpar-auditoria';
+import { clearAuditLog } from '../test-utils/clear-audit-log';
 import { AuditQueryService } from './audit-query.service';
 import { AUDIT_ACTIONS, AuditService } from './audit.service';
 
@@ -303,6 +303,6 @@ describe('AuditQueryService', () => {
 });
 
 async function limpar(prisma: PrismaService, steamIds: string[]) {
-  await limparAuditoria(prisma);
+  await clearAuditLog(prisma);
   await prisma.user.deleteMany({ where: { steamId: { in: steamIds } } });
 }

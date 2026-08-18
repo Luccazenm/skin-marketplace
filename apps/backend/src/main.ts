@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { configurarApp } from './app-setup';
+import { setupApp } from './app-setup';
 import { AppModule } from './app.module';
 import { StructuredLogger } from './observability/structured-logger';
 
@@ -20,7 +20,7 @@ async function bootstrap() {
   );
 
   // Mesma configuração usada pelos testes — ver app-setup.ts
-  configurarApp(app);
+  setupApp(app);
 
   // Enquanto não existe frontend, o Swagger é a bancada de testes da API.
   // Fora de produção para não expor a superfície inteira publicamente.

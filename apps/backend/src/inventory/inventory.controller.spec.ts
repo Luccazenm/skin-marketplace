@@ -1,7 +1,7 @@
 import { ItemCategory, type User } from '@prisma/client';
 import request from 'supertest';
 import {
-  corpo,
+  body,
   createTestApp,
   type TestApp,
 } from '../test-utils/create-test-app';
@@ -87,7 +87,7 @@ describe('InventoryController', () => {
       .set(ctx.authFor(user))
       .expect(200);
 
-    const inv = corpo<Resumo>(r);
+    const inv = body<Resumo>(r);
 
     expect(inv.count).toBe(3);
     expect(inv.total).toBe(3);
@@ -106,7 +106,7 @@ describe('InventoryController', () => {
       .set(ctx.authFor(user))
       .expect(200);
 
-    const inv = corpo<Resumo>(r);
+    const inv = body<Resumo>(r);
 
     expect(inv.count).toBe(2);
     // total e blocked continuam completos: é o que permite a tela avisar
@@ -141,7 +141,7 @@ describe('InventoryController', () => {
         .expect(403);
 
       // A pessoa consegue resolver sozinha �?" a mensagem diz onde.
-      expect(corpo<{ message: string }>(r).message).toContain('Privacidade');
+      expect(body<{ message: string }>(r).message).toContain('Privacidade');
     });
 
     it('limite da Steam devolve 429', async () => {
@@ -175,6 +175,6 @@ describe('InventoryController', () => {
       .expect(200);
 
     expect(ctx.steam.inventory.fetchInventory).toHaveBeenCalledTimes(1);
-    expect(corpo<Resumo>(r).cached).toBe(true);
+    expect(body<Resumo>(r).cached).toBe(true);
   });
 });

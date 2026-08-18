@@ -1,121 +1,120 @@
 import {
-  exigirBancoDeTeste,
-  mascarar,
-  nomeDoBanco,
-  redisDeTeste,
-  urlDeTeste,
+  databaseName,
+  mask,
+  requireTestDatabase,
+  testRedisUrl,
+  testUrl,
 } from './test-database';
 
 /**
- * Um erro aqui não faz teste falhar — faz teste rodar contra o banco de
- * verdade e apagar dado real. É o arquivo mais barato de testar e o mais
- * caro de errar.
+ * A mistake here does not make a test fail — it makes the tests run
+ * against the real database and erase real data. It is the cheapest file
+ * to test and the most expensive to get wrong.
  */
-describe('urlDeTeste', () => {
-  it('acrescenta o sufixo ao nome do banco', () => {
+describe('testUrl', () => {
+  it('appends the suffix to the database name', () => {
     expect(
-      urlDeTeste('postgresql://postgres:senha@localhost:5432/skin_marketplace'),
-    ).toBe('postgresql://postgres:senha@localhost:5432/skin_marketplace_test');
+      testUrl('postgresql://postgres:pass@localhost:5432/skin_marketplace'),
+    ).toBe('postgresql://postgres:pass@localhost:5432/skin_marketplace_test');
   });
 
-  it('preserva usuário, senha, host e porta', () => {
+  it('preserves user, password, host and port', () => {
     const u = new URL(
-      urlDeTeste('postgresql://alguem:s3nh4@db.interno:6543/loja'),
+      testUrl('postgresql://someone:s3cr3t@db.internal:6543/shop'),
     );
 
-    expect(u.username).toBe('alguem');
-    expect(u.password).toBe('s3nh4');
-    expect(u.hostname).toBe('db.interno');
+    expect(u.username).toBe('someone');
+    expect(u.password).toBe('s3cr3t');
+    expect(u.hostname).toBe('db.internal');
     expect(u.port).toBe('6543');
   });
 
-  it('preserva parâmetros de conexão', () => {
-    expect(urlDeTeste('postgresql://u:p@h:5432/loja?schema=public')).toContain(
+  it('preserves connection parameters', () => {
+    expect(testUrl('postgresql://u:p@h:5432/shop?schema=public')).toContain(
       'schema=public',
     );
   });
 
-  // Idempotente: chamar duas vezes não produz "loja_test_test".
-  it('não duplica o sufixo', () => {
-    const uma = urlDeTeste('postgresql://u:p@h:5432/loja');
+  // Idempotent: calling twice does not produce "shop_test_test".
+  it('does not duplicate the suffix', () => {
+    const once = testUrl('postgresql://u:p@h:5432/shop');
 
-    expect(urlDeTeste(uma)).toBe(uma);
+    expect(testUrl(once)).toBe(once);
   });
 
-  it('recusa URL sem nome de banco', () => {
-    expect(() => urlDeTeste('postgresql://u:p@h:5432')).toThrow(
-      /sem nome de banco/,
+  it('refuses a URL without a database name', () => {
+    expect(() => testUrl('postgresql://u:p@h:5432')).toThrow(
+      /without a database name/,
     );
   });
 
-  // Mensagem de erro é lugar clássico de vazar senha em log.
-  it('não expõe a senha ao reclamar', () => {
-    expect(() => urlDeTeste('postgresql://u:s3nh4@h:5432')).toThrow(/\*\*\*/);
-    expect(() => urlDeTeste('postgresql://u:s3nh4@h:5432')).not.toThrow(
-      /s3nh4/,
-    );
+  // An error message is a classic place to leak a password into logs.
+  it('does not expose the password when complaining', () => {
+    expect(() => testUrl('postgresql://u:s3cr3t@h:5432')).toThrow(/\*\*\*/);
+    expect(() => testUrl('postgresql://u:s3cr3t@h:5432')).not.toThrow(/s3cr3t/);
   });
 });
 
-describe('redisDeTeste', () => {
-  // O limitador global da Steam vive no Redis: um teste que gasta a cota
-  // faria o seguinte tomar 429 sem ter chamado nada.
-  it('aponta para outro banco do Redis', () => {
-    expect(redisDeTeste('redis://localhost:6379')).toBe(
+describe('testRedisUrl', () => {
+  // The global Steam rate limiter lives in Redis: a test that burns the
+  // quota would make the next one take a 429 without having called
+  // anything.
+  it('points at another Redis database', () => {
+    expect(testRedisUrl('redis://localhost:6379')).toBe(
       'redis://localhost:6379/1',
     );
   });
 
-  it('troca o banco quando já havia um', () => {
-    expect(redisDeTeste('redis://localhost:6379/0')).toBe(
+  it('swaps the database when there already was one', () => {
+    expect(testRedisUrl('redis://localhost:6379/0')).toBe(
       'redis://localhost:6379/1',
     );
   });
 });
 
-describe('exigirBancoDeTeste', () => {
-  it('deixa passar o banco de teste', () => {
+describe('requireTestDatabase', () => {
+  it('lets the test database through', () => {
     expect(() =>
-      exigirBancoDeTeste('postgresql://u:p@h:5432/skin_marketplace_test'),
+      requireTestDatabase('postgresql://u:p@h:5432/skin_marketplace_test'),
     ).not.toThrow();
   });
 
-  // A suíte limpa tabelas inteiras e desliga trigger; rodar isso no banco
-  // de desenvolvimento já custou o catálogo poluído e o usuário real
-  // apagado.
-  it('barra o banco de desenvolvimento', () => {
+  // The suite truncates whole tables and used to disable triggers;
+  // running that against the development database already cost a polluted
+  // catalog and the operator's real account.
+  it('blocks the development database', () => {
     expect(() =>
-      exigirBancoDeTeste('postgresql://u:p@h:5432/skin_marketplace'),
+      requireTestDatabase('postgresql://u:p@h:5432/skin_marketplace'),
     ).toThrow(/skin_marketplace/);
   });
 
-  // "É localhost, então pode" é exatamente o raciocínio que destrói dado:
-  // produção pode estar em localhost por um túnel SSH.
-  it('barra mesmo em localhost', () => {
+  // "It is localhost, so it is fine" is exactly the reasoning that
+  // destroys data: production can sit on localhost behind an SSH tunnel.
+  it('blocks even on localhost', () => {
     expect(() =>
-      exigirBancoDeTeste('postgresql://u:p@localhost:5432/producao'),
+      requireTestDatabase('postgresql://u:p@localhost:5432/production'),
     ).toThrow();
   });
 
-  it('não se deixa enganar por sufixo no meio do nome', () => {
+  it('is not fooled by the suffix appearing mid-name', () => {
     expect(() =>
-      exigirBancoDeTeste('postgresql://u:p@h:5432/skin_test_producao'),
+      requireTestDatabase('postgresql://u:p@h:5432/skin_test_production'),
     ).toThrow();
   });
 });
 
-describe('nomeDoBanco', () => {
-  it('extrai o nome', () => {
-    expect(nomeDoBanco('postgresql://u:p@h:5432/loja_test')).toBe('loja_test');
+describe('databaseName', () => {
+  it('extracts the name', () => {
+    expect(databaseName('postgresql://u:p@h:5432/shop_test')).toBe('shop_test');
   });
 });
 
-describe('mascarar', () => {
-  it('esconde a senha', () => {
-    expect(mascarar('postgresql://u:s3nh4@h:5432/loja')).not.toContain('s3nh4');
+describe('mask', () => {
+  it('hides the password', () => {
+    expect(mask('postgresql://u:s3cr3t@h:5432/shop')).not.toContain('s3cr3t');
   });
 
-  it('não estoura com url inválida', () => {
-    expect(mascarar('nada disso')).toBe('(url inválida)');
+  it('does not blow up on an invalid url', () => {
+    expect(mask('not a url at all')).toBe('(invalid url)');
   });
 });

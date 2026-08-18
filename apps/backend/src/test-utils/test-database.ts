@@ -1,76 +1,75 @@
 /**
- * Endereços do ambiente de teste, derivados dos de desenvolvimento.
+ * Test environment addresses, derived from the development ones.
  *
- * Derivar em vez de manter um `.env.test` é proposital: um segundo
- * arquivo de configuração seria mais uma coisa para desincronizar, e
- * ninguém percebe que ele ficou para trás até os testes rodarem no lugar
- * errado.
+ * Deriving instead of keeping a `.env.test` is deliberate: a second
+ * configuration file would be one more thing to fall out of sync, and
+ * nobody notices it did until the tests run against the wrong place.
  */
 
-const SUFIXO = '_test';
+const SUFFIX = '_test';
 
 /**
- * Troca o nome do banco por `<nome>_test`, preservando usuário, senha,
- * host, porta e parâmetros.
+ * Swaps the database name for `<name>_test`, preserving user, password,
+ * host, port and parameters.
  */
-export function urlDeTeste(url: string): string {
+export function testUrl(url: string): string {
   const u = new URL(url);
-  const nome = u.pathname.replace(/^\//, '');
+  const name = u.pathname.replace(/^\//, '');
 
-  if (!nome) {
-    throw new Error(`DATABASE_URL sem nome de banco: ${mascarar(url)}`);
+  if (!name) {
+    throw new Error(`DATABASE_URL without a database name: ${mask(url)}`);
   }
 
-  u.pathname = `/${nome.endsWith(SUFIXO) ? nome : nome + SUFIXO}`;
+  u.pathname = `/${name.endsWith(SUFFIX) ? name : name + SUFFIX}`;
 
   return u.toString();
 }
 
 /**
- * Redis numerado à parte.
+ * Redis on a separate numbered database.
  *
- * O limitador global da Steam vive em Redis, e é estado compartilhado
- * como qualquer outro: um teste que gasta a cota faria o seguinte tomar
- * 429 sem ter chamado nada.
+ * The global Steam rate limiter lives in Redis, and it is shared state
+ * like any other: a test that burns the quota would make the next one
+ * take a 429 without having called anything.
  */
-export function redisDeTeste(url: string): string {
+export function testRedisUrl(url: string): string {
   const u = new URL(url);
   u.pathname = '/1';
 
   return u.toString();
 }
 
-/** Nome do banco, para mensagens e para criar o banco. */
-export function nomeDoBanco(url: string): string {
+/** Database name, for messages and for creating the database. */
+export function databaseName(url: string): string {
   return new URL(url).pathname.replace(/^\//, '');
 }
 
 /**
- * Barreira: recusa rodar contra banco que não seja o de teste.
+ * The barrier: refuses to run against anything but the test database.
  *
- * Sem isto, apontar os testes para o endereço errado apagaria dado real —
- * e o pior caso não é perder o catálogo, é o `DISABLE TRIGGER` da
- * limpeza desligar a imutabilidade da auditoria num banco que importa.
+ * Without this, pointing the tests at the wrong address would erase real
+ * data — and the worst case is not losing the catalog, it is the cleanup
+ * turning off audit immutability on a database that matters.
  *
- * A checagem é pelo sufixo do nome, e não por host: banco de produção
- * pode estar em localhost num túnel SSH, e "é local, então pode" é
- * exatamente o raciocínio que destrói dado.
+ * The check is on the name suffix, not on the host: a production database
+ * can sit on localhost behind an SSH tunnel, and "it is local, so it is
+ * fine" is exactly the reasoning that destroys data.
  */
-export function exigirBancoDeTeste(url: string): void {
-  const nome = nomeDoBanco(url);
+export function requireTestDatabase(url: string): void {
+  const name = databaseName(url);
 
-  if (!nome.endsWith(SUFIXO)) {
+  if (!name.endsWith(SUFFIX)) {
     throw new Error(
-      `Os testes se recusam a rodar contra "${nome}": o nome do banco ` +
-        `precisa terminar em "${SUFIXO}".\n` +
-        `A suíte limpa tabelas inteiras — rodar no banco errado apaga ` +
-        `dado real.`,
+      `The tests refuse to run against "${name}": the database name must ` +
+        `end in "${SUFFIX}".\n` +
+        `The suite truncates whole tables — running against the wrong ` +
+        `database erases real data.`,
     );
   }
 }
 
-/** Esconde a senha ao logar ou lançar erro com a URL. */
-export function mascarar(url: string): string {
+/** Hides the password when logging or throwing with the URL. */
+export function mask(url: string): string {
   try {
     const u = new URL(url);
 
@@ -80,6 +79,6 @@ export function mascarar(url: string): string {
 
     return u.toString();
   } catch {
-    return '(url inválida)';
+    return '(invalid url)';
   }
 }

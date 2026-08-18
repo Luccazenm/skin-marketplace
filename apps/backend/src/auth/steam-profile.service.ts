@@ -47,7 +47,7 @@ export class SteamProfileService {
         return null;
       }
 
-      const corpo = (await req.json()) as {
+      const body = (await req.json()) as {
         response?: {
           players?: Array<{
             personaname?: string;
@@ -58,7 +58,7 @@ export class SteamProfileService {
         };
       };
 
-      const player = corpo.response?.players?.[0];
+      const player = body.response?.players?.[0];
 
       if (!player) {
         return null;

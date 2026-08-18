@@ -19,11 +19,11 @@ describe('SteamInventoryService', () => {
    * para a mesma description — é assim que 50 caixas iguais não repetem
    * nome e imagem 50 vezes.
    */
-  const resposta = (corpo: unknown, status = 200) =>
+  const resposta = (body: unknown, status = 200) =>
     Promise.resolve({
       ok: status >= 200 && status < 300,
       status,
-      json: () => Promise.resolve(corpo),
+      json: () => Promise.resolve(body),
     } as Response);
 
   /**
