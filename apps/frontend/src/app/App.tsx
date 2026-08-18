@@ -2446,22 +2446,26 @@ export default function App() {
             {session.loading ? (
               <div className="w-7 h-7 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} />
             ) : session.user ? (
-              <div className="flex items-center gap-2">
-                {session.user.avatarUrl ? (
-                  <img
-                    src={session.user.avatarUrl}
-                    alt={session.user.username}
-                    className="w-7 h-7 rounded-full"
-                  />
-                ) : (
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
-                    <User className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                )}
-                <span className="hidden lg:inline font-mono text-xs" style={{ color: "#9da3c0" }}>
-                  {session.user.username}
-                </span>
-              </div>
+              /* Avatar alone, no name beside it. The name still travels
+                 with it in alt and title, so it is one hover away and a
+                 screen reader still announces it — on a site holding
+                 money, "which account am I in?" has to stay answerable. */
+              session.user.avatarUrl ? (
+                <img
+                  src={session.user.avatarUrl}
+                  alt={session.user.username}
+                  title={session.user.username}
+                  className="w-7 h-7 rounded-full"
+                />
+              ) : (
+                <div
+                  title={session.user.username}
+                  className="w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{ background: "rgba(255,255,255,0.1)" }}
+                >
+                  <User className="w-4 h-4 text-muted-foreground" />
+                </div>
+              )
             ) : (
               <button
                 onClick={startSteamLogin}
