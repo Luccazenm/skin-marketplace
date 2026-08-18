@@ -63,7 +63,9 @@ describe('UsersController', () => {
         .send({ tradeUrl: deOutro })
         .expect(400);
 
-      expect(body<{ message: string }>(r).message).toContain('outra conta');
+      expect(body<{ message: string }>(r).message).toContain(
+        'different Steam account',
+      );
     });
 
     it('recusa link de domínio parecido', async () => {
@@ -136,7 +138,9 @@ describe('UsersController', () => {
         where: { actorId: user.id, outcome: 'DENIED' },
       });
 
-      expect(log.metadata).toMatchObject({ error: 'partner_de_outra_conta' });
+      expect(log.metadata).toMatchObject({
+        error: 'partner_from_another_account',
+      });
     });
   });
 });

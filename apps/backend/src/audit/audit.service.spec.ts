@@ -10,7 +10,7 @@ describe('AuditService', () => {
   let service: AuditService;
   let prisma: PrismaService;
 
-  const ATOR = 'ator-teste-auditoria';
+  const ACTOR = 'audit-test-actor';
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -33,98 +33,99 @@ describe('AuditService', () => {
     await prisma.$disconnect();
   });
 
-  it('grava um fato com contexto de rede', async () => {
+  it('stores a fact with its network context', async () => {
     await service.record({
       actorType: AuditActorType.USER,
-      actorId: ATOR,
+      actorId: ACTOR,
       action: AUDIT_ACTIONS.LOGIN,
       outcome: AuditOutcome.SUCCESS,
       targetType: 'User',
-      targetId: ATOR,
-      context: { ip: '203.0.113.7', userAgent: 'Mozilla/5.0 teste' },
+      targetId: ACTOR,
+      context: { ip: '203.0.113.7', userAgent: 'Mozilla/5.0 test' },
     });
 
-    const [log] = await prisma.auditLog.findMany({ where: { actorId: ATOR } });
+    const [log] = await prisma.auditLog.findMany({ where: { actorId: ACTOR } });
 
     expect(log.action).toBe('auth.login');
     expect(log.outcome).toBe(AuditOutcome.SUCCESS);
     expect(log.ip).toBe('203.0.113.7');
-    expect(log.userAgent).toBe('Mozilla/5.0 teste');
+    expect(log.userAgent).toBe('Mozilla/5.0 test');
   });
 
-  // O antes e depois é o que resolve disputa sobre entrega em conta errada.
-  it('guarda o antes e o depois de uma alteração', async () => {
+  // Before and after is what settles a dispute over delivery to the wrong
+  // account.
+  it('keeps the before and after of a change', async () => {
     await service.record({
       actorType: AuditActorType.USER,
-      actorId: ATOR,
+      actorId: ACTOR,
       action: AUDIT_ACTIONS.TRADE_URL_UPDATED,
       outcome: AuditOutcome.SUCCESS,
-      metadata: { de: 'url-antiga', para: 'url-nova' },
+      metadata: { from: 'old-url', to: 'new-url' },
     });
 
-    const [log] = await prisma.auditLog.findMany({ where: { actorId: ATOR } });
+    const [log] = await prisma.auditLog.findMany({ where: { actorId: ACTOR } });
 
-    expect(log.metadata).toEqual({ de: 'url-antiga', para: 'url-nova' });
+    expect(log.metadata).toEqual({ from: 'old-url', to: 'new-url' });
   });
 
-  it('registra tentativa recusada', async () => {
+  it('records a refused attempt', async () => {
     await service.record({
       actorType: AuditActorType.USER,
-      actorId: ATOR,
+      actorId: ACTOR,
       action: AUDIT_ACTIONS.DEPOSIT_REQUESTED,
       outcome: AuditOutcome.DENIED,
-      metadata: { motivo: 'sem_trade_url' },
+      metadata: { reason: 'no_trade_url' },
     });
 
-    const [log] = await prisma.auditLog.findMany({ where: { actorId: ATOR } });
+    const [log] = await prisma.auditLog.findMany({ where: { actorId: ACTOR } });
 
     expect(log.outcome).toBe(AuditOutcome.DENIED);
   });
 
-  // Auditar não pode ser motivo para alguém não conseguir usar o site.
-  it('não propaga erro de gravação', async () => {
+  // Auditing cannot be the reason someone fails to use the site.
+  it('does not propagate a write failure', async () => {
     await expect(
       service.record({
         actorType: AuditActorType.USER,
-        actorId: ATOR,
-        // Excede o limite da coluna: força falha no banco.
+        actorId: ACTOR,
+        // Exceeds the column limit: forces a database failure.
         action: 'x'.repeat(100_000),
         outcome: AuditOutcome.SUCCESS,
       }),
     ).resolves.toBeUndefined();
   });
 
-  describe('imutabilidade', () => {
-    it('recusa alteração de registro', async () => {
+  describe('immutability', () => {
+    it('refuses to alter a record', async () => {
       await service.record({
         actorType: AuditActorType.USER,
-        actorId: ATOR,
+        actorId: ACTOR,
         action: AUDIT_ACTIONS.LOGIN,
         outcome: AuditOutcome.SUCCESS,
       });
 
       const [log] = await prisma.auditLog.findMany({
-        where: { actorId: ATOR },
+        where: { actorId: ACTOR },
       });
 
       await expect(
         prisma.auditLog.update({
           where: { id: log.id },
-          data: { action: 'adulterado' },
+          data: { action: 'tampered' },
         }),
       ).rejects.toThrow();
     });
 
-    it('recusa exclusão de registro', async () => {
+    it('refuses to delete a record', async () => {
       await service.record({
         actorType: AuditActorType.USER,
-        actorId: ATOR,
+        actorId: ACTOR,
         action: AUDIT_ACTIONS.LOGIN,
         outcome: AuditOutcome.SUCCESS,
       });
 
       const [log] = await prisma.auditLog.findMany({
-        where: { actorId: ATOR },
+        where: { actorId: ACTOR },
       });
 
       await expect(
@@ -134,23 +135,25 @@ describe('AuditService', () => {
   });
 
   describe('recordInTransaction', () => {
-    // Para dinheiro, operação sem rastro é pior que operação não feita:
-    // o registro precisa cair junto se a transação falhar.
-    it('desfaz o registro quando a transação falha', async () => {
+    // For money, an operation with no trail is worse than an operation
+    // that never happened: the record has to fall with the transaction.
+    it('rolls the record back when the transaction fails', async () => {
       await expect(
         prisma.$transaction(async (tx) => {
           await service.recordInTransaction(tx, {
             actorType: AuditActorType.USER,
-            actorId: ATOR,
-            action: 'teste.transacao',
+            actorId: ACTOR,
+            action: 'test.transaction',
             outcome: AuditOutcome.SUCCESS,
           });
 
-          throw new Error('falha proposital depois de auditar');
+          throw new Error('deliberate failure after auditing');
         }),
-      ).rejects.toThrow('falha proposital');
+      ).rejects.toThrow('deliberate failure');
 
-      const logs = await prisma.auditLog.findMany({ where: { actorId: ATOR } });
+      const logs = await prisma.auditLog.findMany({
+        where: { actorId: ACTOR },
+      });
       expect(logs).toHaveLength(0);
     });
   });

@@ -1,91 +1,95 @@
 /**
- * A trade URL tem esta forma:
+ * A trade URL looks like this:
  *   https://steamcommunity.com/tradeoffer/new/?partner=872481203&token=Ab3xY9zQ
  *
- * `partner` é o accountId (steamID3) do dono. `token` é o que autoriza
- * alguém de fora a enviar uma oferta de troca.
+ * `partner` is the owner's accountId (steamID3). `token` is what
+ * authorizes an outsider to send a trade offer.
  */
 
-/** Constante da Valve que separa steamID64 de accountId. */
-const BASE_STEAM_ID64 = 76561197960265728n;
+/** Valve's constant separating a steamID64 from an accountId. */
+const STEAM_ID64_BASE = 76561197960265728n;
 
-export type TradeUrlErro =
-  | 'formato_invalido'
-  | 'dominio_invalido'
-  | 'sem_partner'
-  | 'sem_token'
-  | 'partner_de_outra_conta';
+export type TradeUrlError =
+  | 'invalid_format'
+  | 'invalid_domain'
+  | 'missing_partner'
+  | 'missing_token'
+  | 'partner_from_another_account';
 
-export type TradeUrlResultado =
+export type TradeUrlResult =
   | { ok: true; url: string; partner: string; token: string }
-  | { ok: false; erro: TradeUrlErro };
+  | { ok: false; error: TradeUrlError };
 
 /**
- * Converte steamID64 em accountId — o número que aparece como `partner`.
+ * Converts a steamID64 into an accountId — the number that appears as
+ * `partner`.
  *
- * Usa BigInt porque steamID64 tem 17 dígitos e passa de Number.MAX_SAFE_INTEGER;
- * a conta feita com número comum perderia precisão nos dígitos finais, que
- * são justamente os que distinguem uma conta de outra.
+ * Uses BigInt because a steamID64 has 17 digits and exceeds
+ * Number.MAX_SAFE_INTEGER; done with a plain number, the arithmetic would
+ * lose precision in the final digits, which are exactly the ones telling
+ * one account from another.
  */
-export function accountIdDe(steamId64: string): string | null {
+export function accountIdOf(steamId64: string): string | null {
   if (!/^\d{17}$/.test(steamId64)) {
     return null;
   }
 
-  return (BigInt(steamId64) - BASE_STEAM_ID64).toString();
+  return (BigInt(steamId64) - STEAM_ID64_BASE).toString();
 }
 
 /**
- * Valida a trade URL e confirma que ela pertence a quem está enviando.
+ * Validates the trade URL and confirms it belongs to whoever is sending
+ * it.
  *
- * A conferência do `partner` é o ponto crítico: sem ela, alguém que cole a
- * URL de outra pessoa — por engano ou de propósito — faria o bot entregar
- * as skins na conta errada. Entrega de item é irreversível.
+ * Checking the `partner` is the critical point: without it, someone
+ * pasting another person's URL — by mistake or on purpose — would make
+ * the bot deliver the skins to the wrong account. Item delivery is
+ * irreversible.
  */
-export function validarTradeUrl(
-  entrada: string,
-  steamIdDoDono: string,
-): TradeUrlResultado {
-  const texto = entrada.trim();
+export function validateTradeUrl(
+  input: string,
+  ownerSteamId: string,
+): TradeUrlResult {
+  const text = input.trim();
 
   let url: URL;
 
   try {
-    url = new URL(texto);
+    url = new URL(text);
   } catch {
-    return { ok: false, erro: 'formato_invalido' };
+    return { ok: false, error: 'invalid_format' };
   }
 
-  // Só o domínio oficial. Um link parecido apontando para outro host
-  // levaria o usuário a entregar o token dele em outro lugar.
+  // The official domain only. A lookalike link pointing at another host
+  // would have the user hand over their token somewhere else.
   if (
     url.protocol !== 'https:' ||
     url.hostname.toLowerCase() !== 'steamcommunity.com'
   ) {
-    return { ok: false, erro: 'dominio_invalido' };
+    return { ok: false, error: 'invalid_domain' };
   }
 
   if (!url.pathname.startsWith('/tradeoffer/new')) {
-    return { ok: false, erro: 'formato_invalido' };
+    return { ok: false, error: 'invalid_format' };
   }
 
   const partner = url.searchParams.get('partner');
   const token = url.searchParams.get('token');
 
   if (!partner || !/^\d+$/.test(partner)) {
-    return { ok: false, erro: 'sem_partner' };
+    return { ok: false, error: 'missing_partner' };
   }
 
   if (!token || !/^[A-Za-z0-9_-]{7,12}$/.test(token)) {
-    return { ok: false, erro: 'sem_token' };
+    return { ok: false, error: 'missing_token' };
   }
 
-  if (partner !== accountIdDe(steamIdDoDono)) {
-    return { ok: false, erro: 'partner_de_outra_conta' };
+  if (partner !== accountIdOf(ownerSteamId)) {
+    return { ok: false, error: 'partner_from_another_account' };
   }
 
-  // Guardamos uma URL normalizada, montada por nós: descarta parâmetros
-  // extras e qualquer coisa colada junto ao copiar.
+  // We store a normalized URL, built by us: it drops extra parameters and
+  // anything stuck to the end while copying.
   return {
     ok: true,
     url: `https://steamcommunity.com/tradeoffer/new/?partner=${partner}&token=${token}`,
@@ -94,18 +98,18 @@ export function validarTradeUrl(
   };
 }
 
-export const MENSAGEM_ERRO: Record<TradeUrlErro, string> = {
-  formato_invalido:
-    'Este link não parece ser uma trade URL da Steam. Ele deve começar ' +
-    'com https://steamcommunity.com/tradeoffer/new/',
-  dominio_invalido:
-    'Este link não é do steamcommunity.com. Copie a trade URL direto das ' +
-    'configurações de privacidade da sua conta Steam.',
-  sem_partner: 'O link está incompleto: falta a parte "partner".',
-  sem_token:
-    'O link está incompleto ou o token expirou. Gere um novo em ' +
-    'Inventário > Ofertas de troca > Quem pode me enviar ofertas.',
-  partner_de_outra_conta:
-    'Esta trade URL pertence a outra conta Steam. Use a URL da mesma ' +
-    'conta com que você entrou aqui.',
+export const ERROR_MESSAGE: Record<TradeUrlError, string> = {
+  invalid_format:
+    'This link does not look like a Steam trade URL. It must start with ' +
+    'https://steamcommunity.com/tradeoffer/new/',
+  invalid_domain:
+    'This link is not from steamcommunity.com. Copy the trade URL ' +
+    'directly from your Steam account privacy settings.',
+  missing_partner: 'The link is incomplete: the "partner" part is missing.',
+  missing_token:
+    'The link is incomplete or the token has expired. Generate a new one ' +
+    'in Inventory > Trade Offers > Who can send me Trade Offers.',
+  partner_from_another_account:
+    'This trade URL belongs to a different Steam account. Use the URL of ' +
+    'the same account you signed in with.',
 };

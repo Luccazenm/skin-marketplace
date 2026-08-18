@@ -8,7 +8,7 @@ import {
   type AuditContext,
 } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { MENSAGEM_ERRO, validarTradeUrl } from './trade-url';
+import { ERROR_MESSAGE, validateTradeUrl } from './trade-url';
 
 @Injectable()
 export class UsersService {
@@ -20,27 +20,28 @@ export class UsersService {
   ) {}
 
   /**
-   * Salva a trade URL, conferindo que ela é da conta de quem está pedindo.
+   * Saves the trade URL, checking that it belongs to the account asking.
    *
-   * O steamId vem do usuário autenticado, nunca do body da requisição —
-   * é isso que impede alguém de cadastrar a URL de terceiros.
+   * The steamId comes from the authenticated user, never from the request
+   * body — that is what stops someone from registering a third party's
+   * URL.
    */
   async updateTradeUrl(
     user: User,
-    entrada: string,
+    input: string,
     context?: AuditContext,
   ): Promise<User> {
-    const resultado = validarTradeUrl(entrada, user.steamId);
+    const result = validateTradeUrl(input, user.steamId);
 
-    if (!resultado.ok) {
-      if (resultado.erro === 'partner_de_outra_conta') {
+    if (!result.ok) {
+      if (result.error === 'partner_from_another_account') {
         this.logger.warn(
-          `Trade URL de outra conta recusada para o usuário ${user.id}`,
+          `Trade URL from another account refused for user ${user.id}`,
         );
       }
 
-      // Recusa também vira registro: uma sequência de tentativas com URL
-      // de terceiros é padrão de golpe, e só aparece se ficar gravada.
+      // A refusal becomes a record too: a run of attempts with someone
+      // else's URL is a scam pattern, and it only shows up if stored.
       await this.audit.record({
         actorType: AuditActorType.USER,
         actorId: user.id,
@@ -48,24 +49,24 @@ export class UsersService {
         outcome: AuditOutcome.DENIED,
         targetType: 'User',
         targetId: user.id,
-        metadata: { error: resultado.erro, attempt: entrada.slice(0, 200) },
+        metadata: { error: result.error, attempt: input.slice(0, 200) },
         context,
       });
 
-      throw new BadRequestException(MENSAGEM_ERRO[resultado.erro]);
+      throw new BadRequestException(ERROR_MESSAGE[result.error]);
     }
 
-    const anterior = user.tradeUrl;
+    const previous = user.tradeUrl;
 
-    const atualizado = await this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: user.id },
-      // Guarda a versão normalizada, não a que o usuário colou.
-      data: { tradeUrl: resultado.url },
+      // Stores the normalized version, not what the user pasted.
+      data: { tradeUrl: result.url },
     });
 
-    // O antes e depois é o que fecha o caso quando alguém troca a trade
-    // URL e depois alega não ter recebido o item: dá para cruzar o horário
-    // da troca com o da entrega.
+    // The before and after is what closes the case when someone changes
+    // their trade URL and later claims they never received the item: you
+    // can line up the time of the change with the time of delivery.
     await this.audit.record({
       actorType: AuditActorType.USER,
       actorId: user.id,
@@ -73,12 +74,12 @@ export class UsersService {
       outcome: AuditOutcome.SUCCESS,
       targetType: 'User',
       targetId: user.id,
-      metadata: { from: anterior, to: resultado.url },
+      metadata: { from: previous, to: result.url },
       context,
     });
 
-    this.logger.log(`Trade URL atualizada para o usuário ${user.id}`);
+    this.logger.log(`Trade URL updated for user ${user.id}`);
 
-    return atualizado;
+    return updated;
   }
 }

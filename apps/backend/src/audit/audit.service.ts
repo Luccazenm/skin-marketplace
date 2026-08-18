@@ -8,7 +8,7 @@ import {
 import type { Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Contexto de rede, para investigar padrão suspeito. */
+/** Network context, for investigating a suspicious pattern. */
 export interface AuditContext {
   ip?: string;
   userAgent?: string;
@@ -17,23 +17,23 @@ export interface AuditContext {
 export interface AuditEntry {
   actorType: AuditActorType;
   actorId?: string | null;
-  /** Convenção "dominio.acao" — ver AUDIT_ACTIONS. */
+  /** Convention "domain.action" — see AUDIT_ACTIONS. */
   action: string;
   outcome: AuditOutcome;
   targetType?: string;
   targetId?: string;
-  /** Em alteração, guardar antes e depois. */
+  /** On a change, store before and after. */
   metadata?: Prisma.InputJsonValue;
   context?: AuditContext;
 }
 
 /**
- * Escreve a trilha de auditoria.
+ * Writes the audit trail.
  *
- * Serve para responder "essa pessoa está dizendo a verdade?" meses depois
- * de um item ou de um valor sumir. Por isso registra tanto o que deu certo
- * quanto o que foi recusado: uma sequência de recusas é um padrão de golpe
- * que só aparece se as tentativas ficarem gravadas.
+ * It exists to answer "is this person telling the truth?" months after an
+ * item or an amount goes missing. That is why it records both what
+ * succeeded and what was refused: a run of refusals is a scam pattern
+ * that only shows up if the attempts are stored.
  */
 @Injectable()
 export class AuditService {
@@ -42,31 +42,32 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Registra sem derrubar a operação.
+   * Records without bringing the operation down.
    *
-   * Falha ao auditar não pode impedir alguém de entrar no site. Para
-   * operações que mexem em dinheiro, use recordInTransaction: ali o
-   * registro precisa mesmo cair junto se algo der errado.
+   * A failure to audit cannot stop someone from signing in. For
+   * operations that move money, use recordInTransaction: there the record
+   * really does have to fall with the rest if something goes wrong.
    */
   async record(entry: AuditEntry): Promise<void> {
     try {
       await this.write(this.prisma, entry);
-    } catch (erro) {
-      // Um registro perdido é ruim, mas derrubar a operação por causa
-      // disso seria pior. Fica no log de aplicação para não sumir calado.
+    } catch (error) {
+      // A lost record is bad, but bringing the operation down over it
+      // would be worse. It goes to the application log so it does not
+      // vanish silently.
       this.logger.error(
-        `Falha ao gravar auditoria de ${entry.action}: ${String(erro)}`,
+        `Failed to write the audit record for ${entry.action}: ${String(error)}`,
       );
     }
   }
 
   /**
-   * Registra dentro de uma transação já aberta.
+   * Records inside a transaction that is already open.
    *
-   * Use quando o registro precisa existir se e somente se a operação
-   * existir — movimentação de saldo, mudança de dono de item. Aqui a falha
-   * propaga de propósito: operação de dinheiro sem rastro é pior que
-   * operação não realizada.
+   * Use it when the record must exist if and only if the operation does —
+   * a balance movement, a change of item ownership. Here the failure
+   * propagates on purpose: a money operation with no trail is worse than
+   * an operation that never happened.
    */
   async recordInTransaction(
     tx: Prisma.TransactionClient,
@@ -96,11 +97,11 @@ export class AuditService {
 }
 
 /**
- * Extrai o contexto de rede da requisição.
+ * Extracts the network context from the request.
  *
- * `req.ip` respeita o trust proxy do Express: atrás de proxy reverso, é
- * preciso configurá-lo, senão todo mundo aparece como o IP do proxy — e a
- * auditoria de rede não vale nada.
+ * `req.ip` honours Express's trust proxy setting: behind a reverse proxy
+ * it has to be configured, otherwise everyone shows up as the proxy's IP
+ * — and the network audit is worth nothing.
  */
 export function auditContext(req: Request): AuditContext {
   return {
@@ -110,9 +111,9 @@ export function auditContext(req: Request): AuditContext {
 }
 
 /**
- * Ações conhecidas. Constantes em vez de texto solto para que uma consulta
- * por "todas as trocas de trade URL" não dependa de ninguém ter digitado
- * a mesma string duas vezes.
+ * Known actions. Constants rather than loose strings so that a query for
+ * "every trade URL change" does not depend on someone having typed the
+ * same string twice.
  */
 export const AUDIT_ACTIONS = {
   LOGIN: 'auth.login',

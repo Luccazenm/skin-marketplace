@@ -1,35 +1,35 @@
-import { accountIdDe, validarTradeUrl } from './trade-url';
+import { accountIdOf, validateTradeUrl } from './trade-url';
 
-// steamId64 real usado nos testes manuais, com seu accountId correspondente
+// A real steamId64 used in manual testing, with its matching accountId
 const STEAM_ID = '76561198832746931';
 const PARTNER = '872481203';
-const OUTRO_STEAM_ID = '76561198000000001';
+const OTHER_STEAM_ID = '76561198000000001';
 
-const urlValida = `https://steamcommunity.com/tradeoffer/new/?partner=${PARTNER}&token=Ab3xY9zQ`;
+const validUrl = `https://steamcommunity.com/tradeoffer/new/?partner=${PARTNER}&token=Ab3xY9zQ`;
 
-describe('accountIdDe', () => {
-  it('converte steamID64 em accountId', () => {
-    expect(accountIdDe(STEAM_ID)).toBe(PARTNER);
+describe('accountIdOf', () => {
+  it('converts a steamID64 into an accountId', () => {
+    expect(accountIdOf(STEAM_ID)).toBe(PARTNER);
   });
 
-  // steamID64 tem 17 dígitos e passa de Number.MAX_SAFE_INTEGER. Feita com
-  // número comum, a conta perderia justamente os dígitos finais — os que
-  // distinguem uma conta de outra.
-  it('mantém precisão em ids grandes', () => {
-    expect(accountIdDe('76561199999999999')).toBe('2039734271');
-    expect(accountIdDe('76561197960265729')).toBe('1');
+  // A steamID64 has 17 digits and exceeds Number.MAX_SAFE_INTEGER. Done
+  // with a plain number, the arithmetic would lose exactly the final
+  // digits — the ones telling one account from another.
+  it('keeps precision on large ids', () => {
+    expect(accountIdOf('76561199999999999')).toBe('2039734271');
+    expect(accountIdOf('76561197960265729')).toBe('1');
   });
 
-  it('recusa entrada que não é steamID64', () => {
-    expect(accountIdDe('123')).toBeNull();
-    expect(accountIdDe('abc')).toBeNull();
-    expect(accountIdDe('')).toBeNull();
+  it('refuses input that is not a steamID64', () => {
+    expect(accountIdOf('123')).toBeNull();
+    expect(accountIdOf('abc')).toBeNull();
+    expect(accountIdOf('')).toBeNull();
   });
 });
 
-describe('validarTradeUrl', () => {
-  it('aceita uma trade URL correta do próprio dono', () => {
-    const r = validarTradeUrl(urlValida, STEAM_ID);
+describe('validateTradeUrl', () => {
+  it('accepts a correct trade URL from its own owner', () => {
+    const r = validateTradeUrl(validUrl, STEAM_ID);
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
@@ -37,35 +37,35 @@ describe('validarTradeUrl', () => {
     expect(r.token).toBe('Ab3xY9zQ');
   });
 
-  // A checagem central: sem ela, o bot entregaria as skins na conta errada
-  // — e entrega de item não tem volta.
-  it('RECUSA trade URL de outra conta', () => {
-    const r = validarTradeUrl(urlValida, OUTRO_STEAM_ID);
+  // The central check: without it, the bot would deliver the skins to the
+  // wrong account — and item delivery has no undo.
+  it('REFUSES a trade URL from another account', () => {
+    const r = validateTradeUrl(validUrl, OTHER_STEAM_ID);
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.erro).toBe('partner_de_outra_conta');
+    expect(r.error).toBe('partner_from_another_account');
   });
 
-  it('recusa domínio que não é o da Steam', () => {
-    const falso = `https://steamcommunlty.com/tradeoffer/new/?partner=${PARTNER}&token=Ab3xY9zQ`;
-    const r = validarTradeUrl(falso, STEAM_ID);
+  it('refuses a domain that is not Steam', () => {
+    const fake = `https://steamcommunlty.com/tradeoffer/new/?partner=${PARTNER}&token=Ab3xY9zQ`;
+    const r = validateTradeUrl(fake, STEAM_ID);
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.erro).toBe('dominio_invalido');
+    expect(r.error).toBe('invalid_domain');
   });
 
-  it('recusa http sem TLS', () => {
-    const r = validarTradeUrl(urlValida.replace('https:', 'http:'), STEAM_ID);
+  it('refuses http without TLS', () => {
+    const r = validateTradeUrl(validUrl.replace('https:', 'http:'), STEAM_ID);
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.erro).toBe('dominio_invalido');
+    expect(r.error).toBe('invalid_domain');
   });
 
-  it('recusa outro caminho no domínio certo', () => {
-    const r = validarTradeUrl(
+  it('refuses another path on the right domain', () => {
+    const r = validateTradeUrl(
       `https://steamcommunity.com/profiles/${STEAM_ID}`,
       STEAM_ID,
     );
@@ -73,37 +73,37 @@ describe('validarTradeUrl', () => {
     expect(r.ok).toBe(false);
   });
 
-  it('recusa link sem token', () => {
-    const r = validarTradeUrl(
+  it('refuses a link with no token', () => {
+    const r = validateTradeUrl(
       `https://steamcommunity.com/tradeoffer/new/?partner=${PARTNER}`,
       STEAM_ID,
     );
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.erro).toBe('sem_token');
+    expect(r.error).toBe('missing_token');
   });
 
-  it('recusa texto que não é URL', () => {
-    const r = validarTradeUrl('meu link de troca', STEAM_ID);
+  it('refuses text that is not a URL', () => {
+    const r = validateTradeUrl('my trade link', STEAM_ID);
 
     expect(r.ok).toBe(false);
     if (r.ok) return;
-    expect(r.erro).toBe('formato_invalido');
+    expect(r.error).toBe('invalid_format');
   });
 
-  it('tolera espaços em volta, que aparecem ao copiar e colar', () => {
-    expect(validarTradeUrl(`  ${urlValida}  `, STEAM_ID).ok).toBe(true);
+  it('tolerates surrounding whitespace, which shows up when pasting', () => {
+    expect(validateTradeUrl(`  ${validUrl}  `, STEAM_ID).ok).toBe(true);
   });
 
-  // Normalizamos porque a Steam às vezes acrescenta parâmetros e as
-  // pessoas colam a URL com sobras.
-  it('normaliza a URL guardada, descartando parâmetros extras', () => {
-    const suja = `${urlValida}&utm_source=whatsapp&for_tradeoffer=1`;
-    const r = validarTradeUrl(suja, STEAM_ID);
+  // We normalize because Steam sometimes appends parameters and people
+  // paste the URL with leftovers.
+  it('normalizes the stored URL, dropping extra parameters', () => {
+    const dirty = `${validUrl}&utm_source=whatsapp&for_tradeoffer=1`;
+    const r = validateTradeUrl(dirty, STEAM_ID);
 
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.url).toBe(urlValida);
+    expect(r.url).toBe(validUrl);
   });
 });
