@@ -189,6 +189,61 @@ dono — o que é correto: ali ainda não se sabia quem era.
 
 ## Em andamento
 
+### Tradução do código para inglês (17/08) — EM CURSO
+
+Convenção nova, registrada no CLAUDE.md: **tudo em inglês** —
+identificadores, comentários, descrições de teste, mensagens ao usuário e
+documentação. Até 17/08 a convenção dizia o contrário, então isto é
+migração, não faxina.
+
+**Feito** (cada um com typecheck, lint e 398 testes verdes):
+
+| Passada | Commit | Módulo |
+|---|---|---|
+| 1 | `83bb1fb` | `inventory` |
+| 2 | `9eb9a9f` | `catalog` |
+| 3 | `ac8d777` | `pricing` |
+| 4 | `b50c18f` | `test-utils` + setup do jest |
+| 5 | `2ef37de` | `observability` |
+| 6 | `ddc1ed0` | `scripts` + `audit-query` |
+| 7 | `ea3fc23` | `audit` + `users` |
+| 8 | `838fad1` | `deposits` |
+
+**Falta:**
+
+- **`auth`** — 14 arquivos, o bloco mais denso (OpenID, JWT, revogação em
+  duas camadas, restrições da Steam, perfil e ban)
+- `redis`, `prisma`, `config`, `app.module`, `app-setup`, `main` — 8
+- Documentação: `CLAUDE.md`, `STATE.md`, `docs/*.md`, READMEs — 8
+
+**O schema do Prisma já estava em inglês** e não precisou de migration.
+
+#### O que aprendemos traduzindo, e vale repetir
+
+**Chaves de metadata da auditoria mudam nas duas pontas juntas.**
+`motivo`/`erro`/`de`/`para`/`itens`/`nome` viraram
+`reason`/`error`/`from`/`to`/`items`/`name`. Quem escreve está em `auth`,
+`deposits` e `users`; quem lê são os scripts e o `findByAssetId`. Separar
+faria o `audit:user` parar de renderizar o "de X para Y". As 354 linhas
+antigas do banco de desenvolvimento mantêm as chaves velhas — inofensivo,
+e não há produção.
+
+**Motivo de recusa é código, não mensagem.** `sem_trade_url` →
+`no_trade_url` e afins são strings estáveis para consultar a trilha.
+
+**Mensagem ao usuário também virou inglês.** O site é internacional, então
+isso aconteceria de qualquer forma.
+
+**Comando renomeado:** `pnpm audit:suspeitos` → `pnpm audit:suspicious`,
+com `--days` e `--minimum`.
+
+#### Como retomar
+
+Os commits seguem `refactor(<módulo>): translate to English (N/N)`. Basta
+continuar a numeração. Ordem sugerida do que resta: `auth`, depois a
+infraestrutura, depois a documentação.
+
+
 Nada em código.
 
 **Fora do código:** as contas de bot estão sendo criadas. O autenticador
