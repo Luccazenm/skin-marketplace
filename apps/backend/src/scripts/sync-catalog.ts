@@ -4,15 +4,15 @@ import { CatalogSyncService } from '../catalog/catalog-sync.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
- * Traz o catálogo de itens do CS2 para o banco.
+ * Brings the CS2 item catalog into the database.
  *
  *   pnpm build && pnpm catalog:sync
  *
- * Rodar quando sair conteúdo novo (caixa, cápsula, operação). É
- * idempotente: rodar de novo atualiza o que mudou e não duplica.
+ * Run it when Valve ships new content (case, capsule, operation). It is
+ * idempotent: running again updates what changed and duplicates nothing.
  *
- * Não mexe em `referencePrice`, `buyoutEligible` nem
- * `buyoutDiscountPct` — são decisões nossas, não do dataset.
+ * It does not touch `referencePrice`, `buyoutEligible` or
+ * `buyoutDiscountPct` — those are our decisions, not the dataset's.
  */
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, {
@@ -20,47 +20,45 @@ async function main() {
   });
 
   try {
-    const inicio = Date.now();
+    const startedAt = Date.now();
 
-    console.log('Sincronizando catálogo...\n');
+    console.log('Syncing catalog...\n');
 
-    const total = await app
-      .get(CatalogSyncService)
-      .sincronizar((arquivo, r) => {
-        console.log(
-          `  ${arquivo.padEnd(20)} ${String(r.lidos).padStart(6)} lidos  ` +
-            `${String(r.criados).padStart(6)} novos  ` +
-            `${String(r.atualizados).padStart(6)} atualizados  ` +
-            `${String(r.descartados).padStart(5)} fora` +
-            (r.falhas > 0 ? `  ${r.falhas} FALHAS` : ''),
-        );
-      });
+    const total = await app.get(CatalogSyncService).sync((file, r) => {
+      console.log(
+        `  ${file.padEnd(20)} ${String(r.read).padStart(6)} read  ` +
+          `${String(r.created).padStart(6)} new  ` +
+          `${String(r.updated).padStart(6)} updated  ` +
+          `${String(r.discarded).padStart(5)} out` +
+          (r.failures > 0 ? `  ${r.failures} FAILURES` : ''),
+      );
+    });
 
-    const segundos = Math.round((Date.now() - inicio) / 1000);
+    const seconds = Math.round((Date.now() - startedAt) / 1000);
 
-    console.log(`\nTotal em ${segundos}s`);
-    console.log(`  lidos       ${total.lidos}`);
-    console.log(`  criados     ${total.criados}`);
-    console.log(`  atualizados ${total.atualizados}`);
-    console.log(`  descartados ${total.descartados}`);
+    console.log(`\nTotal in ${seconds}s`);
+    console.log(`  read       ${total.read}`);
+    console.log(`  created    ${total.created}`);
+    console.log(`  updated    ${total.updated}`);
+    console.log(`  discarded  ${total.discarded}`);
 
-    if (total.falhas > 0) {
-      // Falha aqui é mapeamento errado, não erro passageiro: alguma
-      // categoria está entrando sem os campos que a constraint exige.
-      console.log(`  FALHAS      ${total.falhas}  <- investigar`);
+    if (total.failures > 0) {
+      // A failure here means a wrong mapping, not a transient error: some
+      // category is coming in without the fields the constraint demands.
+      console.log(`  FAILURES   ${total.failures}  <- investigate`);
       process.exitCode = 1;
     }
 
     const prisma = app.get(PrismaService);
-    const porCategoria = await prisma.skinTemplate.groupBy({
+    const byCategory = await prisma.skinTemplate.groupBy({
       by: ['category'],
       _count: true,
       orderBy: { _count: { category: 'desc' } },
     });
 
-    console.log('\nCatálogo por categoria:');
+    console.log('\nCatalog by category:');
 
-    for (const c of porCategoria) {
+    for (const c of byCategory) {
       console.log(`  ${c.category.padEnd(14)} ${String(c._count).padStart(6)}`);
     }
   } finally {
@@ -68,7 +66,7 @@ async function main() {
   }
 }
 
-main().catch((erro) => {
-  console.error(erro);
+main().catch((error) => {
+  console.error(error);
   process.exit(1);
 });

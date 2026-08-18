@@ -6,28 +6,27 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CatalogSyncService } from './catalog-sync.service';
 
 /**
- * O importador é a parte do catálogo que fala com rede e banco, e a que
- * pode estragar dado já gravado — o `upsert` passa por cima de 33.950
- * linhas a cada rodada. Um erro aqui não aparece na tela: apaga em
- * silêncio uma decisão de negócio.
+ * The importer is the part of the catalog that talks to the network and
+ * the database, and the one that can ruin already-stored data — the
+ * `upsert` runs over 33,950 rows on every pass. A mistake here does not
+ * show up on screen: it silently erases a business decision.
  *
- * O prefixo TESTE-SYNC isola tudo do catálogo real, que vive no mesmo
- * banco de desenvolvimento.
+ * The TEST-SYNC prefix isolates everything from the real catalog.
  */
 describe('CatalogSyncService', () => {
   let service: CatalogSyncService;
   let prisma: PrismaService;
   let fetchMock: jest.SpyInstance;
 
-  const PREFIXO = 'TESTE-SYNC';
-  const AK = `${PREFIXO} AK-47 | Alfa (Field-Tested)`;
-  const FACA = `${PREFIXO} ★ Karambit | Beta (Factory New)`;
+  const PREFIX = 'TEST-SYNC';
+  const AK = `${PREFIX} AK-47 | Alpha (Field-Tested)`;
+  const KNIFE = `${PREFIX} ★ Karambit | Beta (Factory New)`;
 
-  const skin = (nome: string, over: Record<string, unknown> = {}) => ({
-    market_hash_name: nome,
-    skin_id: `skin-${nome}`,
+  const skin = (name: string, over: Record<string, unknown> = {}) => ({
+    market_hash_name: name,
+    skin_id: `skin-${name}`,
     weapon: { name: 'AK-47' },
-    pattern: { name: 'Alfa' },
+    pattern: { name: 'Alpha' },
     rarity: { name: 'Classified' },
     min_float: 0.1,
     max_float: 0.7,
@@ -36,17 +35,17 @@ describe('CatalogSyncService', () => {
   });
 
   /**
-   * Responde por arquivo. O que não for declarado volta vazio — assim
-   * cada teste descreve só os arquivos que lhe interessam.
+   * Responds per file. Anything not declared comes back empty, so each
+   * test describes only the files it cares about.
    */
-  const responderCom = (porArquivo: Record<string, unknown[]>) => {
+  const respondWith = (byFile: Record<string, unknown[]>) => {
     fetchMock.mockImplementation((url: string) => {
-      const arquivo = /\/([a-z_]+)\.json$/.exec(url)?.[1] ?? '';
+      const file = /\/([a-z_]+)\.json$/.exec(url)?.[1] ?? '';
 
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(porArquivo[arquivo] ?? []),
+        json: () => Promise.resolve(byFile[file] ?? []),
       } as Response);
     });
   };
@@ -65,91 +64,91 @@ describe('CatalogSyncService', () => {
   });
 
   beforeEach(async () => {
-    await limpar();
+    await cleanup();
     fetchMock = jest.spyOn(global, 'fetch');
   });
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    await limpar();
+    await cleanup();
   });
 
   afterAll(async () => {
     await prisma.$disconnect();
   });
 
-  const limpar = () =>
+  const cleanup = () =>
     prisma.skinTemplate.deleteMany({
-      where: { marketHashName: { startsWith: PREFIXO } },
+      where: { marketHashName: { startsWith: PREFIX } },
     });
 
-  const buscar = (marketHashName: string) =>
+  const find = (marketHashName: string) =>
     prisma.skinTemplate.findUnique({ where: { marketHashName } });
 
-  describe('gravação', () => {
-    it('grava o que veio e conta o que fez', async () => {
-      responderCom({ skins_not_grouped: [skin(AK)] });
+  describe('storing', () => {
+    it('stores what arrived and counts what it did', async () => {
+      respondWith({ skins_not_grouped: [skin(AK)] });
 
-      const r = await service.sincronizar();
+      const r = await service.sync();
 
-      expect(r.criados).toBe(1);
-      expect(r.atualizados).toBe(0);
+      expect(r.created).toBe(1);
+      expect(r.updated).toBe(0);
 
-      const t = await buscar(AK);
+      const t = await find(AK);
       expect(t?.weapon).toBe('AK-47');
-      expect(t?.skinName).toBe('Alfa');
+      expect(t?.skinName).toBe('Alpha');
     });
 
-    // Roda toda vez que sai caixa nova; duplicar seria criar um segundo
-    // template para o mesmo item, e o preço se penduraria em um só.
-    it('é idempotente: a segunda rodada atualiza, não duplica', async () => {
-      responderCom({ skins_not_grouped: [skin(AK)] });
+    // Runs every time a new case ships; duplicating would create a second
+    // template for the same item, and the price would hang off only one.
+    it('is idempotent: the second pass updates, it does not duplicate', async () => {
+      respondWith({ skins_not_grouped: [skin(AK)] });
 
-      await service.sincronizar();
-      const r = await service.sincronizar();
+      await service.sync();
+      const r = await service.sync();
 
-      expect(r.criados).toBe(0);
-      expect(r.atualizados).toBe(1);
+      expect(r.created).toBe(0);
+      expect(r.updated).toBe(1);
 
       await expect(
         prisma.skinTemplate.count({
-          where: { marketHashName: { startsWith: PREFIXO } },
+          where: { marketHashName: { startsWith: PREFIX } },
         }),
       ).resolves.toBe(1);
     });
 
-    it('reflete mudança do dataset', async () => {
-      responderCom({ skins_not_grouped: [skin(AK)] });
-      await service.sincronizar();
+    it('reflects a change in the dataset', async () => {
+      respondWith({ skins_not_grouped: [skin(AK)] });
+      await service.sync();
 
-      responderCom({
+      respondWith({
         skins_not_grouped: [skin(AK, { rarity: { name: 'Covert' } })],
       });
-      await service.sincronizar();
+      await service.sync();
 
-      expect((await buscar(AK))?.rarity).toBe('Covert');
+      expect((await find(AK))?.rarity).toBe('Covert');
     });
 
-    // O dataset repete o mesmo market_hash_name entre arquivos.
-    it('não vai duas vezes ao banco pelo mesmo item', async () => {
-      responderCom({ skins_not_grouped: [skin(AK), skin(AK)] });
+    // The dataset repeats the same market_hash_name across files.
+    it('does not hit the database twice for the same item', async () => {
+      respondWith({ skins_not_grouped: [skin(AK), skin(AK)] });
 
-      const r = await service.sincronizar();
+      const r = await service.sync();
 
-      expect(r.criados).toBe(1);
+      expect(r.created).toBe(1);
     });
   });
 
   /**
-   * O ponto mais perigoso do importador: o `upsert` reescreve linhas que
-   * já existem, e algumas colunas são decisão NOSSA, não do dataset.
-   * Sobrescrevê-las tiraria uma skin do fluxo rápido — ou pior, deixaria
-   * uma entrar — sem ninguém perceber.
+   * The most dangerous part of the importer: the `upsert` rewrites rows
+   * that already exist, and some columns are OUR decision, not the
+   * dataset's. Overwriting them would pull a skin out of the instant
+   * buyout — or worse, let one in — without anyone noticing.
    */
-  describe('o que a sincronização não pode tocar', () => {
-    it('preserva preço de referência e whitelist do fluxo rápido', async () => {
-      responderCom({ skins_not_grouped: [skin(AK)] });
-      await service.sincronizar();
+  describe('what the sync must not touch', () => {
+    it('preserves the reference price and the buyout whitelist', async () => {
+      respondWith({ skins_not_grouped: [skin(AK)] });
+      await service.sync();
 
       await prisma.skinTemplate.update({
         where: { marketHashName: AK },
@@ -162,9 +161,9 @@ describe('CatalogSyncService', () => {
         },
       });
 
-      await service.sincronizar();
+      await service.sync();
 
-      const t = await buscar(AK);
+      const t = await find(AK);
       expect(Number(t?.referencePrice)).toBe(42.5);
       expect(t?.buyoutEligible).toBe(true);
       expect(Number(t?.buyoutDiscountPct)).toBe(15);
@@ -172,148 +171,152 @@ describe('CatalogSyncService', () => {
     });
   });
 
-  describe('origens', () => {
-    // Um quarto do catálogo sai de mais de uma caixa. Sobrescrever em vez
-    // de acumular faria a última processada apagar as anteriores.
-    // As caixas levam o prefixo porque o arquivo `crates` serve a duas
-    // coisas: alimenta o cruzamento de origem E vira template de
-    // CONTAINER. Sem prefixo, elas escapam da limpeza e ficam no
-    // catálogo real — foi o que aconteceu na primeira versão deste teste.
-    it('acumula todas as caixas em que a skin aparece', async () => {
-      responderCom({
+  describe('origins', () => {
+    // A quarter of the catalog drops from more than one case. Overwriting
+    // instead of accumulating would let the last one processed erase the
+    // earlier ones.
+    //
+    // The cases carry the prefix because the `crates` file serves two
+    // purposes: it feeds the origin cross-reference AND becomes a
+    // CONTAINER template. Without the prefix they escape the cleanup and
+    // stay in the real catalog — which is what happened in the first
+    // version of this test.
+    it('accumulates every case the skin appears in', async () => {
+      respondWith({
         skins_not_grouped: [skin(AK)],
         crates: [
-          { name: `${PREFIXO} Caixa Um`, contains: [{ id: `skin-${AK}` }] },
-          { name: `${PREFIXO} Caixa Dois`, contains: [{ id: `skin-${AK}` }] },
+          { name: `${PREFIX} Case One`, contains: [{ id: `skin-${AK}` }] },
+          { name: `${PREFIX} Case Two`, contains: [{ id: `skin-${AK}` }] },
         ],
       });
 
-      await service.sincronizar();
+      await service.sync();
 
-      expect((await buscar(AK))?.collections.sort()).toEqual([
-        `${PREFIXO} Caixa Dois`,
-        `${PREFIXO} Caixa Um`,
+      expect((await find(AK))?.collections.sort()).toEqual([
+        `${PREFIX} Case One`,
+        `${PREFIX} Case Two`,
       ]);
     });
 
-    // Faca e luva são o item raro especial e ficam noutro campo. Sem ler
-    // `contains_rare`, as 3.898 do catálogo ficariam sem origem.
-    it('lê faca de contains_rare, não só de contains', async () => {
-      responderCom({
+    // Knives and gloves are the rare special item and live in another
+    // field. Without reading `contains_rare`, the catalog's 3,898 would
+    // have no origin.
+    it('reads a knife from contains_rare, not only from contains', async () => {
+      respondWith({
         skins_not_grouped: [
-          skin(FACA, {
+          skin(KNIFE, {
             weapon: { name: 'Karambit' },
             pattern: { name: 'Beta' },
           }),
         ],
         crates: [
           {
-            name: `${PREFIXO} Caixa Com Faca`,
-            contains_rare: [{ id: `skin-${FACA}` }],
+            name: `${PREFIX} Case With Knife`,
+            contains_rare: [{ id: `skin-${KNIFE}` }],
           },
         ],
       });
 
-      await service.sincronizar();
+      await service.sync();
 
-      expect((await buscar(FACA))?.collections).toEqual([
-        `${PREFIXO} Caixa Com Faca`,
+      expect((await find(KNIFE))?.collections).toEqual([
+        `${PREFIX} Case With Knife`,
       ]);
     });
   });
 
-  describe('o que fica de fora', () => {
-    it('conta como descartado o que não deve entrar', async () => {
-      responderCom({
+  describe('what stays out', () => {
+    it('counts as discarded what must not enter', async () => {
+      respondWith({
         skins_not_grouped: [skin(AK)],
         collectibles: [],
         stickers: [
-          // Sem nome de mercado: não existe no mercado.
-          { name: `${PREFIXO} Sticker | Fantasma`, market_hash_name: null },
+          // No market name: it does not exist on the market.
+          { name: `${PREFIX} Sticker | Ghost`, market_hash_name: null },
         ],
       });
 
-      const r = await service.sincronizar();
+      const r = await service.sync();
 
-      expect(r.criados).toBe(1);
-      expect(r.descartados).toBe(1);
+      expect(r.created).toBe(1);
+      expect(r.discarded).toBe(1);
     });
   });
 
-  describe('quando algo dá errado', () => {
-    // 36 mil itens por rodada: abortar tudo por causa de uma linha
-    // recusada perderia a importação inteira.
-    it('conta a falha e segue com o resto do lote', async () => {
-      const outra = `${PREFIXO} AK-47 | Gama (Field-Tested)`;
+  describe('when something goes wrong', () => {
+    // 36,000 items per pass: aborting everything because of one rejected
+    // row would lose the whole import.
+    it('counts the failure and carries on with the rest of the batch', async () => {
+      const other = `${PREFIX} AK-47 | Gamma (Field-Tested)`;
 
-      responderCom({
+      respondWith({
         skins_not_grouped: [
           skin(AK),
-          skin(outra, { pattern: { name: 'Gama' } }),
+          skin(other, { pattern: { name: 'Gamma' } }),
         ],
       });
 
-      // Só a primeira chamada falha: `spyOn` mantém a implementação real
-      // como padrão, então a segunda grava de verdade.
+      // Only the first call fails: `spyOn` keeps the real implementation
+      // as the default, so the second one really stores.
       jest
         .spyOn(prisma.skinTemplate, 'upsert')
-        // `never` porque o Prisma devolve um cliente encadeável, não uma
-        // Promise crua — e aqui só interessa que rejeite.
+        // `never` because Prisma returns a chainable client, not a bare
+        // Promise — and here all that matters is that it rejects.
         .mockImplementationOnce(
-          () => Promise.reject(new Error('banco recusou')) as never,
+          () => Promise.reject(new Error('database refused')) as never,
         );
 
-      const r = await service.sincronizar();
+      const r = await service.sync();
 
-      expect(r.falhas).toBe(1);
-      expect(r.criados).toBe(1);
-      expect(await buscar(outra)).not.toBeNull();
+      expect(r.failures).toBe(1);
+      expect(r.created).toBe(1);
+      expect(await find(other)).not.toBeNull();
     });
 
-    // Aqui é o contrário: arquivo que não baixa significa catálogo
-    // parcial, e seguir em silêncio deixaria itens sumindo da vitrine
-    // sem explicação.
-    it('interrompe quando um arquivo não baixa', async () => {
+    // The opposite here: a file that does not download means a partial
+    // catalog, and carrying on silently would leave items missing from
+    // the storefront with no explanation.
+    it('stops when a file does not download', async () => {
       fetchMock.mockResolvedValue({
         ok: false,
         status: 503,
         json: () => Promise.resolve([]),
       });
 
-      await expect(service.sincronizar()).rejects.toThrow('503');
+      await expect(service.sync()).rejects.toThrow('503');
     });
   });
 
-  describe('formato da resposta', () => {
-    // Alguns arquivos do dataset vêm indexados por id em vez de lista.
-    it('aceita objeto no lugar de lista', async () => {
+  describe('response shape', () => {
+    // Some dataset files arrive keyed by id instead of as a list.
+    it('accepts an object in place of a list', async () => {
       fetchMock.mockImplementation((url: string) => {
-        const corpo = url.includes('skins_not_grouped')
-          ? { 'chave-qualquer': skin(AK) }
+        const body = url.includes('skins_not_grouped')
+          ? { 'some-key': skin(AK) }
           : [];
 
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(corpo),
+          json: () => Promise.resolve(body),
         } as Response);
       });
 
-      const r = await service.sincronizar();
+      const r = await service.sync();
 
-      expect(r.criados).toBe(1);
-      expect(await buscar(AK)).not.toBeNull();
+      expect(r.created).toBe(1);
+      expect(await find(AK)).not.toBeNull();
     });
   });
 
-  it('informa o progresso arquivo a arquivo', async () => {
-    responderCom({ skins_not_grouped: [skin(AK)] });
+  it('reports progress file by file', async () => {
+    respondWith({ skins_not_grouped: [skin(AK)] });
 
-    const vistos: string[] = [];
-    await service.sincronizar((arquivo) => vistos.push(arquivo));
+    const seen: string[] = [];
+    await service.sync((file) => seen.push(file));
 
-    expect(vistos).toContain('skins_not_grouped');
-    expect(vistos).toContain('stickers');
-    expect(vistos).toHaveLength(9);
+    expect(seen).toContain('skins_not_grouped');
+    expect(seen).toContain('stickers');
+    expect(seen).toHaveLength(9);
   });
 });

@@ -1,11 +1,11 @@
 import { ItemCategory, SkinVariant } from '@prisma/client';
 
-/** Uma entrada do catálogo, já normalizada e pronta para gravar. */
-export interface EntradaCatalogo {
+/** A catalog entry, normalized and ready to store. */
+export interface CatalogEntry {
   marketHashName: string;
   category: ItemCategory;
   rarity: string;
-  /** Todas as origens. Vazia quando o item não sai de caixa nenhuma. */
+  /** Every origin. Empty when the item comes from no crate at all. */
   collections: string[];
   variant: SkinVariant;
   weapon: string | null;
@@ -14,34 +14,34 @@ export interface EntradaCatalogo {
   maxFloat: number | null;
   imageUrl: string | null;
   description: string | null;
-  /** A frase em itálico do fim da descrição. */
+  /** The italic line at the end of the description. */
   flavorText: string | null;
 }
 
 /**
- * Separa a descrição do texto de sabor.
+ * Splits the description from the flavor text.
  *
- * A Valve entrega os dois juntos, com o sabor em `<i>` no final:
+ * Valve ships both together, with the flavor in `<i>` at the end:
  *
  *   "Powerful and reliable, the AK-47 ... a red pinstripe.
  *    <i>Never be afraid to push it to the limit</i>"
  *
- * Guardamos separados e **sem HTML**. Sem tag porque devolver marcação
- * de terceiro para a tela obrigaria o frontend a sanitizar — e página de
- * item é onde alguém decide vender algo caro, não é lugar para injetar
- * HTML de origem externa.
+ * We store them separately and **without HTML**. No tags because handing
+ * third-party markup to the screen would force the frontend to sanitize —
+ * and an item page is where someone decides to sell something expensive,
+ * not a place to inject HTML of external origin.
  */
-export function separarDescricao(bruta: string | undefined): {
+export function splitDescription(raw: string | undefined): {
   description: string | null;
   flavorText: string | null;
 } {
-  if (!bruta?.trim()) {
+  if (!raw?.trim()) {
     return { description: null, flavorText: null };
   }
 
-  const italico = /<i>([\s\S]*?)<\/i>/i.exec(bruta);
-  const flavorText = italico ? limpar(italico[1]) : null;
-  const description = limpar(bruta.replace(/<i>[\s\S]*?<\/i>/gi, ''));
+  const italic = /<i>([\s\S]*?)<\/i>/i.exec(raw);
+  const flavorText = italic ? clean(italic[1]) : null;
+  const description = clean(raw.replace(/<i>[\s\S]*?<\/i>/gi, ''));
 
   return {
     description: description || null,
@@ -49,12 +49,12 @@ export function separarDescricao(bruta: string | undefined): {
   };
 }
 
-function limpar(texto: string): string {
+function clean(text: string): string {
   return (
-    texto
-      // O dataset traz a quebra como os DOIS caracteres "\" e "n", não
-      // como quebra de verdade. Sem converter, o "\n\n" apareceria escrito
-      // na tela do usuário.
+    text
+      // The dataset ships the line break as the TWO characters "\" and
+      // "n", not as a real break. Without converting, "\n\n" would appear
+      // written out on the user's screen.
       .replace(/\\r\\n|\\n|\\r/g, '\n')
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<[^>]+>/g, '')
@@ -70,25 +70,25 @@ function limpar(texto: string): string {
 }
 
 /**
- * Item cru do dataset público da comunidade. Quase tudo é opcional
- * porque o formato varia por tipo: adesivo não tem `weapon`, agente não
- * tem `wear`, caixa não tem nem um nem outro.
+ * A raw item from the public community dataset. Almost everything is
+ * optional because the shape varies by type: a sticker has no `weapon`,
+ * an agent has no `wear`, a case has neither.
  */
-export interface ItemBruto {
+export interface RawItem {
   id?: string;
-  /** Descrição e texto de sabor juntos, com HTML. Ver separarDescricao. */
+  /** Description and flavor text together, with HTML. See splitDescription. */
   description?: string;
   /**
-   * Identidade da skin sem o exterior: as cinco entradas de "Redline"
-   * compartilham o mesmo `skin_id`. É a chave que liga uma skin à sua
-   * coleção, já que `skins_not_grouped` não traz coleção nenhuma.
+   * The skin's identity without the exterior: the five "Redline" entries
+   * share the same `skin_id`. It is the key linking a skin to its
+   * collection, since `skins_not_grouped` carries no collection at all.
    */
   skin_id?: string;
   name?: string;
   /**
-   * `null` explícito significa item que não existe no mercado — 701 dos
-   * 11.134 adesivos estão assim. Diferente de ausente, que é só um
-   * endpoint que não traz o campo.
+   * An explicit `null` means an item that does not exist on the market —
+   * 701 of the 11,134 stickers are like this. Different from absent,
+   * which just means an endpoint that omits the field.
    */
   market_hash_name?: string | null;
   rarity?: { name?: string } | string;
@@ -105,111 +105,113 @@ export interface ItemBruto {
   type?: string;
 }
 
-/**
- * Traduz um item do dataset para o nosso catálogo.
- *
- * Devolve `null` para o que não deve entrar. O dataset descreve o jogo
- * inteiro, inclusive coisas que nunca vão aparecer num marketplace.
- *
- * Toda a classificação sai do NOME, não do campo `type` do dataset: o
- * `market_hash_name` é o mesmo identificador que a Steam usa, então
- * classificar por ele mantém catálogo e inventário concordando. Divergir
- * aqui significaria ter preço pendurado num template que nenhum item real
- * jamais aponta.
- */
-export interface OpcoesMapeamento {
-  /** Tipo do arquivo de origem, usado quando o nome não resolve. */
-  categoriaPadrao?: ItemCategory;
+export interface MappingOptions {
+  /** Type from the source file, used when the name does not resolve. */
+  defaultCategory?: ItemCategory;
   /**
-   * Origens resolvidas por fora, cruzando `collections.json` e
-   * `crates.json` pelo `skin_id`. O arquivo de skins não traz esse dado.
+   * Origins resolved externally, cross-referencing `collections.json` and
+   * `crates.json` by `skin_id`. The skins file does not carry this.
    */
-  colecoes?: string[];
+  collections?: string[];
 }
 
-export function mapearItem(
-  bruto: ItemBruto,
-  opcoes: OpcoesMapeamento = {},
-): EntradaCatalogo | null {
-  const { categoriaPadrao: categoriaDoArquivo, colecoes } = opcoes;
-  // Nome de mercado nulo é item que não existe no mercado — adesivo de
-  // evento antigo, item de teste. Não tem preço para pendurar, e criar
-  // template para ele encheria o catálogo de linhas que nenhuma cotação
-  // jamais alcança.
-  if (bruto.market_hash_name === null) {
+/**
+ * Translates a dataset item into our catalog.
+ *
+ * Returns `null` for what should not enter. The dataset describes the
+ * whole game, including things that will never appear in a marketplace.
+ *
+ * Classification comes from the NAME, not from the dataset's `type`
+ * field: `market_hash_name` is the same identifier Steam uses, so
+ * classifying by it keeps catalog and inventory in agreement. Diverging
+ * here would mean prices hanging off a template no real item points at.
+ */
+export function mapItem(
+  raw: RawItem,
+  options: MappingOptions = {},
+): CatalogEntry | null {
+  const { defaultCategory, collections } = options;
+
+  // A null market name means an item that does not exist on the market —
+  // an old event sticker, a test item. There is no price to hang on it,
+  // and creating a template would fill the catalog with rows no quote
+  // ever reaches.
+  if (raw.market_hash_name === null) {
     return null;
   }
 
-  const marketHashName = (bruto.market_hash_name ?? bruto.name)?.trim();
+  const marketHashName = (raw.market_hash_name ?? raw.name)?.trim();
 
   if (!marketHashName) {
     return null;
   }
 
-  const peloNome = categoriaPeloNome(marketHashName, bruto);
+  const fromName = categoryFromName(marketHashName, raw);
 
-  // O arquivo de origem é autoridade sobre o TIPO; o nome é autoridade
-  // sobre o caso específico. "Katowice 2019 Legends (Holo-Foil)" e
-  // "Stockholm 2021 Patch Pack" são cápsulas cujo nome não diz isso em
-  // lugar nenhum — mas vieram de crates.json, e isso basta.
+  // The source file is authoritative about the TYPE; the name is
+  // authoritative about the specific case. "Katowice 2019 Legends
+  // (Holo-Foil)" and "Stockholm 2021 Patch Pack" are capsules whose names
+  // say so nowhere — but they came from crates.json, and that is enough.
   const category =
-    peloNome === ItemCategory.OTHER && categoriaDoArquivo
-      ? categoriaDoArquivo
-      : peloNome;
+    fromName === ItemCategory.OTHER && defaultCategory
+      ? defaultCategory
+      : fromName;
 
-  // Medalha, troféu e passe nunca são negociáveis: guardar preço deles
-  // seria guardar preço de algo que não pode ser vendido.
+  // Medals, trophies and passes are never tradable: storing a price for
+  // them would be storing the price of something that cannot be sold.
   if (category === ItemCategory.COLLECTIBLE || category === ItemCategory.PASS) {
     return null;
   }
 
-  const temPadrao = CATEGORIAS_COM_PADRAO.has(category);
-  const skinName = temPadrao ? (bruto.pattern?.name ?? null) : null;
+  const hasPattern = CATEGORIES_WITH_PATTERN.has(category);
+  const skinName = hasPattern ? (raw.pattern?.name ?? null) : null;
 
-  // Faca e luva sem pintura ("★ Karambit", "★ StatTrak™ Stiletto Knife")
-  // são itens reais e caros, mas não têm skin nem float: não existe
-  // desgaste em superfície não pintada. Preencher faixa 0–1 aí seria
-  // inventar dado, e faria a vitrine dizer que uma vanilla é "float ruim".
-  const pintado = temPadrao && skinName !== null;
+  // Vanilla knives and gloves ("★ Karambit", "★ StatTrak™ Stiletto Knife")
+  // are real, expensive items, but they have no skin and no float: there
+  // is no wear on an unpainted surface. Filling a 0–1 range there would
+  // be inventing data, and would make the storefront call a vanilla
+  // "bad float".
+  const painted = hasPattern && skinName !== null;
 
   return {
     marketHashName,
     category,
-    rarity: textoRaridade(bruto.rarity),
-    // Junta as três fontes e remove repetição: o cruzamento por skin_id
-    // é o que pega item que sai de várias caixas, e os campos do próprio
-    // item cobrem adesivo e cápsula, que o cruzamento não alcança.
+    rarity: rarityText(raw.rarity),
+    // Merge the three sources and drop repeats: the skin_id cross-check
+    // is what catches items dropping from several crates, and the item's
+    // own fields cover stickers and capsules, which the cross-check does
+    // not reach.
     collections: [
       ...new Set([
-        ...(colecoes ?? []),
-        ...(bruto.collections ?? []).map((c) => c.name),
-        ...(bruto.crates ?? []).map((c) => c.name),
+        ...(collections ?? []),
+        ...(raw.collections ?? []).map((c) => c.name),
+        ...(raw.crates ?? []).map((c) => c.name),
       ]),
     ].filter((n): n is string => typeof n === 'string' && n.length > 0),
-    variant: varianteDe(marketHashName),
-    weapon: temPadrao
-      ? (bruto.weapon?.name ?? armaPeloNome(marketHashName))
+    variant: variantOf(marketHashName),
+    weapon: hasPattern
+      ? (raw.weapon?.name ?? weaponFromName(marketHashName))
       : null,
     skinName,
-    // Quando o dataset não traz a faixa de um item pintado, cai no
-    // domínio inteiro: é o único palpite honesto, e a constraint exige
-    // os dois preenchidos junto com a skin.
-    minFloat: pintado ? (bruto.min_float ?? 0) : null,
-    maxFloat: pintado ? (bruto.max_float ?? 1) : null,
-    imageUrl: bruto.image ?? null,
-    ...separarDescricao(bruto.description),
+    // When the dataset omits the range of a painted item, fall back to the
+    // whole domain: it is the only honest guess, and the constraint
+    // requires both filled alongside the skin.
+    minFloat: painted ? (raw.min_float ?? 0) : null,
+    maxFloat: painted ? (raw.max_float ?? 1) : null,
+    imageUrl: raw.image ?? null,
+    ...splitDescription(raw.description),
   };
 }
 
 /**
- * Último recurso quando o dataset não traz `weapon`: o nome do mercado
- * começa com o modelo, depois do "★" e das variantes.
+ * Last resort when the dataset omits `weapon`: the market name starts
+ * with the model, after the "★" and the variants.
  *
  *   "★ StatTrak™ Stiletto Knife"          -> "Stiletto Knife"
  *   "★ Karambit | Doppler (Factory New)"  -> "Karambit"
  */
-function armaPeloNome(nome: string): string | null {
-  const limpo = nome
+function weaponFromName(name: string): string | null {
+  const cleaned = name
     .replace(/^★\s*/, '')
     .replace(/^StatTrak™\s*/, '')
     .replace(/^Souvenir\s*/, '')
@@ -217,10 +219,10 @@ function armaPeloNome(nome: string): string | null {
     .replace(/\s*\([^)]*\)\s*$/, '')
     .trim();
 
-  return limpo.length > 0 ? limpo : null;
+  return cleaned.length > 0 ? cleaned : null;
 }
 
-const CATEGORIAS_COM_PADRAO = new Set<ItemCategory>([
+const CATEGORIES_WITH_PATTERN = new Set<ItemCategory>([
   ItemCategory.RIFLE,
   ItemCategory.PISTOL,
   ItemCategory.SMG,
@@ -233,23 +235,23 @@ const CATEGORIAS_COM_PADRAO = new Set<ItemCategory>([
 ]);
 
 /**
- * StatTrak e Souvenir são entradas de mercado distintas, com preço
- * próprio — por isso a variante sai do nome, que é o que a Steam usa
- * para diferenciá-las.
+ * StatTrak and Souvenir are distinct market entries with their own
+ * prices — which is why the variant comes from the name, the same thing
+ * Steam uses to tell them apart.
  */
-function varianteDe(nome: string): SkinVariant {
-  if (nome.includes('StatTrak')) {
+function variantOf(name: string): SkinVariant {
+  if (name.includes('StatTrak')) {
     return SkinVariant.STATTRAK;
   }
 
-  if (nome.startsWith('Souvenir ')) {
+  if (name.startsWith('Souvenir ')) {
     return SkinVariant.SOUVENIR;
   }
 
   return SkinVariant.NORMAL;
 }
 
-function textoRaridade(r: ItemBruto['rarity']): string {
+function rarityText(r: RawItem['rarity']): string {
   if (typeof r === 'string') {
     return r;
   }
@@ -258,70 +260,71 @@ function textoRaridade(r: ItemBruto['rarity']): string {
 }
 
 /**
- * Classifica pelo prefixo do nome, na ordem em que a Steam nomeia.
+ * Classifies by the name prefix, in the order Steam names things.
  *
- * A ordem importa: "Sticker | Titan" e "Charm | Lil' Crass" precisam ser
- * testados antes das armas, senão um adesivo de arma cairia na categoria
- * da arma.
+ * The order matters: "Sticker | Titan" and "Charm | Lil' Crass" must be
+ * tested before weapons, otherwise a weapon sticker would land in the
+ * weapon's category.
  */
-function categoriaPeloNome(nome: string, bruto: ItemBruto): ItemCategory {
-  for (const [prefixo, categoria] of PREFIXOS) {
-    if (nome.startsWith(prefixo)) {
-      return categoria;
+function categoryFromName(name: string, raw: RawItem): ItemCategory {
+  for (const [prefix, category] of PREFIXES) {
+    if (name.startsWith(prefix)) {
+      return category;
     }
   }
 
-  // ★ marca faca e luva. Luva se identifica pelo nome do modelo, porque
-  // não há prefixo que as separe das facas.
-  if (nome.startsWith('★')) {
-    return NOMES_DE_LUVA.some((l) => nome.includes(l))
+  // ★ marks knives and gloves. Gloves identify themselves by model name,
+  // because no prefix separates them from knives.
+  if (name.startsWith('★')) {
+    return GLOVE_NAMES.some((g) => name.includes(g))
       ? ItemCategory.GLOVES
       : ItemCategory.KNIFE;
   }
 
   if (
-    /\bCase$/.test(nome) ||
-    nome.includes('Capsule') ||
-    nome.includes('Package')
+    /\bCase$/.test(name) ||
+    name.includes('Capsule') ||
+    name.includes('Package')
   ) {
     return ItemCategory.CONTAINER;
   }
 
-  if (nome.endsWith('Case Key') || nome.endsWith('Key')) {
+  if (name.endsWith('Case Key') || name.endsWith('Key')) {
     return ItemCategory.KEY;
   }
 
-  if (/\b(Coin|Medal|Trophy|Service Medal|Pin)\b/.test(nome)) {
+  if (/\b(Coin|Medal|Trophy|Service Medal|Pin)\b/.test(name)) {
     return ItemCategory.COLLECTIBLE;
   }
 
-  if (nome.includes('Pass')) {
+  if (name.includes('Pass')) {
     return ItemCategory.PASS;
   }
 
-  if (FERRAMENTAS.has(nome)) {
+  if (TOOLS.has(name)) {
     return ItemCategory.TOOL;
   }
 
-  // Arma: o nome tem "Arma | Skin" e o dataset trouxe a arma.
-  if (bruto.weapon?.name && nome.includes('|')) {
-    return categoriaDaArma(bruto.weapon.name);
+  // Weapon: the name reads "Weapon | Skin" and the dataset carried the
+  // weapon.
+  if (raw.weapon?.name && name.includes('|')) {
+    return weaponCategory(raw.weapon.name);
   }
 
-  if (nome.includes('Zeus x27')) {
+  if (name.includes('Zeus x27')) {
     return ItemCategory.EQUIPMENT;
   }
 
-  // Agente vem como "Nome | Facção", sem weapon. É o último caso com
-  // barra, então só chega aqui o que não é arma.
-  if (nome.includes('|')) {
+  // Agents come as "Name | Faction", with no weapon. This is the last
+  // case with a pipe, so only non-weapons reach here.
+  if (name.includes('|')) {
     return ItemCategory.AGENT;
   }
 
   return ItemCategory.OTHER;
 }
 
-const PREFIXOS: Array<[string, ItemCategory]> = [
+const PREFIXES: Array<[string, ItemCategory]> = [
   ['Sticker | ', ItemCategory.STICKER],
   ['Patch | ', ItemCategory.PATCH],
   ['Charm | ', ItemCategory.CHARM],
@@ -331,24 +334,24 @@ const PREFIXOS: Array<[string, ItemCategory]> = [
   ['StatTrak™ Music Kit | ', ItemCategory.MUSIC_KIT],
 ];
 
-const NOMES_DE_LUVA = ['Gloves', 'Hand Wraps', 'Wraps'];
+const GLOVE_NAMES = ['Gloves', 'Hand Wraps', 'Wraps'];
 
-const FERRAMENTAS = new Set([
+const TOOLS = new Set([
   'Name Tag',
   'StatTrak™ Swap Tool',
   'CS:GO Case Key',
   'Storage Unit',
 ]);
 
-/** Mesma tabela do inventário: catálogo e leitura precisam concordar. */
-function categoriaDaArma(arma: string): ItemCategory {
-  if (RIFLES.has(arma)) return ItemCategory.RIFLE;
-  if (PISTOLAS.has(arma)) return ItemCategory.PISTOL;
-  if (SMGS.has(arma)) return ItemCategory.SMG;
-  if (SNIPERS.has(arma)) return ItemCategory.SNIPER_RIFLE;
-  if (ESPINGARDAS.has(arma)) return ItemCategory.SHOTGUN;
-  if (METRALHADORAS.has(arma)) return ItemCategory.MACHINEGUN;
-  if (EQUIPAMENTOS.has(arma)) return ItemCategory.EQUIPMENT;
+/** Same table as the inventory: catalog and reading must agree. */
+function weaponCategory(weapon: string): ItemCategory {
+  if (RIFLES.has(weapon)) return ItemCategory.RIFLE;
+  if (PISTOLS.has(weapon)) return ItemCategory.PISTOL;
+  if (SMGS.has(weapon)) return ItemCategory.SMG;
+  if (SNIPERS.has(weapon)) return ItemCategory.SNIPER_RIFLE;
+  if (SHOTGUNS.has(weapon)) return ItemCategory.SHOTGUN;
+  if (MACHINEGUNS.has(weapon)) return ItemCategory.MACHINEGUN;
+  if (EQUIPMENT.has(weapon)) return ItemCategory.EQUIPMENT;
 
   return ItemCategory.OTHER;
 }
@@ -363,7 +366,7 @@ const RIFLES = new Set([
   'SG 553',
 ]);
 
-const PISTOLAS = new Set([
+const PISTOLS = new Set([
   'CZ75-Auto',
   'Desert Eagle',
   'Dual Berettas',
@@ -388,14 +391,14 @@ const SMGS = new Set([
 
 const SNIPERS = new Set(['AWP', 'G3SG1', 'SCAR-20', 'SSG 08']);
 
-const ESPINGARDAS = new Set(['MAG-7', 'Nova', 'Sawed-Off', 'XM1014']);
+const SHOTGUNS = new Set(['MAG-7', 'Nova', 'Sawed-Off', 'XM1014']);
 
-const METRALHADORAS = new Set(['M249', 'Negev']);
+const MACHINEGUNS = new Set(['M249', 'Negev']);
 
 /**
- * Família própria da Valve. Precisa estar aqui, e não só na checagem por
- * nome: o dataset traz `weapon: "Zeus x27"`, então o fluxo passa por
- * `categoriaDaArma` antes de qualquer verificação textual — e saía de lá
- * como OTHER.
+ * Valve's own family. It has to be here, and not only in the name check:
+ * the dataset carries `weapon: "Zeus x27"`, so the flow reaches
+ * `weaponCategory` before any textual check — and used to come out of it
+ * as OTHER.
  */
-const EQUIPAMENTOS = new Set(['Zeus x27']);
+const EQUIPMENT = new Set(['Zeus x27']);

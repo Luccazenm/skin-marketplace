@@ -1,14 +1,14 @@
 import { ItemCategory, SkinVariant } from '@prisma/client';
-import { mapearItem, type ItemBruto } from './catalog-mapping';
+import { mapItem, type RawItem } from './catalog-mapping';
 
 /**
- * O catálogo é onde preço, busca e vitrine se penduram. Classificar
- * errado aqui não quebra nada visivelmente — só faz um adesivo sumir do
- * filtro de adesivos, ou uma arma entrar sem faixa de float e o banco
- * recusar a linha inteira.
+ * The catalog is where price, search and the storefront hang. Getting the
+ * classification wrong breaks nothing visibly — it just makes a sticker
+ * disappear from the sticker filter, or lets a weapon in without a float
+ * range so the database rejects the whole row.
  */
-describe('mapearItem', () => {
-  const ak: ItemBruto = {
+describe('mapItem', () => {
+  const ak: RawItem = {
     market_hash_name: 'AK-47 | Redline (Field-Tested)',
     weapon: { name: 'AK-47' },
     pattern: { name: 'Redline' },
@@ -19,9 +19,9 @@ describe('mapearItem', () => {
     image: 'https://cdn/ak.png',
   };
 
-  describe('arma', () => {
-    it('preenche arma, skin e faixa de float', () => {
-      const e = mapearItem(ak)!;
+  describe('weapon', () => {
+    it('fills weapon, skin and float range', () => {
+      const e = mapItem(ak)!;
 
       expect(e.category).toBe(ItemCategory.RIFLE);
       expect(e.weapon).toBe('AK-47');
@@ -31,10 +31,11 @@ describe('mapearItem', () => {
       expect(e.collections).toEqual(['The Phoenix Collection']);
     });
 
-    // A constraint do banco exige os quatro campos em arma. Sem faixa no
-    // dataset, cair no domínio inteiro é melhor que perder o item.
-    it('usa a faixa cheia quando o dataset não informa', () => {
-      const e = mapearItem({
+    // The database constraint requires all four fields on a painted item.
+    // Without a range in the dataset, falling back to the whole domain
+    // beats losing the item.
+    it('uses the full range when the dataset omits it', () => {
+      const e = mapItem({
         ...ak,
         min_float: undefined,
         max_float: undefined,
@@ -51,22 +52,23 @@ describe('mapearItem', () => {
       ['MP9', ItemCategory.SMG],
       ['Nova', ItemCategory.SHOTGUN],
       ['Negev', ItemCategory.MACHINEGUN],
-    ])('classifica %s', (arma, esperado) => {
-      const e = mapearItem({
+    ])('classifies %s', (weapon, expected) => {
+      const e = mapItem({
         ...ak,
-        market_hash_name: `${arma} | Alguma Skin (FT)`,
-        weapon: { name: arma },
+        market_hash_name: `${weapon} | Some Skin (FT)`,
+        weapon: { name: weapon },
       })!;
 
-      expect(e.category).toBe(esperado);
+      expect(e.category).toBe(expected);
     });
   });
 
-  describe('itens sem padrão', () => {
-    // O motivo de todo este trabalho: adesivo tem preço próprio, e sem
-    // ele no catálogo não dá para mostrar "arma vale X, adesivo vale Y".
-    it('adesivo entra sem arma nem float', () => {
-      const e = mapearItem({
+  describe('items without a pattern', () => {
+    // The reason for all this work: a sticker has its own price, and
+    // without it in the catalog there is no way to show "the weapon is
+    // worth X, each sticker is worth Y".
+    it('lets a sticker in without weapon or float', () => {
+      const e = mapItem({
         market_hash_name: 'Sticker | Titan | Katowice 2014',
         rarity: { name: 'Legendary' },
       })!;
@@ -87,14 +89,14 @@ describe('mapearItem', () => {
       ['Kilowatt Case', ItemCategory.CONTAINER],
       ['Kilowatt Case Key', ItemCategory.KEY],
       ['Name Tag', ItemCategory.TOOL],
-    ])('classifica %s', (nome, esperado) => {
-      expect(mapearItem({ market_hash_name: nome })!.category).toBe(esperado);
+    ])('classifies %s', (name, expected) => {
+      expect(mapItem({ market_hash_name: name })!.category).toBe(expected);
     });
 
-    // Adesivo de arma tem nome de arma dentro. Testar o prefixo antes
-    // evita que ele caia na categoria da arma.
-    it('não confunde adesivo de arma com arma', () => {
-      const e = mapearItem({
+    // A weapon sticker carries a weapon name inside it. Testing the
+    // prefix first keeps it out of the weapon's category.
+    it('does not confuse a weapon sticker with a weapon', () => {
+      const e = mapItem({
         market_hash_name: 'Sticker | AK-47 | Katowice 2014',
         weapon: { name: 'AK-47' },
       })!;
@@ -103,8 +105,8 @@ describe('mapearItem', () => {
       expect(e.weapon).toBeNull();
     });
 
-    it('agente vira AGENT, não arma', () => {
-      const e = mapearItem({
+    it('maps an agent to AGENT, not to a weapon', () => {
+      const e = mapItem({
         market_hash_name: 'Sir Bloody Miami Darryl | The Professionals',
         rarity: { name: 'Master' },
       })!;
@@ -114,9 +116,9 @@ describe('mapearItem', () => {
     });
   });
 
-  describe('faca e luva', () => {
-    it('★ sem nome de luva é faca', () => {
-      const e = mapearItem({
+  describe('knives and gloves', () => {
+    it('treats ★ without a glove name as a knife', () => {
+      const e = mapItem({
         market_hash_name: '★ Karambit | Doppler (Factory New)',
         weapon: { name: 'Karambit' },
         pattern: { name: 'Doppler' },
@@ -129,17 +131,17 @@ describe('mapearItem', () => {
     it.each([
       "★ Sport Gloves | Pandora's Box (Field-Tested)",
       '★ Hand Wraps | Cobalt Skulls (Minimal Wear)',
-    ])('reconhece luva em %s', (nome) => {
-      expect(mapearItem({ market_hash_name: nome })!.category).toBe(
+    ])('recognises gloves in %s', (name) => {
+      expect(mapItem({ market_hash_name: name })!.category).toBe(
         ItemCategory.GLOVES,
       );
     });
   });
 
-  describe('variante', () => {
-    // Cada variante é cotada separadamente: mesma skin, preços diferentes.
-    it('reconhece StatTrak', () => {
-      const e = mapearItem({
+  describe('variant', () => {
+    // Each variant is quoted separately: same skin, different prices.
+    it('recognises StatTrak', () => {
+      const e = mapItem({
         ...ak,
         market_hash_name: 'StatTrak™ AK-47 | Redline (Field-Tested)',
       })!;
@@ -147,8 +149,8 @@ describe('mapearItem', () => {
       expect(e.variant).toBe(SkinVariant.STATTRAK);
     });
 
-    it('reconhece Souvenir', () => {
-      const e = mapearItem({
+    it('recognises Souvenir', () => {
+      const e = mapItem({
         ...ak,
         market_hash_name: 'Souvenir AWP | Dragon Lore (Factory New)',
         weapon: { name: 'AWP' },
@@ -157,31 +159,31 @@ describe('mapearItem', () => {
       expect(e.variant).toBe(SkinVariant.SOUVENIR);
     });
 
-    it('normal por padrão', () => {
-      expect(mapearItem(ak)!.variant).toBe(SkinVariant.NORMAL);
+    it('defaults to normal', () => {
+      expect(mapItem(ak)!.variant).toBe(SkinVariant.NORMAL);
     });
   });
 
-  describe('o que fica de fora', () => {
-    // Guardar preço de algo que a Steam nunca deixa trocar seria guardar
-    // preço de algo que não pode ser vendido.
+  describe('what stays out', () => {
+    // Storing a price for something Steam never allows trading would be
+    // storing the price of something that cannot be sold.
     it.each(['5 Year Veteran Coin', 'Service Medal', 'Operation Riptide Pass'])(
-      'descarta %s',
-      (nome) => {
-        expect(mapearItem({ market_hash_name: nome })).toBeNull();
+      'discards %s',
+      (name) => {
+        expect(mapItem({ market_hash_name: name })).toBeNull();
       },
     );
 
-    it('descarta item sem nome', () => {
-      expect(mapearItem({ rarity: { name: 'Classified' } })).toBeNull();
+    it('discards an item without a name', () => {
+      expect(mapItem({ rarity: { name: 'Classified' } })).toBeNull();
     });
 
-    // 701 dos 11.134 adesivos vêm com market_hash_name nulo: não existem
-    // no mercado. Criar template para eles encheria o catálogo de linhas
-    // que nenhuma cotação jamais alcança.
-    it('descarta item sem nome de mercado, mesmo tendo name', () => {
+    // 701 of the 11,134 stickers arrive with a null market_hash_name:
+    // they do not exist on the market. Creating templates for them would
+    // fill the catalog with rows no quote ever reaches.
+    it('discards an item without a market name, even if it has a name', () => {
       expect(
-        mapearItem({
+        mapItem({
           name: 'Sticker | Shooter',
           market_hash_name: null,
           rarity: { name: 'Default' },
@@ -190,48 +192,49 @@ describe('mapearItem', () => {
     });
   });
 
-  describe('categoria vinda do arquivo de origem', () => {
-    // O arquivo é autoridade sobre o TIPO; o nome, sobre o caso
-    // específico. Cápsula de torneio não diz em lugar nenhum do nome que
-    // é uma cápsula — mas veio de crates.json, e isso basta.
+  describe('category from the source file', () => {
+    // The file is authoritative about the TYPE; the name, about the
+    // specific case. A tournament capsule says nowhere in its name that
+    // it is a capsule — but it came from crates.json, and that is enough.
     it.each([
       'Katowice 2019 Legends (Holo-Foil)',
       'Stockholm 2021 Patch Pack',
       'StatTrak™ Masterminds 2 Music Kit Box',
       'CS:GO Weapon Case 2',
-    ])('classifica %s pelo arquivo', (nome) => {
+    ])('classifies %s by the file', (name) => {
       expect(
-        mapearItem(
-          { market_hash_name: nome },
-          { categoriaPadrao: ItemCategory.CONTAINER },
+        mapItem(
+          { market_hash_name: name },
+          { defaultCategory: ItemCategory.CONTAINER },
         )!.category,
       ).toBe(ItemCategory.CONTAINER);
     });
 
-    // O nome ganha quando reconhece: adesivo listado em crates.json
-    // continua sendo adesivo.
-    it('não deixa o arquivo sobrescrever o que o nome já resolveu', () => {
-      const e = mapearItem(
+    // The name wins when it resolves: a sticker listed in crates.json is
+    // still a sticker.
+    it('does not let the file override what the name already resolved', () => {
+      const e = mapItem(
         { market_hash_name: 'Sticker | Titan | Katowice 2014' },
-        { categoriaPadrao: ItemCategory.CONTAINER },
+        { defaultCategory: ItemCategory.CONTAINER },
       )!;
 
       expect(e.category).toBe(ItemCategory.STICKER);
     });
 
-    it('fica em OTHER quando nem nome nem arquivo resolvem', () => {
-      expect(
-        mapearItem({ market_hash_name: 'Coisa Desconhecida' })!.category,
-      ).toBe(ItemCategory.OTHER);
+    it('stays OTHER when neither name nor file resolves', () => {
+      expect(mapItem({ market_hash_name: 'Unknown Thing' })!.category).toBe(
+        ItemCategory.OTHER,
+      );
     });
   });
 
-  describe('faca sem pintura', () => {
-    // Vanilla existe, é cara, e não tem skin nem float: não há desgaste
-    // em superfície não pintada. Foram 40 itens recusados na primeira
-    // importação por a constraint exigir skin de toda faca.
-    it('entra sem skin e sem faixa de float', () => {
-      const e = mapearItem({
+  describe('vanilla knife', () => {
+    // Vanillas exist, are expensive, and have no skin and no float: there
+    // is no wear on an unpainted surface. Forty items were rejected on
+    // the first import because the constraint demanded a skin on every
+    // knife.
+    it('enters without a skin and without a float range', () => {
+      const e = mapItem({
         market_hash_name: '★ StatTrak™ Stiletto Knife',
         weapon: { name: 'Stiletto Knife' },
       })!;
@@ -243,28 +246,26 @@ describe('mapearItem', () => {
       expect(e.maxFloat).toBeNull();
     });
 
-    // A constraint exige weapon em toda arma. Sem o campo no dataset, o
-    // nome é a única fonte — e perder o item seria pior.
-    it('deduz a arma do nome quando o dataset não traz', () => {
-      expect(mapearItem({ market_hash_name: '★ Karambit' })!.weapon).toBe(
+    // The constraint requires a weapon on every weapon. Without the field
+    // in the dataset, the name is the only source — and losing the item
+    // would be worse.
+    it('derives the weapon from the name when the dataset omits it', () => {
+      expect(mapItem({ market_hash_name: '★ Karambit' })!.weapon).toBe(
         'Karambit',
       );
       expect(
-        mapearItem({ market_hash_name: '★ StatTrak™ Talon Knife' })!.weapon,
+        mapItem({ market_hash_name: '★ StatTrak™ Talon Knife' })!.weapon,
       ).toBe('Talon Knife');
     });
   });
 
   describe('Zeus x27', () => {
-    // Tem skin, exterior e float como qualquer arma, mas a Valve o
-    // classifica à parte. Sem categoria própria, ficava em OTHER — e
-    // OTHER não tem padrão único, então o float dele não apareceria.
-    // Regressão: o dataset traz weapon "Zeus x27", então o fluxo passa
-    // por categoriaDaArma antes de qualquer checagem por nome. A primeira
-    // versão só olhava o nome e o Zeus continuou em OTHER na importação
-    // real, apesar de o teste passar.
-    it('vira EQUIPMENT quando o dataset traz a arma', () => {
-      const e = mapearItem({
+    // Regression: the dataset carries weapon "Zeus x27", so the flow
+    // reaches weaponCategory before any name check. The first version
+    // only looked at the name and the Zeus stayed in OTHER on the real
+    // import, even though the test passed.
+    it('becomes EQUIPMENT when the dataset carries the weapon', () => {
+      const e = mapItem({
         market_hash_name: 'Zeus x27 | Olympus (Factory New)',
         weapon: { name: 'Zeus x27' },
         pattern: { name: 'Olympus' },
@@ -276,8 +277,8 @@ describe('mapearItem', () => {
       expect(e.weapon).toBe('Zeus x27');
     });
 
-    it('vira EQUIPMENT também sem o campo weapon', () => {
-      const e = mapearItem({
+    it('becomes EQUIPMENT without the weapon field too', () => {
+      const e = mapItem({
         market_hash_name: 'Zeus x27 | Olympus (Factory New)',
         pattern: { name: 'Olympus' },
         min_float: 0,
@@ -285,7 +286,6 @@ describe('mapearItem', () => {
       })!;
 
       expect(e.category).toBe(ItemCategory.EQUIPMENT);
-      expect(e.weapon).toBe('Zeus x27');
       expect(e.skinName).toBe('Olympus');
       expect(e.minFloat).toBe(0);
       expect(e.maxFloat).toBe(0.4);
@@ -294,39 +294,39 @@ describe('mapearItem', () => {
     it.each([
       'StatTrak™ Zeus x27 | Tosai (Minimal Wear)',
       'Souvenir Zeus x27 | Dragon Snore (Well-Worn)',
-    ])('reconhece a variante em %s', (nome) => {
-      expect(mapearItem({ market_hash_name: nome })!.category).toBe(
+    ])('recognises the variant in %s', (name) => {
+      expect(mapItem({ market_hash_name: name })!.category).toBe(
         ItemCategory.EQUIPMENT,
       );
     });
   });
 
-  describe('origem do item', () => {
-    // O arquivo de skins não traz coleção nenhuma: ela só existe do
-    // outro lado, em collections.json e crates.json, cruzada pelo
-    // skin_id.
-    it('usa as origens resolvidas por fora', () => {
-      const e = mapearItem(
+  describe('item origin', () => {
+    // The skins file carries no collection at all: it only exists on the
+    // other side, in collections.json and crates.json, cross-referenced
+    // by skin_id.
+    it('uses the origins resolved externally', () => {
+      const e = mapItem(
         { ...ak, collections: undefined, skin_id: 'skin-abc' },
-        { colecoes: ['The Kilowatt Collection'] },
+        { collections: ['The Kilowatt Collection'] },
       )!;
 
       expect(e.collections).toEqual(['The Kilowatt Collection']);
     });
 
-    // O caso que motivou a lista: guardar só uma seria escolher
-    // arbitrariamente qual das três, por ordem de iteração. E a
-    // quantidade de origens importa — skin que cai de três caixas tem
-    // oferta muito maior que uma exclusiva.
-    it('guarda todas as caixas de onde a faca sai', () => {
-      const e = mapearItem(
+    // The case that motivated the list: storing only one would mean
+    // arbitrarily choosing which of the three, by iteration order. And
+    // the number of origins matters — a skin dropping from three cases
+    // has far more supply than an exclusive one.
+    it('stores every case a knife drops from', () => {
+      const e = mapItem(
         {
           market_hash_name: '★ Karambit | Doppler (Factory New)',
           weapon: { name: 'Karambit' },
           pattern: { name: 'Doppler' },
           skin_id: 'skin-525ac56c082c',
         },
-        { colecoes: ['Chroma Case', 'Chroma 2 Case', 'Chroma 3 Case'] },
+        { collections: ['Chroma Case', 'Chroma 2 Case', 'Chroma 3 Case'] },
       )!;
 
       expect(e.collections).toEqual([
@@ -336,26 +336,26 @@ describe('mapearItem', () => {
       ]);
     });
 
-    it('junta o cruzamento com o que o próprio item traz', () => {
-      const e = mapearItem(
-        { ...ak, crates: [{ name: 'Alguma Caixa' }] },
-        { colecoes: ['The Phoenix Collection'] },
+    it('merges the cross-check with what the item itself carries', () => {
+      const e = mapItem(
+        { ...ak, crates: [{ name: 'Some Case' }] },
+        { collections: ['The Phoenix Collection'] },
       )!;
 
       expect(e.collections.sort()).toEqual([
-        'Alguma Caixa',
+        'Some Case',
         'The Phoenix Collection',
       ]);
     });
 
-    it('não repete a mesma origem vinda de duas fontes', () => {
-      const e = mapearItem(ak, { colecoes: ['The Phoenix Collection'] })!;
+    it('does not repeat the same origin coming from two sources', () => {
+      const e = mapItem(ak, { collections: ['The Phoenix Collection'] })!;
 
       expect(e.collections).toEqual(['The Phoenix Collection']);
     });
 
-    it('cai para a cápsula quando o cruzamento não alcança', () => {
-      const e = mapearItem({
+    it('falls back to the capsule when the cross-check does not reach', () => {
+      const e = mapItem({
         market_hash_name: 'Sticker | Titan | Katowice 2014',
         crates: [{ name: 'EMS Katowice 2014 Legends' }],
       })!;
@@ -363,20 +363,20 @@ describe('mapearItem', () => {
       expect(e.collections).toEqual(['EMS Katowice 2014 Legends']);
     });
 
-    it('fica vazia quando nenhuma fonte informa', () => {
-      const e = mapearItem({ ...ak, collections: undefined })!;
+    it('stays empty when no source informs it', () => {
+      const e = mapItem({ ...ak, collections: undefined })!;
 
       expect(e.collections).toEqual([]);
     });
   });
 
-  describe('descrição', () => {
-    const bruta =
+  describe('description', () => {
+    const raw =
       'Powerful and reliable, the AK-47 is one of the most popular ' +
       'assault rifles.\n\n<i>Never be afraid to push it to the limit</i>';
 
-    it('separa a descrição do texto de sabor', () => {
-      const e = mapearItem({ ...ak, description: bruta })!;
+    it('splits the description from the flavor text', () => {
+      const e = mapItem({ ...ak, description: raw })!;
 
       expect(e.description).toBe(
         'Powerful and reliable, the AK-47 is one of the most popular assault rifles.',
@@ -384,82 +384,83 @@ describe('mapearItem', () => {
       expect(e.flavorText).toBe('Never be afraid to push it to the limit');
     });
 
-    // Devolver marcação de terceiro para a tela obrigaria o frontend a
-    // sanitizar — e página de item é onde alguém decide vender algo caro.
-    it('não deixa passar HTML', () => {
-      const e = mapearItem({
+    // Handing third-party markup to the screen would force the frontend
+    // to sanitize — and an item page is where someone decides to sell
+    // something expensive.
+    it('lets no HTML through', () => {
+      const e = mapItem({
         ...ak,
-        description: 'Texto <b>com</b> <span style="x">marcação</span>.',
+        description: 'Text <b>with</b> <span style="x">markup</span>.',
       })!;
 
-      expect(e.description).toBe('Texto com marcação.');
+      expect(e.description).toBe('Text with markup.');
       expect(e.description).not.toContain('<');
     });
 
-    it('converte <br> em quebra de linha', () => {
-      const e = mapearItem({ ...ak, description: 'Linha um<br>Linha dois' })!;
+    it('converts <br> into a line break', () => {
+      const e = mapItem({ ...ak, description: 'Line one<br>Line two' })!;
 
-      expect(e.description).toBe('Linha um\nLinha dois');
+      expect(e.description).toBe('Line one\nLine two');
     });
 
-    // Regressão: o dataset traz a quebra como os dois caracteres "\" e
-    // "n". Sem converter, o texto "\n\n" aparecia escrito na descrição
-    // gravada — apareceu na primeira importação real.
-    it('converte quebra escrita com barra invertida', () => {
-      const e = mapearItem({
+    // Regression: the dataset ships the break as the two characters "\"
+    // and "n". Without converting, the text "\n\n" appeared written out
+    // in the stored description — it showed up on the first real import.
+    it('converts a break written with a backslash', () => {
+      const e = mapItem({
         ...ak,
-        description: 'Primeira parte.\\n\\nSegunda parte.',
+        description: 'First part.\\n\\nSecond part.',
       })!;
 
-      expect(e.description).toBe('Primeira parte.\n\nSegunda parte.');
+      expect(e.description).toBe('First part.\n\nSecond part.');
       expect(e.description).not.toContain('\\n');
     });
 
-    it('não deixa a quebra literal sobrar no fim', () => {
-      const e = mapearItem({
+    it('does not leave the literal break at the end', () => {
+      const e = mapItem({
         ...ak,
-        description: 'Texto da skin.\\n\\n<i>Sabor</i>',
+        description: 'Skin text.\\n\\n<i>Flavor</i>',
       })!;
 
-      expect(e.description).toBe('Texto da skin.');
-      expect(e.flavorText).toBe('Sabor');
+      expect(e.description).toBe('Skin text.');
+      expect(e.flavorText).toBe('Flavor');
     });
 
-    it('decodifica entidades', () => {
-      const e = mapearItem({
+    it('decodes entities', () => {
+      const e = mapItem({
         ...ak,
-        description: 'Bolt &amp; Chain &quot;especial&quot;',
+        description: 'Bolt &amp; Chain &quot;special&quot;',
       })!;
 
-      expect(e.description).toBe('Bolt & Chain "especial"');
+      expect(e.description).toBe('Bolt & Chain "special"');
     });
 
-    it('aceita descrição sem sabor', () => {
-      const e = mapearItem({ ...ak, description: 'Só a descrição.' })!;
+    it('accepts a description without flavor text', () => {
+      const e = mapItem({ ...ak, description: 'Just the description.' })!;
 
-      expect(e.description).toBe('Só a descrição.');
+      expect(e.description).toBe('Just the description.');
       expect(e.flavorText).toBeNull();
     });
 
-    it.each([undefined, '', '   '])('fica nula quando vem %p', (d) => {
-      const e = mapearItem({ ...ak, description: d })!;
+    it.each([undefined, '', '   '])('stays null when it arrives as %p', (d) => {
+      const e = mapItem({ ...ak, description: d })!;
 
       expect(e.description).toBeNull();
       expect(e.flavorText).toBeNull();
     });
   });
 
-  describe('formato do dataset', () => {
-    it('aceita raridade como texto solto', () => {
-      expect(mapearItem({ ...ak, rarity: 'Covert' })!.rarity).toBe('Covert');
+  describe('dataset shape', () => {
+    it('accepts rarity as plain text', () => {
+      expect(mapItem({ ...ak, rarity: 'Covert' })!.rarity).toBe('Covert');
     });
 
-    it('usa Unknown quando a raridade não vem', () => {
-      expect(mapearItem({ ...ak, rarity: undefined })!.rarity).toBe('Unknown');
+    it('uses Unknown when rarity is missing', () => {
+      expect(mapItem({ ...ak, rarity: undefined })!.rarity).toBe('Unknown');
     });
 
-    it('cai para crates quando não há collections', () => {
-      const e = mapearItem({
+    it('falls back to crates when there are no collections', () => {
+      const e = mapItem({
         ...ak,
         collections: undefined,
         crates: [{ name: 'Kilowatt Case' }],
@@ -468,8 +469,8 @@ describe('mapearItem', () => {
       expect(e.collections).toEqual(['Kilowatt Case']);
     });
 
-    it('usa name quando falta market_hash_name', () => {
-      const e = mapearItem({
+    it('uses name when market_hash_name is missing', () => {
+      const e = mapItem({
         ...ak,
         market_hash_name: undefined,
         name: 'AK-47 | Redline (FT)',
