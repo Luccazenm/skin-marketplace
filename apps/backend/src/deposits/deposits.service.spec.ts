@@ -17,6 +17,7 @@ import { validateEnv } from '../config/env.validation';
 import { InventoryService } from '../inventory/inventory.service';
 import type { InventoryItem } from '../inventory/steam-inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { clearAuditLog } from '../test-utils/clear-audit-log';
 import { DepositsService } from './deposits.service';
 
@@ -72,9 +73,15 @@ describe('DepositsService.requestDeposit', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
       ],
-      // AuditService goes in for real: recording the refusal is part of
-      // the expected behaviour, not a detail that can be mocked away.
-      providers: [DepositsService, PrismaService, AuditService],
+      // AuditService and NotificationsService go in for real: recording
+      // the refusal and telling the user are part of the expected
+      // behaviour, not details that can be mocked away.
+      providers: [
+        DepositsService,
+        PrismaService,
+        AuditService,
+        NotificationsService,
+      ],
     })
       .useMocker((token) =>
         token === InventoryService ? inventoryMock : undefined,
@@ -180,6 +187,37 @@ describe('DepositsService.requestDeposit', () => {
       expect(log.metadata).toMatchObject({
         items: [{ assetId: '111', name: 'AK-47 | Test 111', price: '42.50' }],
       });
+    });
+  });
+
+  // Confirmations belong under the bell, not inline on the page the user
+  // is about to leave. The event and its values are stored, never a
+  // finished sentence — the site is international and the wording has to
+  // follow the language picker.
+  describe('the notification', () => {
+    it('records the event with its values, not a sentence', async () => {
+      const offer = await service.requestDeposit(user, sell('111', '222'));
+
+      const [notification] = await prisma.notification.findMany({
+        where: { userId: user.id },
+      });
+
+      expect(notification.kind).toBe('deposit.queued');
+      expect(notification.params).toEqual({ itemCount: 2 });
+      expect(notification.targetType).toBe('TradeOffer');
+      expect(notification.targetId).toBe(offer.id);
+      // Unread, or the bell would never light up
+      expect(notification.readAt).toBeNull();
+    });
+
+    // A refused deposit is audited, not announced: there is nothing to
+    // come back and read about something that did not happen.
+    it('is not written when the deposit is refused', async () => {
+      await expect(service.requestDeposit(user, sell('999'))).rejects.toThrow();
+
+      expect(
+        await prisma.notification.count({ where: { userId: user.id } }),
+      ).toBe(0);
     });
   });
 
@@ -301,6 +339,9 @@ async function cleanUp(prisma: PrismaService, ...steamIds: string[]) {
   // DELETEd — clearAuditLog uses TRUNCATE, which a row trigger does not
   // see, leaving the protection on throughout. See CLAUDE.md.
   await clearAuditLog(prisma);
+  await prisma.notification.deleteMany({
+    where: { user: { steamId: { in: steamIds } } },
+  });
   await prisma.tradeOffer.deleteMany({
     where: { user: { steamId: { in: steamIds } } },
   });

@@ -73,6 +73,7 @@ model User {
   tradeOffers  TradeOffer[]
   purchases    Order[]       @relation("OrderBuyer")
   sales        Order[]       @relation("OrderSeller")
+  notifications Notification[]
 
   // Metadata
   createdAt   DateTime  @default(now())
@@ -527,6 +528,60 @@ enum AuditOutcome {
   SUCCESS
   DENIED // refused by a business rule
   FAILED // technical error
+}
+
+// =========================
+// NOTIFICATION
+// =========================
+// What the user is told happened, gathered under the bell.
+//
+// Not to be confused with AuditLog, which sits next to it and could
+// look like a duplicate. The audit log is the proof, written for us,
+// immutable, and it records refusals and internal actors too. This is a
+// message to one person, which they read and dismiss. An event can
+// produce both, one, or neither.
+//
+// It lives in the database rather than in the browser because almost
+// everything worth telling someone happens while they are not looking:
+// the bot sent your offer, it received your items, your skin sold, the
+// delivery went out. A list kept in the page could only ever hold the
+// click that just happened, which is the least useful part.
+//
+// **The text is not stored — the event and its data are.** The site is
+// international and the language picker is already on screen; English
+// sentences written into the database could never be translated
+// afterwards. `kind` says what happened, `params` carries the values to
+// render it with, and the wording lives in the frontend.
+model Notification {
+  id String @id @default(uuid(7))
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Convention "domain.event": deposit.queued, listing.sold,
+  /// delivery.sent. A String and not an enum for the same reason as
+  /// AuditLog.action — a new kind of message should not need a
+  /// migration.
+  kind String
+
+  /// The values the sentence needs: item names, counts, amounts. Never a
+  /// finished sentence.
+  params Json?
+
+  /// What it refers to, so the bell can link somewhere useful.
+  targetType String?
+  targetId   String?
+
+  /// Null until the user has seen it. The unread count on the bell is a
+  /// count of these.
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  /// The bell: this user's newest first.
+  @@index([userId, createdAt])
+  /// The unread badge, without scanning the whole history.
+  @@index([userId, readAt])
 }
 
 // =========================

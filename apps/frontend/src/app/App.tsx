@@ -22,6 +22,7 @@ import { logout, startSteamLogin } from "@/lib/api";
 import { useSession } from "@/lib/use-session";
 import { SellPage } from "./SellPage";
 import { TradeUrlBanner } from "./TradeUrlBanner";
+import { NotificationBell } from "./NotificationBell";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
 const RARITY: Record<string, { label: string; color: string; glow: string; from: string; to: string }> = {
@@ -2011,12 +2012,15 @@ export default function App() {
   }
   const [sort, setSort]             = useState("Default");
   const [selectedSkin, setSelected] = useState<Skin | null>(null);
-  // Both start empty because the backend has neither a cart nor
-  // notifications yet, and inventing a number here would be the screen
-  // asserting something no endpoint can back. They become real reads
-  // when those endpoints exist.
+  // The cart starts empty because the backend has no cart yet, and a
+  // number here would be the screen asserting something no endpoint can
+  // back. It becomes a real read when that endpoint exists.
   const [cartCount] = useState(0);
-  const [notificationCount] = useState(0);
+
+  // Bumped whenever something happened that may have produced a
+  // notification, so the bell refetches. Better than polling on a timer
+  // for an event the page itself just caused.
+  const [notificationsKey, setNotificationsKey] = useState(0);
   const [filtersOpen, setFilters]   = useState(false);
   const [activeNav, setActiveNav]   = useState("Market");
   const [language, setLanguage]     = useState("EN");
@@ -2166,17 +2170,7 @@ export default function App() {
             {/* The bell belongs to an account: an anonymous visitor has
                 nothing to be notified about, so it is not shown at all
                 when signed out. */}
-            {session.user && (
-              <button className="relative text-muted-foreground hover:text-foreground transition-colors">
-                <Bell className="w-5 h-5" />
-                {/* A count only when there is something to count. A badge
-                    showing a number nobody can act on trains the user to
-                    ignore the badge that will matter later. */}
-                {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-mono font-bold flex items-center justify-center" style={{ background: "#e84060", color: "#fff" }}>{notificationCount}</span>
-                )}
-              </button>
-            )}
+            {session.user && <NotificationBell reloadKey={notificationsKey} />}
             {/* The cart stays visible either way — it is how someone
                 finds what they picked up, signed in or not. Only the
                 count is conditional. */}
@@ -2277,6 +2271,7 @@ export default function App() {
           <SellPage
             signedIn={!!session.user}
             hasTradeUrl={session.user?.hasTradeUrl ?? false}
+            onDeposited={() => setNotificationsKey((k) => k + 1)}
           />
         ) : (
         <div className="flex gap-6">

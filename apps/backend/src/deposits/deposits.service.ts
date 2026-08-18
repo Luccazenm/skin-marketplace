@@ -22,6 +22,10 @@ import {
 } from '../audit/audit.service';
 import { capabilitiesFor } from '../auth/steam-restrictions';
 import { InventoryService } from '../inventory/inventory.service';
+import {
+  NOTIFICATION_KINDS,
+  NotificationsService,
+} from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** One item the seller wants to deposit, with the price to open at. */
@@ -47,6 +51,7 @@ export class DepositsService {
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -175,6 +180,16 @@ export class DepositsService {
         })),
       },
       context,
+    });
+
+    // The event and its values, not a sentence: the wording lives in the
+    // frontend so it can follow the language picker.
+    await this.notifications.notify({
+      userId: user.id,
+      kind: NOTIFICATION_KINDS.DEPOSIT_QUEUED,
+      params: { itemCount: items.length },
+      targetType: 'TradeOffer',
+      targetId: offer.id,
     });
 
     this.logger.log(

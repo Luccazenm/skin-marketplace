@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
 import { AuditModule } from './audit/audit.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { DepositsModule } from './deposits/deposits.module';
 import { InventoryModule } from './inventory/inventory.module';
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module';
     PrismaModule,
     RedisModule,
     AuditModule,
+    NotificationsModule,
     AuthModule,
     UsersModule,
     InventoryModule,

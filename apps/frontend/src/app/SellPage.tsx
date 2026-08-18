@@ -21,9 +21,12 @@ import {
 export function SellPage({
   signedIn,
   hasTradeUrl,
+  onDeposited,
 }: {
   signedIn: boolean;
   hasTradeUrl: boolean;
+  /** Tells the header a notification may have arrived. */
+  onDeposited: () => void;
 }) {
   const inventory = useInventory(signedIn);
 
@@ -32,7 +35,6 @@ export function SellPage({
   const [selected, setSelected] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState<number | null>(null);
 
   // Only what can actually be deposited is offered for sale. The rest is
   // still counted, and said out loud below, because an item silently
@@ -73,14 +75,17 @@ export function SellPage({
     setSubmitError(null);
 
     try {
-      const result = await requestDeposit(
+      await requestDeposit(
         selectedItems.map((i) => ({
           assetId: i.assetId,
           price: prices[i.assetId],
         })),
       );
 
-      setSubmitted(result.itemCount);
+      // The confirmation is a notification now, under the bell, not a
+      // line on a page the user is about to leave. All this has to do is
+      // tell the header to look.
+      onDeposited();
       setSelected([]);
       setPrices({});
       // The assetIds we just sent are now spoken for, and the backend
@@ -137,16 +142,6 @@ export function SellPage({
         {inventory.data?.stale && (
           <div className="mb-3 font-mono text-[11px] flex-shrink-0" style={{ color: '#f0c040' }}>
             Steam is slow right now, so this list may be a few minutes old.
-          </div>
-        )}
-
-        {/* The confirmation lives here, not in the panel: sending clears
-            the selection, and the panel goes with it. Here it sits with
-            the other notices, where the eye already is. */}
-        {submitted !== null && (
-          <div className="mb-3 font-mono text-[11px] flex-shrink-0" style={{ color: '#4ade80' }}>
-            {submitted} item{submitted > 1 ? 's' : ''} queued. Accept the
-            Trade Bot&apos;s offer on Steam to finish.
           </div>
         )}
 

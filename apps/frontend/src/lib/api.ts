@@ -289,3 +289,44 @@ export async function requestDeposit(
     body: JSON.stringify({ items }),
   });
 }
+
+// ---------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------
+
+/**
+ * One message under the bell.
+ *
+ * The backend sends the event and its values, never a finished
+ * sentence: the site is international and the language picker is on
+ * screen, so the wording has to live here where it can be translated.
+ */
+export interface Notification {
+  id: string;
+  /** "domain.event", e.g. "deposit.queued". */
+  kind: string;
+  /** The values the sentence needs. Shape depends on the kind. */
+  params: Record<string, unknown> | null;
+  targetType: string | null;
+  targetId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationFeed {
+  unread: number;
+  items: Notification[];
+}
+
+export async function getNotifications(): Promise<NotificationFeed> {
+  return request<NotificationFeed>('/notifications');
+}
+
+/** Marks everything currently unread as read. Scoped to the caller. */
+export async function markNotificationsRead(): Promise<number> {
+  const result = await request<{ read: number }>('/notifications/read', {
+    method: 'POST',
+  });
+
+  return result.read;
+}
