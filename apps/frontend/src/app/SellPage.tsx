@@ -157,18 +157,32 @@ export function SellPage({
   return (
     <div className="flex gap-0" style={{ height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden pt-6 pb-4 pr-6">
-        <div className="flex items-center gap-3 mb-3 flex-shrink-0">
+        {/* The toolbar sits inside this column, not above the split, so
+            the whole top edge narrows with the grid when the sell panel
+            opens. It costs the search a sideways shift on that first
+            pick — the alternative was a toolbar hanging over the panel.
+
+            Three columns rather than a flex row: equal outer columns keep
+            the search in the true centre of whatever width the column
+            currently has. In a flex row it would drift by the difference
+            between the two sides, wandering as the count went from
+            "9 sellable" to "177 sellable". */}
+        <div className="grid items-center gap-3 mb-3 flex-shrink-0" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+          <span className="font-mono text-xs" style={{ color: '#9da3c0' }}>
+            <span className="font-semibold" style={{ color: '#e8eaf0' }}>{filtered.length}</span> sellable
+          </span>
+
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search your inventory…"
-            className="flex-1 px-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
+            className="w-[26rem] max-w-full px-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#e8eaf0' }}
           />
-          <MiniSortDropdown value={sort} onChange={setSort} options={SELL_SORTS} />
-          <span className="font-mono text-xs flex-shrink-0" style={{ color: '#9da3c0' }}>
-            <span className="font-semibold" style={{ color: '#e8eaf0' }}>{filtered.length}</span> sellable
-          </span>
+
+          <div className="flex justify-end">
+            <MiniSortDropdown value={sort} onChange={setSort} options={SELL_SORTS} />
+          </div>
         </div>
 
         {/* Said out loud rather than hidden: an item missing from your own
