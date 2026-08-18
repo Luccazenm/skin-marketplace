@@ -1,107 +1,105 @@
 import { SteamEconomyBan } from '@prisma/client';
 import type { SteamAccountState } from '../auth/steam-account-state.service';
 import type { SteamBanStatus } from '../auth/steam-ban.service';
-import { impedimentosParaOperar, perfilEstaPublico } from './bot-eligibility';
+import { blockersToOperate, profileIsPublic } from './bot-eligibility';
 
-const semBan: SteamBanStatus = {
+const noBan: SteamBanStatus = {
   economyBan: SteamEconomyBan.NONE,
   vacBanned: false,
 };
 
-const contaOk: SteamAccountState = {
+const goodAccount: SteamAccountState = {
   isLimited: false,
   privacyState: 'public',
   tradeBanState: 'None',
 };
 
-const motivos = (
-  ban: SteamBanStatus | null,
-  estado: SteamAccountState | null,
-) => impedimentosParaOperar(ban, estado).map((i) => i.motivo);
+const reasons = (ban: SteamBanStatus | null, state: SteamAccountState | null) =>
+  blockersToOperate(ban, state).map((b) => b.reason);
 
-describe('impedimentosParaOperar', () => {
-  it('não impede uma conta em ordem', () => {
-    expect(impedimentosParaOperar(semBan, contaOk)).toEqual([]);
+describe('blockersToOperate', () => {
+  it('does not block an account in good standing', () => {
+    expect(blockersToOperate(noBan, goodAccount)).toEqual([]);
   });
 
-  // O caso que motivou tudo isto: conta recém-criada passa por toda
-  // checagem de ban e mesmo assim não negocia.
-  it('impede conta limitada, mesmo sem ban nenhum', () => {
-    expect(motivos(semBan, { ...contaOk, isLimited: true })).toEqual([
-      'conta_limitada',
+  // The case that motivated all of this: a freshly created account passes
+  // every ban check and still cannot trade.
+  it('blocks a limited account, even with no ban at all', () => {
+    expect(reasons(noBan, { ...goodAccount, isLimited: true })).toEqual([
+      'limited_account',
     ]);
   });
 
-  it('impede restrição de economia', () => {
+  it('blocks an economy restriction', () => {
     expect(
-      motivos({ ...semBan, economyBan: SteamEconomyBan.BANNED }, contaOk),
-    ).toEqual(['restricao_de_economia']);
+      reasons({ ...noBan, economyBan: SteamEconomyBan.BANNED }, goodAccount),
+    ).toEqual(['economy_restriction']);
   });
 
-  // PROBATION não é bloqueio definitivo da Valve, mas é conta sob
-  // observação — não é onde se guarda item de terceiro.
-  it('impede também em probation', () => {
+  // PROBATION is not a permanent Valve block, but it is an account under
+  // watch — not where you keep someone else's items.
+  it('blocks on probation too', () => {
     expect(
-      motivos({ ...semBan, economyBan: SteamEconomyBan.PROBATION }, contaOk),
-    ).toEqual(['restricao_de_economia']);
+      reasons({ ...noBan, economyBan: SteamEconomyBan.PROBATION }, goodAccount),
+    ).toEqual(['economy_restriction']);
   });
 
-  it('impede VAC ban', () => {
-    expect(motivos({ ...semBan, vacBanned: true }, contaOk)).toEqual([
+  it('blocks a VAC ban', () => {
+    expect(reasons({ ...noBan, vacBanned: true }, goodAccount)).toEqual([
       'vac_ban',
     ]);
   });
 
-  it('acumula impedimentos em vez de parar no primeiro', () => {
+  it('accumulates blockers instead of stopping at the first', () => {
     expect(
-      motivos(
+      reasons(
         { economyBan: SteamEconomyBan.BANNED, vacBanned: true },
-        { ...contaOk, isLimited: true },
+        { ...goodAccount, isLimited: true },
       ),
-    ).toEqual(['conta_limitada', 'restricao_de_economia', 'vac_ban']);
+    ).toEqual(['limited_account', 'economy_restriction', 'vac_ban']);
   });
 
-  describe('quando não foi possível apurar', () => {
-    // null é incerteza, não reprovação. Tratar indisponibilidade da Steam
-    // como impedimento travaria o cadastro em dia de instabilidade; quem
-    // chama é que decide o que fazer com a dúvida.
-    it('não impede quando o estado da conta é desconhecido', () => {
-      expect(impedimentosParaOperar(semBan, null)).toEqual([]);
+  describe('when it could not be determined', () => {
+    // null is uncertainty, not rejection. Treating a Steam outage as a
+    // blocker would freeze registration on a bad day; the caller decides
+    // what to do with the doubt.
+    it('does not block when the account state is unknown', () => {
+      expect(blockersToOperate(noBan, null)).toEqual([]);
     });
 
-    it('não impede quando o status de ban é desconhecido', () => {
-      expect(impedimentosParaOperar(null, contaOk)).toEqual([]);
+    it('does not block when the ban status is unknown', () => {
+      expect(blockersToOperate(null, goodAccount)).toEqual([]);
     });
 
-    it('não impede quando nada pôde ser apurado', () => {
-      expect(impedimentosParaOperar(null, null)).toEqual([]);
+    it('does not block when nothing could be determined', () => {
+      expect(blockersToOperate(null, null)).toEqual([]);
     });
   });
 
-  it('diz o que fazer, não só o que falhou', () => {
-    for (const i of impedimentosParaOperar(
+  it('says what to do, not just what failed', () => {
+    for (const b of blockersToOperate(
       { economyBan: SteamEconomyBan.BANNED, vacBanned: true },
-      { ...contaOk, isLimited: true },
+      { ...goodAccount, isLimited: true },
     )) {
-      expect(i.comoResolver.length).toBeGreaterThan(0);
-      expect(i.rotulo.length).toBeGreaterThan(0);
+      expect(b.howToFix.length).toBeGreaterThan(0);
+      expect(b.label.length).toBeGreaterThan(0);
     }
   });
 });
 
-describe('perfilEstaPublico', () => {
-  it('reconhece perfil público', () => {
-    expect(perfilEstaPublico(contaOk)).toBe(true);
+describe('profileIsPublic', () => {
+  it('recognises a public profile', () => {
+    expect(profileIsPublic(goodAccount)).toBe(true);
   });
 
   it.each(['private', 'friendsonly', null])(
-    'trata %s como não público',
+    'treats %s as not public',
     (privacyState) => {
-      expect(perfilEstaPublico({ ...contaOk, privacyState })).toBe(false);
+      expect(profileIsPublic({ ...goodAccount, privacyState })).toBe(false);
     },
   );
 
-  it('trata desconhecido como não público', () => {
-    expect(perfilEstaPublico(null)).toBe(false);
+  it('treats unknown as not public', () => {
+    expect(profileIsPublic(null)).toBe(false);
   });
 });

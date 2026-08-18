@@ -156,7 +156,7 @@ bot.
 
 Consulta por comando: `pnpm audit:user` monta a linha do tempo de uma
 pessoa (aceita steamId ou id interno, mostra antes/depois e IP);
-`pnpm audit:suspeitos` lista quem acumulou recusas no período. Há também
+`pnpm audit:suspicious` lista quem acumulou recusas no período. Há também
 busca por assetId no `AuditQueryService`.
 
 ### Logs estruturados
@@ -243,7 +243,7 @@ depende do `bot-service`, que destrava em 20/08.
 ### Assim que a hospedagem for definida
 
 - **`docker-compose` de produção**, garantindo que os comandos de terminal
-  (`audit:user`, `audit:suspeitos`, `bot:add`, `bot:list`) tenham as
+  (`audit:user`, `audit:suspicious`, `bot:add`, `bot:list`) tenham as
   mesmas variáveis de ambiente da API. Rodando em container isso vem de
   graça; direto na VM, o `.env` precisa estar acessível ao usuário que
   executa.
@@ -466,8 +466,8 @@ vez de exibir um errado — mesmo critério da raspagem de adesivo.
 ## Pendências conhecidas
 
 - **`suspiciousActivity` varre a tabela inteira**, então recusas antigas
-  contam. Isso afeta o `pnpm audit:suspeitos` **em produção**: sem
-  `--dias` curto, tentativas antigas inflam a contagem.
+  contam. Isso afeta o `pnpm audit:suspicious` **em produção**: sem
+  `--days` curto, tentativas antigas inflam a contagem.
 - **Testes ainda rodam em série** (`maxWorkers: 1`). O banco isolado
   tirou o risco de estragar dado real, mas os workers compartilham o
   mesmo banco de teste entre si — paralelizar exige um banco por worker.

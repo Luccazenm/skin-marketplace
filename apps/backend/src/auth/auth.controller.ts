@@ -83,7 +83,7 @@ export class AuthController {
         actorType: AuditActorType.ANONYMOUS,
         action: AUDIT_ACTIONS.LOGIN,
         outcome: AuditOutcome.DENIED,
-        metadata: { motivo: 'openid_invalido' },
+        metadata: { reason: 'openid_invalido' },
         context: contexto,
       });
 

@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Situação da frota:  pnpm build && pnpm bot:list */
+/** Fleet status:  pnpm build && pnpm bot:list */
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error'],
@@ -16,39 +16,38 @@ async function main() {
 
     if (bots.length === 0) {
       console.log(
-        'Nenhum bot cadastrado. Use: pnpm bot:add -- --steam-id=... --ref=...',
+        'No Trade Bot registered. Use: pnpm bot:add -- --steam-id=... --ref=...',
       );
       return;
     }
 
-    const agora = Date.now();
+    const now = Date.now();
 
     for (const bot of bots) {
-      const travado =
-        bot.tradeHoldUntil && bot.tradeHoldUntil.getTime() > agora;
+      const onHold = bot.tradeHoldUntil && bot.tradeHoldUntil.getTime() > now;
 
-      const dias = travado
-        ? Math.ceil((bot.tradeHoldUntil!.getTime() - agora) / 86_400_000)
+      const days = onHold
+        ? Math.ceil((bot.tradeHoldUntil!.getTime() - now) / 86_400_000)
         : 0;
 
-      // itemCount é denormalizado e pode divergir; mostramos os dois para
-      // a diferença ficar visível em vez de silenciosa.
-      const ocupacao = Math.round((bot._count.items / bot.maxItems) * 100);
+      // itemCount is denormalized and can drift; we show both so the
+      // difference is visible rather than silent.
+      const usage = Math.round((bot._count.items / bot.maxItems) * 100);
 
       console.log(`${bot.displayName ?? bot.username}`);
       console.log(`  steamId    ${bot.steamId}`);
       console.log(
-        `  status     ${bot.status}${travado ? ` (libera em ${dias} dia(s))` : ''}`,
+        `  status     ${bot.status}${onHold ? ` (releases in ${days} day(s))` : ''}`,
       );
       console.log(
-        `  ocupação   ${bot._count.items}/${bot.maxItems} (${ocupacao}%)` +
+        `  usage      ${bot._count.items}/${bot.maxItems} (${usage}%)` +
           (bot.itemCount !== bot._count.items
-            ? `  — contador diz ${bot.itemCount}, precisa reconciliar`
+            ? `  — counter says ${bot.itemCount}, needs reconciling`
             : ''),
       );
 
       if (bot.lastError) {
-        console.log(`  último erro ${bot.lastError}`);
+        console.log(`  last error ${bot.lastError}`);
       }
 
       console.log('');
@@ -58,7 +57,7 @@ async function main() {
   }
 }
 
-main().catch((erro) => {
-  console.error(erro);
+main().catch((error) => {
+  console.error(error);
   process.exit(1);
 });

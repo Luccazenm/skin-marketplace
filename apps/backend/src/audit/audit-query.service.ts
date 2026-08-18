@@ -2,56 +2,57 @@ import { Injectable } from '@nestjs/common';
 import { AuditOutcome, type AuditLog, type User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-export interface LinhaDoTempo {
+export interface Timeline {
   user: Pick<
     User,
     'id' | 'steamId' | 'username' | 'balance' | 'isBanned' | 'createdAt'
   >;
-  eventos: AuditLog[];
-  /** Quantos ficaram de fora do recorte pedido. */
-  omitidos: number;
+  events: AuditLog[];
+  /** How many fell outside the requested window. */
+  omitted: number;
 }
 
-export interface AtorSuspeito {
+export interface SuspiciousActor {
   actorId: string | null;
   steamId: string | null;
   username: string | null;
-  recusas: number;
-  /** Motivos distintos, do mais frequente para o menos. */
-  motivos: { acao: string; vezes: number }[];
+  refusals: number;
+  /** Distinct reasons, most frequent first. */
+  reasons: { action: string; times: number }[];
   ips: string[];
-  ultima: Date;
+  last: Date;
 }
 
 /**
- * Leitura da trilha de auditoria.
+ * Reading the audit trail.
  *
- * Existe porque auditoria que ninguém consegue consultar é arquivo morto:
- * quando alguém abrir uma reclamação, é preciso montar a linha do tempo
- * daquela pessoa em minutos, não escrevendo SQL na hora.
+ * It exists because an audit log nobody can query is a dead archive: when
+ * someone files a complaint, you need that person's timeline in minutes,
+ * not by writing SQL on the spot.
  *
- * Só lê. Escrita fica no AuditService, e a tabela é imutável por trigger.
+ * Read-only. Writing lives in AuditService, and the table is immutable by
+ * trigger.
  */
 @Injectable()
 export class AuditQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Tudo que uma pessoa fez, do mais recente para o mais antigo.
+   * Everything a person did, most recent first.
    *
-   * Aceita steamId ou o id interno: numa reclamação, o que chega é o
-   * steamId, mas ao investigar a partir de outro registro o que se tem em
-   * mãos é o uuid.
+   * Accepts a steamId or the internal id: in a complaint what arrives is
+   * the steamId, but when investigating from another record what you have
+   * in hand is the uuid.
    */
   async timelineFor(
-    identificador: string,
-    opcoes: { limite?: number; desde?: Date } = {},
-  ): Promise<LinhaDoTempo | null> {
-    const limite = opcoes.limite ?? 100;
+    identifier: string,
+    options: { limit?: number; since?: Date } = {},
+  ): Promise<Timeline | null> {
+    const limit = options.limit ?? 100;
 
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ steamId: identificador }, { id: identificador }],
+        OR: [{ steamId: identifier }, { id: identifier }],
       },
       select: {
         id: true,
@@ -67,115 +68,115 @@ export class AuditQueryService {
       return null;
     }
 
-    // Inclui o que a pessoa fez e o que foi feito sobre ela: uma ação
-    // administrativa sobre a conta tem actorId de outro e apareceria só
-    // pelo alvo.
+    // Includes what the person did and what was done to them: an
+    // administrative action on the account carries someone else's actorId
+    // and would only show up through the target.
     const where = {
       OR: [{ actorId: user.id }, { targetType: 'User', targetId: user.id }],
-      ...(opcoes.desde ? { createdAt: { gte: opcoes.desde } } : {}),
+      ...(options.since ? { createdAt: { gte: options.since } } : {}),
     };
 
-    const [eventos, total] = await Promise.all([
+    const [events, total] = await Promise.all([
       this.prisma.auditLog.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        take: limite,
+        take: limit,
       }),
       this.prisma.auditLog.count({ where }),
     ]);
 
-    return { user, eventos, omitidos: Math.max(0, total - eventos.length) };
+    return { user, events, omitted: Math.max(0, total - events.length) };
   }
 
   /**
-   * Quem acumulou recusas no período.
+   * Who accumulated refusals in the period.
    *
-   * Uma recusa isolada é engano comum — página desatualizada, item que
-   * acabou de sair do inventário. Repetição é o que indica alguém testando
-   * o sistema, e só aparece porque gravamos as tentativas negadas.
+   * A single refusal is a common mistake — a stale page, an item that
+   * just left the inventory. Repetition is what indicates someone probing
+   * the system, and it only shows up because we record denied attempts.
    */
   async suspiciousActivity(
-    opcoes: { desde?: Date; minimoRecusas?: number } = {},
-  ): Promise<AtorSuspeito[]> {
-    const desde =
-      opcoes.desde ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const minimo = opcoes.minimoRecusas ?? 3;
+    options: { since?: Date; minimumRefusals?: number } = {},
+  ): Promise<SuspiciousActor[]> {
+    const since =
+      options.since ?? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const minimum = options.minimumRefusals ?? 3;
 
-    const recusas = await this.prisma.auditLog.findMany({
-      where: { outcome: AuditOutcome.DENIED, createdAt: { gte: desde } },
+    const refusals = await this.prisma.auditLog.findMany({
+      where: { outcome: AuditOutcome.DENIED, createdAt: { gte: since } },
       orderBy: { createdAt: 'desc' },
     });
 
-    const porAtor = new Map<string, AuditLog[]>();
+    const byActor = new Map<string, AuditLog[]>();
 
-    for (const log of recusas) {
-      // Sem ator identificado (tentativa anônima) agrupa por IP: é o
-      // único fio que sobra para ligar as tentativas.
-      const chave = log.actorId ?? `ip:${log.ip ?? 'desconhecido'}`;
-      const lista = porAtor.get(chave) ?? [];
-      lista.push(log);
-      porAtor.set(chave, lista);
+    for (const log of refusals) {
+      // With no identified actor (an anonymous attempt) we group by IP:
+      // it is the only thread left tying the attempts together.
+      const key = log.actorId ?? `ip:${log.ip ?? 'unknown'}`;
+      const list = byActor.get(key) ?? [];
+      list.push(log);
+      byActor.set(key, list);
     }
 
-    const comMuitas = [...porAtor.entries()].filter(
-      ([, logs]) => logs.length >= minimo,
+    const withMany = [...byActor.entries()].filter(
+      ([, logs]) => logs.length >= minimum,
     );
 
-    const usuarios = await this.prisma.user.findMany({
-      where: { id: { in: comMuitas.map(([chave]) => chave) } },
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: withMany.map(([key]) => key) } },
       select: { id: true, steamId: true, username: true },
     });
 
-    const porId = new Map(usuarios.map((u) => [u.id, u]));
+    const byId = new Map(users.map((u) => [u.id, u]));
 
-    return comMuitas
-      .map(([chave, logs]) => {
-        const user = porId.get(chave);
+    return withMany
+      .map(([key, logs]) => {
+        const user = byId.get(key);
 
-        const contagem = new Map<string, number>();
+        const counts = new Map<string, number>();
         for (const l of logs) {
-          contagem.set(l.action, (contagem.get(l.action) ?? 0) + 1);
+          counts.set(l.action, (counts.get(l.action) ?? 0) + 1);
         }
 
         return {
           actorId: user ? user.id : null,
           steamId: user?.steamId ?? null,
-          username: user?.username ?? chave,
-          recusas: logs.length,
-          motivos: [...contagem.entries()]
-            .map(([acao, vezes]) => ({ acao, vezes }))
-            .sort((a, b) => b.vezes - a.vezes),
+          username: user?.username ?? key,
+          refusals: logs.length,
+          reasons: [...counts.entries()]
+            .map(([action, times]) => ({ action, times }))
+            .sort((a, b) => b.times - a.times),
           ips: [
             ...new Set(
               logs.map((l) => l.ip).filter((ip): ip is string => !!ip),
             ),
           ],
-          ultima: logs[0].createdAt,
+          last: logs[0].createdAt,
         };
       })
-      .sort((a, b) => b.recusas - a.recusas);
+      .sort((a, b) => b.refusals - a.refusals);
   }
 
   /**
-   * Onde um item apareceu na trilha.
+   * Where an item appeared in the trail.
    *
-   * Busca pelos operadores de JSON do Postgres, e não por texto: comparar
-   * o JSON inteiro como string faz um assetId curto casar com pedaços de
-   * outros identificadores — um steamId como 76561199000000002 contém
-   * "00000000" e apareceria numa busca por esse asset.
+   * Searches with Postgres JSON operators rather than by text: comparing
+   * the whole JSON as a string makes a short assetId match fragments of
+   * other identifiers — a steamId like 76561199000000002 contains
+   * "00000000" and would show up in a search for that asset.
    *
-   * Dois formatos guardam assetId: `itens` (lista com nome, no registro de
-   * sucesso) e `assetIds` (lista simples, no registro de recusa).
+   * Two shapes hold an assetId: `items` (a list with names, in the success
+   * record) and `assetIds` (a plain list, in the refusal record).
    *
-   * Lembrando que o assetId muda a cada troca: para histórico completo é
-   * preciso encadear os valores conhecidos daquele item.
+   * Remember that the assetId changes with every trade: for a full
+   * history you have to chain the known values for that item.
    */
   async findByAssetId(assetId: string): Promise<AuditLog[]> {
-    const emItens = JSON.stringify({ itens: [{ assetId }] });
+    const inItems = JSON.stringify({ items: [{ assetId }] });
 
     return this.prisma.$queryRaw<AuditLog[]>`
       SELECT * FROM "AuditLog"
-      WHERE "metadata" @> ${emItens}::jsonb
+      WHERE "metadata" @> ${inItems}::jsonb
          OR jsonb_exists("metadata" -> 'assetIds', ${assetId})
       ORDER BY "createdAt" DESC
       LIMIT 100

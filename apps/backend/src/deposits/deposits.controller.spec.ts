@@ -219,7 +219,7 @@ describe('DepositsController', () => {
     expect(log.outcome).toBe('SUCCESS');
     expect(log.metadata).toMatchObject({
       botSteamId: BOT_STEAM_ID,
-      itens: [{ assetId: '111', nome: 'AK-47 | Teste 111' }],
+      items: [{ assetId: '111', name: 'AK-47 | Teste 111' }],
     });
   });
 });

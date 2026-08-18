@@ -8,8 +8,8 @@ import { AuditQueryService } from './audit-query.service';
 import { AUDIT_ACTIONS, AuditService } from './audit.service';
 
 /**
- * A consulta é o que torna a auditoria útil: registro que ninguém
- * consegue ler não resolve reclamação nenhuma.
+ * Querying is what makes the audit trail useful: a record nobody can read
+ * settles no complaint.
  */
 describe('AuditQueryService', () => {
   let query: AuditQueryService;
@@ -17,11 +17,11 @@ describe('AuditQueryService', () => {
   let prisma: PrismaService;
 
   const STEAM_ID = '76561199000000200';
-  const STEAM_ID_OUTRO = '76561199000000201';
-  const TODOS = [STEAM_ID, STEAM_ID_OUTRO];
+  const OTHER_STEAM_ID = '76561199000000201';
+  const ALL = [STEAM_ID, OTHER_STEAM_ID];
 
   let user: User;
-  let outro: User;
+  let other: User;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -38,40 +38,40 @@ describe('AuditQueryService', () => {
   });
 
   beforeEach(async () => {
-    await limpar(prisma, TODOS);
+    await cleanup(prisma, ALL);
 
     user = await prisma.user.create({
-      data: { steamId: STEAM_ID, username: 'Reclamante' },
+      data: { steamId: STEAM_ID, username: 'Complainant' },
     });
-    outro = await prisma.user.create({
-      data: { steamId: STEAM_ID_OUTRO, username: 'Terceiro' },
+    other = await prisma.user.create({
+      data: { steamId: OTHER_STEAM_ID, username: 'Third Party' },
     });
   });
 
   afterAll(async () => {
-    await limpar(prisma, TODOS);
+    await cleanup(prisma, ALL);
     await prisma.$disconnect();
   });
 
   describe('timelineFor', () => {
-    it('encontra pelo steamId, que é o que o usuário informa', async () => {
+    it('finds by steamId, which is what the user provides', async () => {
       const r = await query.timelineFor(STEAM_ID);
 
       expect(r).not.toBeNull();
       expect(r!.user.id).toBe(user.id);
     });
 
-    it('encontra também pelo id interno', async () => {
+    it('finds by the internal id too', async () => {
       const r = await query.timelineFor(user.id);
 
       expect(r!.user.steamId).toBe(STEAM_ID);
     });
 
-    it('devolve null para identificador desconhecido', async () => {
-      await expect(query.timelineFor('nao-existe')).resolves.toBeNull();
+    it('returns null for an unknown identifier', async () => {
+      await expect(query.timelineFor('does-not-exist')).resolves.toBeNull();
     });
 
-    it('lista os eventos do mais recente para o mais antigo', async () => {
+    it('lists events from newest to oldest', async () => {
       await audit.record({
         actorType: AuditActorType.USER,
         actorId: user.id,
@@ -87,32 +87,33 @@ describe('AuditQueryService', () => {
 
       const r = await query.timelineFor(STEAM_ID);
 
-      expect(r!.eventos).toHaveLength(2);
-      expect(r!.eventos[0].action).toBe('user.trade_url.updated');
+      expect(r!.events).toHaveLength(2);
+      expect(r!.events[0].action).toBe('user.trade_url.updated');
     });
 
-    // Sem isso, a linha do tempo de quem reclama viria misturada com a de
-    // todo mundo.
-    it('não traz evento de outro usuário', async () => {
+    // Without this, the timeline of whoever is complaining would arrive
+    // mixed with everyone else's.
+    it('does not bring events from another user', async () => {
       await audit.record({
         actorType: AuditActorType.USER,
-        actorId: outro.id,
+        actorId: other.id,
         action: AUDIT_ACTIONS.LOGIN,
         outcome: AuditOutcome.SUCCESS,
       });
 
       const r = await query.timelineFor(STEAM_ID);
 
-      expect(r!.eventos).toHaveLength(0);
+      expect(r!.events).toHaveLength(0);
     });
 
-    // Ação administrativa sobre a conta tem outro ator: apareceria só pelo
-    // alvo, e é exatamente o tipo de evento que importa numa disputa.
-    it('traz evento em que a pessoa é alvo, não autora', async () => {
+    // An administrative action on the account has a different actor: it
+    // would only appear through the target, and it is exactly the kind of
+    // event that matters in a dispute.
+    it('brings events where the person is the target, not the author', async () => {
       await audit.record({
         actorType: AuditActorType.SYSTEM,
         actorId: null,
-        action: 'admin.ajuste',
+        action: 'admin.adjustment',
         outcome: AuditOutcome.SUCCESS,
         targetType: 'User',
         targetId: user.id,
@@ -120,11 +121,11 @@ describe('AuditQueryService', () => {
 
       const r = await query.timelineFor(STEAM_ID);
 
-      expect(r!.eventos).toHaveLength(1);
-      expect(r!.eventos[0].action).toBe('admin.ajuste');
+      expect(r!.events).toHaveLength(1);
+      expect(r!.events[0].action).toBe('admin.adjustment');
     });
 
-    it('respeita o limite e informa quantos ficaram de fora', async () => {
+    it('respects the limit and reports how many were left out', async () => {
       for (let i = 0; i < 5; i++) {
         await audit.record({
           actorType: AuditActorType.USER,
@@ -134,13 +135,13 @@ describe('AuditQueryService', () => {
         });
       }
 
-      const r = await query.timelineFor(STEAM_ID, { limite: 2 });
+      const r = await query.timelineFor(STEAM_ID, { limit: 2 });
 
-      expect(r!.eventos).toHaveLength(2);
-      expect(r!.omitidos).toBe(3);
+      expect(r!.events).toHaveLength(2);
+      expect(r!.omitted).toBe(3);
     });
 
-    it('filtra por período', async () => {
+    it('filters by period', async () => {
       await audit.record({
         actorType: AuditActorType.USER,
         actorId: user.id,
@@ -148,49 +149,50 @@ describe('AuditQueryService', () => {
         outcome: AuditOutcome.SUCCESS,
       });
 
-      const futuro = new Date(Date.now() + 60_000);
-      const r = await query.timelineFor(STEAM_ID, { desde: futuro });
+      const future = new Date(Date.now() + 60_000);
+      const r = await query.timelineFor(STEAM_ID, { since: future });
 
-      expect(r!.eventos).toHaveLength(0);
+      expect(r!.events).toHaveLength(0);
     });
   });
 
   describe('suspiciousActivity', () => {
-    const recusar = (u: User, acao: string, ip = '203.0.113.9') =>
+    const refuse = (u: User, action: string, ip = '203.0.113.9') =>
       audit.record({
         actorType: AuditActorType.USER,
         actorId: u.id,
-        action: acao,
+        action,
         outcome: AuditOutcome.DENIED,
         context: { ip },
       });
 
-    it('ignora quem tem poucas recusas', async () => {
-      await recusar(user, AUDIT_ACTIONS.DEPOSIT_REQUESTED);
+    it('ignores someone with few refusals', async () => {
+      await refuse(user, AUDIT_ACTIONS.DEPOSIT_REQUESTED);
 
-      const r = await query.suspiciousActivity({ minimoRecusas: 3 });
+      const r = await query.suspiciousActivity({ minimumRefusals: 3 });
 
       expect(r.find((s) => s.steamId === STEAM_ID)).toBeUndefined();
     });
 
-    // O padrão que motiva registrar recusas: alguém testando o sistema.
-    it('aponta quem repete recusas', async () => {
+    // The pattern that justifies recording refusals: someone probing the
+    // system.
+    it('flags someone who repeats refusals', async () => {
       for (let i = 0; i < 4; i++) {
-        await recusar(user, AUDIT_ACTIONS.TRADE_URL_UPDATED);
+        await refuse(user, AUDIT_ACTIONS.TRADE_URL_UPDATED);
       }
 
-      const r = await query.suspiciousActivity({ minimoRecusas: 3 });
-      const achado = r.find((s) => s.steamId === STEAM_ID);
+      const r = await query.suspiciousActivity({ minimumRefusals: 3 });
+      const found = r.find((s) => s.steamId === STEAM_ID);
 
-      expect(achado).toBeDefined();
-      expect(achado!.recusas).toBe(4);
-      expect(achado!.motivos[0]).toEqual({
-        acao: 'user.trade_url.updated',
-        vezes: 4,
+      expect(found).toBeDefined();
+      expect(found!.refusals).toBe(4);
+      expect(found!.reasons[0]).toEqual({
+        action: 'user.trade_url.updated',
+        times: 4,
       });
     });
 
-    it('não conta operação bem-sucedida', async () => {
+    it('does not count a successful operation', async () => {
       for (let i = 0; i < 5; i++) {
         await audit.record({
           actorType: AuditActorType.USER,
@@ -200,49 +202,48 @@ describe('AuditQueryService', () => {
         });
       }
 
-      const r = await query.suspiciousActivity({ minimoRecusas: 3 });
+      const r = await query.suspiciousActivity({ minimumRefusals: 3 });
 
       expect(r.find((s) => s.steamId === STEAM_ID)).toBeUndefined();
     });
 
-    it('reúne os IPs usados', async () => {
-      await recusar(user, AUDIT_ACTIONS.DEPOSIT_REQUESTED, '203.0.113.1');
-      await recusar(user, AUDIT_ACTIONS.DEPOSIT_REQUESTED, '203.0.113.2');
-      await recusar(user, AUDIT_ACTIONS.DEPOSIT_REQUESTED, '203.0.113.1');
+    it('gathers the IPs used', async () => {
+      await refuse(user, AUDIT_ACTIONS.DEPOSIT_REQUESTED, '203.0.113.1');
+      await refuse(user, AUDIT_ACTIONS.DEPOSIT_REQUESTED, '203.0.113.2');
+      await refuse(user, AUDIT_ACTIONS.DEPOSIT_REQUESTED, '203.0.113.1');
 
-      const r = await query.suspiciousActivity({ minimoRecusas: 3 });
-      const achado = r.find((s) => s.steamId === STEAM_ID)!;
+      const r = await query.suspiciousActivity({ minimumRefusals: 3 });
+      const found = r.find((s) => s.steamId === STEAM_ID)!;
 
-      expect(achado.ips.sort()).toEqual(['203.0.113.1', '203.0.113.2']);
+      expect(found.ips.sort()).toEqual(['203.0.113.1', '203.0.113.2']);
     });
 
-    it('ordena do mais recusado para o menos', async () => {
-      for (let i = 0; i < 3; i++) await recusar(outro, 'x.y');
-      for (let i = 0; i < 6; i++) await recusar(user, 'x.y');
+    it('orders from most refused to least', async () => {
+      for (let i = 0; i < 3; i++) await refuse(other, 'x.y');
+      for (let i = 0; i < 6; i++) await refuse(user, 'x.y');
 
-      const r = await query.suspiciousActivity({ minimoRecusas: 3 });
+      const r = await query.suspiciousActivity({ minimumRefusals: 3 });
 
-      // Compara as posições relativas dos dois atores deste teste, e não
-      // quem é o primeiro da lista.
+      // Compares the relative positions of this test's two actors, not
+      // who is first in the global list.
       //
-      // A consulta varre a tabela inteira nos últimos 7 dias, e o banco é
-      // compartilhado com as outras suítes: recusas acumuladas de rodadas
-      // anteriores — inclusive as anônimas, que agrupam por IP — podem
-      // ocupar o topo. Afirmar `r[0]` fazia o teste passar por um tempo e
-      // quebrar sozinho depois de rodar a suíte algumas vezes.
-      const posUser = r.findIndex((s) => s.steamId === STEAM_ID);
-      const posOutro = r.findIndex((s) => s.steamId === STEAM_ID_OUTRO);
+      // The query scans the whole table over the last 7 days: refusals
+      // accumulated from earlier runs — including anonymous ones, which
+      // group by IP — can take the top. Asserting `r[0]` made the test
+      // pass for a while and break on its own after a few runs.
+      const userPos = r.findIndex((s) => s.steamId === STEAM_ID);
+      const otherPos = r.findIndex((s) => s.steamId === OTHER_STEAM_ID);
 
-      expect(posUser).toBeGreaterThanOrEqual(0);
-      expect(posOutro).toBeGreaterThan(posUser);
+      expect(userPos).toBeGreaterThanOrEqual(0);
+      expect(otherPos).toBeGreaterThan(userPos);
     });
 
-    it('respeita o período', async () => {
-      for (let i = 0; i < 4; i++) await recusar(user, 'x.y');
+    it('respects the period', async () => {
+      for (let i = 0; i < 4; i++) await refuse(user, 'x.y');
 
       const r = await query.suspiciousActivity({
-        desde: new Date(Date.now() + 60_000),
-        minimoRecusas: 3,
+        since: new Date(Date.now() + 60_000),
+        minimumRefusals: 3,
       });
 
       expect(r).toHaveLength(0);
@@ -250,14 +251,14 @@ describe('AuditQueryService', () => {
   });
 
   describe('findByAssetId', () => {
-    it('acha o registro pelo assetId dentro do metadata', async () => {
+    it('finds the record by the assetId inside the metadata', async () => {
       await audit.record({
         actorType: AuditActorType.USER,
         actorId: user.id,
         action: AUDIT_ACTIONS.DEPOSIT_REQUESTED,
         outcome: AuditOutcome.SUCCESS,
         metadata: {
-          itens: [{ assetId: '44556677', nome: 'AK-47 | Redline' }],
+          items: [{ assetId: '44556677', name: 'AK-47 | Redline' }],
         },
       });
 
@@ -267,13 +268,13 @@ describe('AuditQueryService', () => {
       expect(r[0].action).toBe('deposit.requested');
     });
 
-    it('acha também no formato de recusa, que só tem os ids', async () => {
+    it('finds it in the refusal shape too, which only carries ids', async () => {
       await audit.record({
         actorType: AuditActorType.USER,
         actorId: user.id,
         action: AUDIT_ACTIONS.DEPOSIT_REQUESTED,
         outcome: AuditOutcome.DENIED,
-        metadata: { motivo: 'item_nao_depositavel', assetIds: ['99887766'] },
+        metadata: { reason: 'item_not_depositable', assetIds: ['99887766'] },
       });
 
       const r = await query.findByAssetId('99887766');
@@ -282,13 +283,13 @@ describe('AuditQueryService', () => {
       expect(r[0].outcome).toBe(AuditOutcome.DENIED);
     });
 
-    it('não devolve nada para assetId sem registro', async () => {
+    it('returns nothing for an assetId with no record', async () => {
       await expect(query.findByAssetId('12312312312')).resolves.toHaveLength(0);
     });
 
-    // Regressão: a primeira versão comparava o JSON inteiro como texto, e
-    // "00000000" casava com steamIds como 76561199000000002.
-    it('não casa com trecho de outro identificador', async () => {
+    // Regression: the first version compared the whole JSON as text, and
+    // "00000000" matched steamIds like 76561199000000002.
+    it('does not match a fragment of another identifier', async () => {
       await audit.record({
         actorType: AuditActorType.USER,
         actorId: user.id,
@@ -302,7 +303,7 @@ describe('AuditQueryService', () => {
   });
 });
 
-async function limpar(prisma: PrismaService, steamIds: string[]) {
+async function cleanup(prisma: PrismaService, steamIds: string[]) {
   await clearAuditLog(prisma);
   await prisma.user.deleteMany({ where: { steamId: { in: steamIds } } });
 }

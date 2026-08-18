@@ -46,9 +46,9 @@ export class DepositsService {
    * Registra a recusa. O throw fica no chamador, visível — além de deixar
    * o TypeScript estreitar os tipos depois da checagem.
    */
-  private async registrarRecusa(
+  private async recordRefusal(
     user: User,
-    motivo: string,
+    reason: string,
     assetIds: string[],
     context?: AuditContext,
   ): Promise<void> {
@@ -59,7 +59,7 @@ export class DepositsService {
       outcome: AuditOutcome.DENIED,
       targetType: 'User',
       targetId: user.id,
-      metadata: { motivo, assetIds },
+      metadata: { reason, assetIds },
       context,
     });
   }
@@ -82,12 +82,12 @@ export class DepositsService {
     const unicos = [...new Set(assetIds)];
 
     if (unicos.length !== assetIds.length) {
-      await this.registrarRecusa(user, 'itens_repetidos', assetIds, context);
+      await this.recordRefusal(user, 'itens_repetidos', assetIds, context);
       throw new BadRequestException('Há itens repetidos na seleção.');
     }
 
     if (!user.tradeUrl) {
-      await this.registrarRecusa(user, 'sem_trade_url', unicos, context);
+      await this.recordRefusal(user, 'sem_trade_url', unicos, context);
       throw new BadRequestException(
         'Cadastre sua trade URL antes de depositar — sem ela não é ' +
           'possível enviar a oferta de troca.',
@@ -97,7 +97,7 @@ export class DepositsService {
     const capacidades = capabilitiesFor(user);
 
     if (!capacidades.canDeposit) {
-      await this.registrarRecusa(user, 'conta_steam_restrita', unicos, context);
+      await this.recordRefusal(user, 'conta_steam_restrita', unicos, context);
       throw new BadRequestException(
         capacidades.blockedReason ??
           'Sua conta Steam não pode depositar itens no momento.',
@@ -140,9 +140,9 @@ export class DepositsService {
         botId: bot.id,
         botSteamId: bot.steamId,
         tradeUrl: user.tradeUrl,
-        itens: itens.map((i) => ({
+        items: itens.map((i) => ({
           assetId: i.assetId,
-          nome: i.marketHashName,
+          name: i.marketHashName,
         })),
       },
       context,
@@ -172,7 +172,7 @@ export class DepositsService {
     });
 
     if (emAberto) {
-      await this.registrarRecusa(user, 'item_ja_em_troca', assetIds, context);
+      await this.recordRefusal(user, 'item_ja_em_troca', assetIds, context);
       throw new ConflictException(
         'Já existe uma troca em andamento com pelo menos um destes itens. ' +
           'Confira suas ofertas pendentes na Steam.',
@@ -196,7 +196,7 @@ export class DepositsService {
     const inventario = await this.inventory.getInventory(user.steamId);
 
     if (inventario.status === 'private') {
-      await this.registrarRecusa(user, 'inventario_privado', assetIds, context);
+      await this.recordRefusal(user, 'inventario_privado', assetIds, context);
       throw new BadRequestException(
         'Seu inventário da Steam está privado. Deixe-o público para ' +
           'podermos conferir os itens.',
@@ -204,7 +204,7 @@ export class DepositsService {
     }
 
     if (inventario.status !== 'ok') {
-      await this.registrarRecusa(
+      await this.recordRefusal(
         user,
         `steam_indisponivel:${inventario.status}`,
         assetIds,
@@ -223,7 +223,7 @@ export class DepositsService {
     if (ausentes.length > 0) {
       // Vale observar recorrência: pedir item que não está no inventário
       // pode ser página desatualizada, mas também assetId de terceiros.
-      await this.registrarRecusa(
+      await this.recordRefusal(
         user,
         'item_fora_do_inventario',
         ausentes,
@@ -240,7 +240,7 @@ export class DepositsService {
       .filter((item) => !item.depositable);
 
     if (bloqueados.length > 0) {
-      await this.registrarRecusa(
+      await this.recordRefusal(
         user,
         'item_nao_depositavel',
         bloqueados.map((i) => i.assetId),
@@ -289,7 +289,7 @@ export class DepositsService {
 
       // Recusa que não é culpa do usuário. Registrada porque recorrência
       // aqui significa frota subdimensionada ou bots fora de rotação.
-      await this.registrarRecusa(user, 'sem_bot_disponivel', assetIds, context);
+      await this.recordRefusal(user, 'sem_bot_disponivel', assetIds, context);
       throw new ServiceUnavailableException(
         'Nenhum Trade Bot disponível para receber os itens no momento. ' +
           'Tente novamente em alguns minutos.',

@@ -53,7 +53,7 @@ export class AuthService {
         outcome: AuditOutcome.DENIED,
         targetType: 'User',
         targetId: existente.id,
-        metadata: { motivo: 'conta_da_plataforma', steamId },
+        metadata: { reason: 'conta_da_plataforma', steamId },
         context,
       });
 
@@ -77,7 +77,7 @@ export class AuthService {
         outcome: AuditOutcome.DENIED,
         targetType: 'User',
         targetId: existente.id,
-        metadata: { motivo: 'conta_suspensa', steamId },
+        metadata: { reason: 'conta_suspensa', steamId },
         context,
       });
 
@@ -145,7 +145,7 @@ export class AuthService {
       // alguém alega nunca ter usado o site.
       metadata: {
         steamId,
-        primeiroLogin: existente === null,
+        firstLogin: existente === null,
         steamEconomyBan: user.steamEconomyBan,
       },
       context,

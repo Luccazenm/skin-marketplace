@@ -118,7 +118,7 @@ describe('UsersController', () => {
         where: { actorId: user.id, action: 'user.trade_url.updated' },
       });
 
-      expect(log.metadata).toMatchObject({ de: null, para: TRADE_URL });
+      expect(log.metadata).toMatchObject({ from: null, to: TRADE_URL });
       expect(log.outcome).toBe('SUCCESS');
     });
 
@@ -136,7 +136,7 @@ describe('UsersController', () => {
         where: { actorId: user.id, outcome: 'DENIED' },
       });
 
-      expect(log.metadata).toMatchObject({ erro: 'partner_de_outra_conta' });
+      expect(log.metadata).toMatchObject({ error: 'partner_de_outra_conta' });
     });
   });
 });

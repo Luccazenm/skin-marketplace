@@ -2,75 +2,78 @@ import { SteamEconomyBan } from '@prisma/client';
 import type { SteamAccountState } from '../auth/steam-account-state.service';
 import type { SteamBanStatus } from '../auth/steam-ban.service';
 
-export interface ImpedimentoBot {
-  /** Vai para a auditoria — texto estável, não muda com a mensagem. */
-  motivo: string;
-  /** Resumo curto, para listar. */
-  rotulo: string;
-  /** O que o operador tem que fazer. */
-  comoResolver: string;
+export interface BotBlocker {
+  /** Goes to the audit log — stable text, unaffected by wording changes. */
+  reason: string;
+  /** Short summary, for listing. */
+  label: string;
+  /** What the operator has to do. */
+  howToFix: string;
 }
 
 /**
- * Por que uma conta da Steam não pode operar como Trade Bot.
+ * Why a Steam account cannot operate as a Trade Bot.
  *
- * Regra pura, sem framework e sem rede, porque é ela que decide para onde
- * as skins dos usuários vão. Os dois comandos consomem esta lista: o
- * `bot:check` mostra todas as pendências de uma vez, o `bot:add` barra na
- * primeira. Se cada um tivesse seu próprio critério, os dois discordariam
- * — e a discordância só apareceria com um item já em custódia.
+ * A pure rule, no framework and no network, because it decides where
+ * users' skins go. Both commands consume this list: `bot:check` shows
+ * every pending issue at once, `bot:add` stops at the first. If each had
+ * its own criteria they would disagree — and the disagreement would only
+ * surface with an item already in custody.
  *
- * `null` em qualquer entrada significa "não foi possível apurar", que não
- * é impedimento: quem chama decide o que fazer com a incerteza. Tratar
- * indisponibilidade da Steam como reprovação impediria cadastrar em dia de
- * instabilidade; tratar como aprovação seria pior.
+ * `null` in either input means "could not be determined", which is not a
+ * blocker: the caller decides what to do with the uncertainty. Treating a
+ * Steam outage as a rejection would prevent registering on a bad day;
+ * treating it as approval would be worse.
  */
-export function impedimentosParaOperar(
+export function blockersToOperate(
   ban: SteamBanStatus | null,
-  estado: SteamAccountState | null,
-): ImpedimentoBot[] {
-  const impedimentos: ImpedimentoBot[] = [];
+  state: SteamAccountState | null,
+): BotBlocker[] {
+  const blockers: BotBlocker[] = [];
 
-  // Conta limitada não é ban, e a Web API não reporta este estado. Conta
-  // recém-criada passa por todas as outras barreiras e mesmo assim não
-  // consegue negociar.
-  if (estado?.isLimited) {
-    impedimentos.push({
-      motivo: 'conta_limitada',
-      rotulo: 'conta limitada',
-      comoResolver:
-        'Adicione fundos à carteira com um meio de pagamento real ' +
-        '(equivalente a US$ 5). Gastar saldo que já estava lá não conta.',
+  // A limited account is not a ban, and the Web API does not report this
+  // state. A freshly created account passes every other barrier and still
+  // cannot trade.
+  if (state?.isLimited) {
+    blockers.push({
+      reason: 'limited_account',
+      label: 'limited account',
+      howToFix:
+        'Add funds to the wallet with a real payment method (the ' +
+        'equivalent of US$ 5). Spending balance that was already there ' +
+        'does not count.',
     });
   }
 
   if (ban && ban.economyBan !== SteamEconomyBan.NONE) {
-    impedimentos.push({
-      motivo: 'restricao_de_economia',
-      rotulo: `restrição de economia (${ban.economyBan})`,
-      comoResolver:
-        'A Steam bloqueou as trocas desta conta. Não há o que fazer do ' +
-        'nosso lado — use outra conta.',
+    blockers.push({
+      reason: 'economy_restriction',
+      label: `economy restriction (${ban.economyBan})`,
+      howToFix:
+        'Steam has blocked trading on this account. There is nothing we ' +
+        'can do on our side — use another account.',
     });
   }
 
   if (ban?.vacBanned) {
-    impedimentos.push({
-      motivo: 'vac_ban',
-      rotulo: 'VAC ban',
-      comoResolver:
-        'Se o VAC for de CS2, o inventário está travado permanentemente e ' +
-        'a conta nunca conseguirá enviar itens. Use outra conta.',
+    blockers.push({
+      reason: 'vac_ban',
+      label: 'VAC ban',
+      howToFix:
+        'If the VAC ban is from CS2, the inventory is permanently locked ' +
+        'and the account will never be able to send items. Use another ' +
+        'account.',
     });
   }
 
-  return impedimentos;
+  return blockers;
 }
 
 /**
- * Perfil privado não impede cadastrar, mas cega a conferência depois:
- * ninguém — nem nós, nem o usuário — consegue ver o que está em custódia.
+ * A private profile does not prevent registering, but it blinds every
+ * check afterwards: nobody — not us, not the user — can see what is in
+ * custody.
  */
-export function perfilEstaPublico(estado: SteamAccountState | null): boolean {
-  return estado?.privacyState === 'public';
+export function profileIsPublic(state: SteamAccountState | null): boolean {
+  return state?.privacyState === 'public';
 }

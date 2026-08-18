@@ -20,7 +20,7 @@
     "bot:check": "node dist/scripts/check-bot.js",
     "bot:list": "node dist/scripts/list-bots.js",
     "audit:user": "node dist/scripts/audit-user.js",
-    "audit:suspeitos": "node dist/scripts/audit-suspeitos.js",
+    "audit:suspicious": "node dist/scripts/audit-suspicious.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

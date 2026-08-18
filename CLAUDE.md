@@ -272,8 +272,8 @@ credencial, token ou cookie**; o mascaramento em
 ### Consultar
 
 ```bash
-pnpm audit:user -- --id=<steamID64 ou id interno> [--dias=N]
-pnpm audit:suspeitos [-- --dias=7 --minimo=3]
+pnpm audit:user -- --id=<steamID64 ou id interno> [--days=N]
+pnpm audit:suspicious [-- --days=7 --minimum=3]
 ```
 
 O primeiro monta a linha do tempo de uma pessoa — é o que se abre quando

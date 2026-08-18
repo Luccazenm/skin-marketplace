@@ -48,7 +48,7 @@ export class UsersService {
         outcome: AuditOutcome.DENIED,
         targetType: 'User',
         targetId: user.id,
-        metadata: { erro: resultado.erro, tentativa: entrada.slice(0, 200) },
+        metadata: { error: resultado.erro, attempt: entrada.slice(0, 200) },
         context,
       });
 
@@ -73,7 +73,7 @@ export class UsersService {
       outcome: AuditOutcome.SUCCESS,
       targetType: 'User',
       targetId: user.id,
-      metadata: { de: anterior, para: resultado.url },
+      metadata: { from: anterior, to: resultado.url },
       context,
     });
 
