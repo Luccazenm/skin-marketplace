@@ -144,12 +144,13 @@ export function SellPage({
           <Notice title="Nothing to sell here" body={search ? 'No item matches that search.' : 'No item in this inventory can be traded on Steam.'} />
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
               {filtered.map((item) => (
                 <ItemCard
                   key={item.assetId}
                   item={item}
                   selected={selected.includes(item.assetId)}
+                  price={prices[item.assetId]}
                   onToggle={() => toggle(item.assetId)}
                 />
               ))}
@@ -185,51 +186,120 @@ function isValidPrice(value: string | undefined): boolean {
   return !!value && /^\d+(\.\d{1,2})?$/.test(value) && Number(value) > 0;
 }
 
-function ItemCard({ item, selected, onToggle }: { item: InventoryItem; selected: boolean; onToggle: () => void }) {
+/**
+ * The same card the storefront uses, with the buy action swapped for
+ * listing.
+ *
+ * Two things differ from the Market card, and both because the data
+ * differs rather than by choice: the illustration is the real Steam
+ * image instead of a drawn weapon, and the price slot shows what the
+ * seller has typed rather than a market price — there is no market
+ * price for an item that is not on sale yet.
+ */
+function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; selected: boolean; price: string | undefined; onToggle: () => void }) {
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickerCount(item);
+  const [hovered, setHovered] = useState(false);
+  const active = selected || hovered;
 
   return (
     <button
       onClick={onToggle}
-      className="relative text-left rounded overflow-hidden border transition-colors flex flex-col"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
       style={{
-        borderColor: selected ? r.color : 'rgba(255,255,255,0.07)',
-        background: `linear-gradient(160deg, ${r.from} 0%, ${r.to} 100%)`,
-        height: 190,
+        height: '230px',
+        borderColor: active ? r.color : 'rgba(255,255,255,0.07)',
+        background: `linear-gradient(160deg, ${r.from}, ${r.to})`,
+        boxShadow: active ? `0 0 20px ${r.glow}` : 'none',
       }}
     >
-      <div className="h-0.5 w-full flex-shrink-0" style={{ background: r.color }} />
+      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
 
-      <div className="flex-1 flex items-center justify-center p-2 min-h-0">
-        {item.iconUrl ? (
-          <img src={item.iconUrl} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
-        ) : (
-          <Package className="w-8 h-8" style={{ color: r.color, opacity: 0.4 }} />
+      {stickers > 0 && (
+        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
+          {Array.from({ length: stickers }).map((_, i) => (
+            <div
+              key={i}
+              className="w-5 h-5 rounded-sm flex items-center justify-center"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
+            >
+              <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
+                <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
+              </svg>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
+        style={{ paddingTop: hovered ? '8px' : '16px', paddingBottom: hovered ? '8px' : '16px' }}
+      >
+        {isStatTrak(item) && (
+          <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10" style={{ background: 'rgba(240,192,64,0.2)', color: '#f0c040', border: '1px solid rgba(240,192,64,0.3)' }}>ST</span>
         )}
+        <div className="w-full h-full max-w-[160px] flex items-center justify-center">
+          {item.iconUrl ? (
+            <img src={item.iconUrl} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+          ) : (
+            <Package className="w-10 h-10" style={{ color: r.color, opacity: 0.4 }} />
+          )}
+        </div>
       </div>
 
-      <div className="px-2 pb-2 flex-shrink-0">
-        {/* The weapon comes from the catalog, split there so no second
-            name-splitter exists in the browser. Items with no weapon —
-            cases, stickers, graffiti — simply have no line here. */}
-        {item.catalog?.weapon && (
-          <div className="font-mono text-[8px] uppercase tracking-wider truncate" style={{ color: r.color }}>
-            {item.catalog.weapon}
-          </div>
-        )}
-        <div className="font-display text-[11px] font-semibold truncate leading-tight" style={{ color: '#e8eaf0' }}>
-          {item.catalog?.skinName ?? item.marketHashName}
-        </div>
+      <div className="mx-3" style={{ height: '1px', background: 'rgba(255,255,255,0.07)' }} />
 
-        <div className="flex items-center gap-1.5 mt-0.5 font-mono text-[9px]" style={{ color: '#6c7290' }}>
-          {/* Three quarters of a real inventory has no float and no
-              exterior. Each line appears only when it has something to
-              say, instead of leaving empty fields across the grid. */}
-          {item.exterior && <span className="truncate">{item.exterior}</span>}
-          {item.float !== null && <span>{item.float.toFixed(4)}</span>}
-          {isStatTrak(item) && <span style={{ color: '#cf6a32' }}>ST</span>}
-          {stickers > 0 && <span style={{ color: '#f0c040' }}>{stickers}×</span>}
+      <div className="px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <div className="min-w-0">
+            {/* The weapon comes from the catalog, split there so no second
+                name-splitter exists in the browser. Cases, stickers and
+                graffiti have no weapon, so the line is simply absent. */}
+            <div className="text-[9px] font-mono uppercase tracking-wider leading-none mb-0.5" style={{ color: r.color }}>
+              {item.catalog?.weapon ?? item.typeLabel ?? ''}
+            </div>
+            <div className="font-display text-sm font-semibold leading-tight truncate" style={{ color: '#e8eaf0' }}>
+              {item.catalog?.skinName ?? item.marketHashName}
+            </div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            {/* Three quarters of a real inventory has no float and no
+                exterior. Each line appears only when it has something to
+                say, rather than leaving empty fields across the grid. */}
+            {item.exterior && <div className="font-mono text-[9px]" style={{ color: '#6c7290' }}>{item.exterior}</div>}
+            {item.float !== null && <div className="font-mono text-[9px]" style={{ color: r.color }}>{item.float.toFixed(4)}</div>}
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="font-mono font-semibold text-sm leading-none" style={{ color: isValidPrice(price) ? '#f0f2f8' : '#4a4f68' }}>
+            {isValidPrice(price) ? `$${price}` : 'Not priced'}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateRows: hovered ? '1fr' : '0fr',
+          transition: 'grid-template-rows 200ms ease',
+        }}
+      >
+        <div style={{ overflow: 'hidden' }}>
+          <div className="px-3 pb-2.5">
+            <div
+              className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
+              style={{
+                background: selected ? 'rgba(255,255,255,0.08)' : '#f0c040',
+                color: selected ? '#e8eaf0' : '#08090d',
+                opacity: hovered ? 1 : 0,
+              }}
+            >
+              {selected ? 'REMOVE' : 'LIST ITEM'}
+            </div>
+          </div>
         </div>
       </div>
     </button>
@@ -249,21 +319,24 @@ function SellPanel(props: {
   submitted: number | null;
   onSubmit: () => void;
 }) {
+  // Nothing selected, nothing to say. An empty panel explaining how the
+  // page works is instruction nobody asked for, sitting where the thing
+  // being acted on belongs. The grid on the left is self-explanatory.
+  //
+  // The one exception is the confirmation of a deposit that just went
+  // through: that is the answer to something the person did, and it
+  // disappears with the next selection.
   if (props.items.length === 0) {
+    if (props.submitted === null) {
+      return null;
+    }
+
     return (
-      <div className="px-5 flex flex-col gap-3">
-        <div className="font-display text-sm font-bold" style={{ color: '#e8eaf0' }}>Sell</div>
-        <div className="font-mono text-[11px] leading-relaxed" style={{ color: '#6c7290' }}>
-          Pick items and set a price for each. Our Trade Bot sends you one
-          offer asking for them, and they go on sale the moment it
-          receives them.
+      <div className="px-5">
+        <div className="font-mono text-[11px] leading-relaxed" style={{ color: '#4ade80' }}>
+          {props.submitted} item{props.submitted > 1 ? 's' : ''} queued.
+          Accept the Trade Bot&apos;s offer on Steam to finish.
         </div>
-        {props.submitted !== null && (
-          <div className="font-mono text-[11px]" style={{ color: '#4ade80' }}>
-            {props.submitted} item{props.submitted > 1 ? 's' : ''} queued.
-            Accept the Trade Bot's offer on Steam to finish.
-          </div>
-        )}
       </div>
     );
   }
