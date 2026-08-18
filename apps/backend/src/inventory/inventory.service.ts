@@ -1,4 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  CatalogEnrichmentService,
+  type EnrichedInventoryItem,
+} from './catalog-enrichment.service';
 import { InventoryCacheService } from './inventory-cache.service';
 import {
   SteamInventoryService,
@@ -8,11 +12,30 @@ import {
 export type InventoryResponse =
   | {
       status: 'ok';
-      items: InventoryItem[];
+      items: EnrichedInventoryItem[];
       fetchedAt: Date;
       /** Data served from the cache, without asking Steam now. */
       cached: boolean;
       /** Past its freshness window — Steam could not be reached. */
+      stale: boolean;
+    }
+  | { status: 'private' }
+  | { status: 'rate_limited' }
+  | { status: 'error'; message: string };
+
+/**
+ * The same answer before the catalog is consulted.
+ *
+ * Kept separate so the decision about WHEN to call Steam stays readable
+ * on its own, with the enrichment layered on top in one place instead of
+ * on each of its five exits.
+ */
+type RawInventoryResponse =
+  | {
+      status: 'ok';
+      items: InventoryItem[];
+      fetchedAt: Date;
+      cached: boolean;
       stale: boolean;
     }
   | { status: 'private' }
@@ -35,9 +58,20 @@ export class InventoryService {
   constructor(
     private readonly steam: SteamInventoryService,
     private readonly cache: InventoryCacheService,
+    private readonly catalog: CatalogEnrichmentService,
   ) {}
 
   async getInventory(steamId: string): Promise<InventoryResponse> {
+    const result = await this.readInventory(steamId);
+
+    if (result.status !== 'ok') {
+      return result;
+    }
+
+    return { ...result, items: await this.catalog.enrich(result.items) };
+  }
+
+  private async readInventory(steamId: string): Promise<RawInventoryResponse> {
     const cached = await this.cache.get(steamId);
 
     // 1. Current data: never touch Steam.
@@ -97,7 +131,7 @@ export class InventoryService {
   private serveStale(hit: {
     items: InventoryItem[];
     fetchedAt: Date;
-  }): InventoryResponse {
+  }): RawInventoryResponse {
     this.logger.warn(
       `Serving inventory from ${hit.fetchedAt.toISOString()} — Steam unavailable or rate-limited`,
     );

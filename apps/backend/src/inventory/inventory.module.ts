@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { CatalogEnrichmentService } from './catalog-enrichment.service';
 import { InventoryCacheService } from './inventory-cache.service';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
@@ -9,7 +10,12 @@ import { SteamInventoryService } from './steam-inventory.service';
   // Needs AuthModule for JwtAuthGuard. RedisModule is global.
   imports: [AuthModule],
   controllers: [InventoryController],
-  providers: [InventoryService, SteamInventoryService, InventoryCacheService],
+  providers: [
+    InventoryService,
+    SteamInventoryService,
+    InventoryCacheService,
+    CatalogEnrichmentService,
+  ],
   exports: [InventoryService],
 })
 export class InventoryModule {}

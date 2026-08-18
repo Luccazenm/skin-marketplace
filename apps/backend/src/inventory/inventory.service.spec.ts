@@ -2,7 +2,9 @@ import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { ItemCategory } from '@prisma/client';
 import { validateEnv } from '../config/env.validation';
+import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { CatalogEnrichmentService } from './catalog-enrichment.service';
 import { InventoryCacheService } from './inventory-cache.service';
 import { InventoryService } from './inventory.service';
 import {
@@ -17,6 +19,7 @@ import {
 describe('InventoryService', () => {
   let service: InventoryService;
   let redis: RedisService;
+  let prisma: PrismaService;
 
   const STEAM_ID = '76561199000000050';
 
@@ -50,7 +53,17 @@ describe('InventoryService', () => {
       imports: [
         ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
       ],
-      providers: [InventoryService, InventoryCacheService, RedisService],
+      // PrismaService goes in for real, like AuditService elsewhere: the
+      // enrichment reads the catalog, and a mocked one would prove the
+      // wiring works against a fiction rather than against the 33,950
+      // rows the screen will actually meet.
+      providers: [
+        InventoryService,
+        InventoryCacheService,
+        RedisService,
+        PrismaService,
+        CatalogEnrichmentService,
+      ],
     })
       .useMocker((token) =>
         token === SteamInventoryService ? steamMock : undefined,
@@ -59,6 +72,29 @@ describe('InventoryService', () => {
 
     service = moduleRef.get(InventoryService);
     redis = moduleRef.get(RedisService);
+    prisma = moduleRef.get(PrismaService);
+
+    // The test database has the migrations and the seed, but not the
+    // catalog: `catalog:sync` pulls 33,950 rows off the network and takes
+    // ~220s, which is not something a test run should do. So the one row
+    // this suite needs is created here, matching the real shape — weapon
+    // and float range included, because the CHECK constraints require
+    // them for a skinned weapon.
+    await prisma.skinTemplate.upsert({
+      where: { marketHashName: fakeItem.marketHashName },
+      update: {},
+      create: {
+        marketHashName: fakeItem.marketHashName,
+        rarity: 'Classified',
+        category: ItemCategory.RIFLE,
+        weapon: 'AK-47',
+        skinName: 'Redline',
+        collections: ['The Phoenix Collection'],
+        description: 'It has been custom painted with a hot rod flame job.',
+        minFloat: 0.1,
+        maxFloat: 0.7,
+      },
+    });
   });
 
   beforeEach(async () => {
@@ -77,6 +113,7 @@ describe('InventoryService', () => {
       'steam:inventory:blocked',
     );
     await redis.quit();
+    await prisma.$disconnect();
   });
 
   it('queries Steam when there is no cache', async () => {
@@ -172,6 +209,47 @@ describe('InventoryService', () => {
     expect(r.status).toBe('ok');
     if (r.status !== 'ok') return;
     expect(r.stale).toBe(true);
+  });
+
+  // Steam returns one name; the screen wants the weapon and the skin
+  // apart. The catalog already holds them split, so the split happens
+  // here and never in the browser — a second splitter written there
+  // would be free to drift from catalog-mapping.ts.
+  describe('catalog enrichment', () => {
+    it('splits the weapon from the skin name using the catalog', async () => {
+      steamMock.fetchInventory.mockResolvedValue({
+        status: 'ok',
+        items: [fakeItem],
+      });
+
+      const r = await service.getInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items[0].catalog).toEqual({
+        weapon: 'AK-47',
+        skinName: 'Redline',
+        collections: expect.any(Array),
+        description: expect.any(String),
+      });
+    });
+
+    // The catalog mirrors a public dataset, and Valve ships items before
+    // it catches up. An unknown item has to survive the read rather than
+    // disappear from someone's inventory.
+    it('leaves catalog null for an item it does not know', async () => {
+      steamMock.fetchInventory.mockResolvedValue({
+        status: 'ok',
+        items: [
+          { ...fakeItem, marketHashName: 'Nonexistent | Item (Factory New)' },
+        ],
+      });
+
+      const r = await service.getInventory(STEAM_ID);
+      if (r.status !== 'ok') return;
+
+      expect(r.items).toHaveLength(1);
+      expect(r.items[0].catalog).toBeNull();
+    });
   });
 
   // Privacy: if the person closed their profile, we cannot keep showing
