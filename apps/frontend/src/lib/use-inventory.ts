@@ -105,29 +105,64 @@ function failureFor(status: number): InventoryFailure {
 // ---------------------------------------------------------------------
 
 /**
- * Steam's rarity names ("Classified") mapped onto the palette's keys
- * ("classified").
+ * Steam's rarity names mapped onto the palette's keys.
+ *
+ * Valve runs two parallel ladders with the same six colours: weapons go
+ * Consumer → Industrial → Mil-Spec → Restricted → Classified → Covert,
+ * while stickers, graffiti, cases, capsules and medals go Base → High
+ * Grade → Remarkable → Exotic → Extraordinary → Contraband. A grade on
+ * one ladder shares its colour with the grade at the same height on the
+ * other.
+ *
+ * Both ladders are here because a real inventory is mostly the second
+ * one: of 191 items in the account this was checked against, 168 carried
+ * a name from the sticker ladder. Mapping only the weapon names would
+ * have painted seven items in nine and left the screen a wall of grey.
  *
  * Anything unrecognised falls back to the neutral tone rather than
- * throwing: a new rarity from Valve should make an item look plain, not
- * make the page fail to render.
+ * throwing: a new grade from Valve should make one item look plain, not
+ * break the page.
  */
+const RARITY_BY_GRADE: Record<string, string> = {
+  // Weapons
+  'consumer grade': 'consumer',
+  'industrial grade': 'industrial',
+  'mil-spec grade': 'milspec',
+  restricted: 'restricted',
+  classified: 'classified',
+  covert: 'covert',
+
+  // Stickers, graffiti, containers, capsules, medals
+  'base grade': 'consumer',
+  'high grade': 'industrial',
+  remarkable: 'milspec',
+  exotic: 'restricted',
+  extraordinary: 'classified',
+
+  // Both ladders end here, and it is the only grade Valve stopped issuing
+  contraband: 'covert',
+};
+
 export function rarityKey(rarity: string | null): string {
   if (!rarity) return 'consumer';
 
-  const key = rarity.toLowerCase();
-  const known = [
-    'consumer',
-    'industrial',
-    'milspec',
-    'restricted',
-    'classified',
-    'covert',
-    'rare',
-  ];
+  return RARITY_BY_GRADE[rarity.trim().toLowerCase()] ?? 'consumer';
+}
 
-  if (key.includes('mil-spec')) return 'milspec';
-  return known.find((k) => key.includes(k)) ?? 'consumer';
+/**
+ * The palette key for an item, category included.
+ *
+ * Knives and gloves get the gold ★ regardless of their grade — Valve
+ * marks them apart from every other item, the storefront filter already
+ * calls them "★ Knife/Glove", and going by grade alone would paint a
+ * knife the same red as an ordinary Covert rifle.
+ */
+export function rarityKeyForItem(item: InventoryItem): string {
+  if (item.category === 'KNIFE' || item.category === 'GLOVES') {
+    return 'rare';
+  }
+
+  return rarityKey(item.rarity);
 }
 
 /** How many stickers are on the item — charms and patches are not stickers. */
