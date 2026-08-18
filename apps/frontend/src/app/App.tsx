@@ -1,4 +1,4 @@
-import React, { useState, useMemo, type ReactNode } from "react";
+import React, { useState, useMemo, useEffect, type ReactNode } from "react";
 import {
   Search,
   ShoppingCart,
@@ -18,6 +18,8 @@ import {
   Tag,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { startSteamLogin } from "@/lib/api";
+import { useSession } from "@/lib/use-session";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
 const RARITY: Record<string, { label: string; color: string; glow: string; from: string; to: string }> = {
@@ -2294,6 +2296,17 @@ export default function App() {
   const [language, setLanguage]     = useState("EN");
   const [currency, setCurrency]     = useState("USD");
 
+  // Who is logged in, straight from the backend. Nothing about the
+  // account is kept locally: the balance and what the account may do
+  // come from /api/auth/me on every load.
+  const session = useSession();
+
+  // The backend owns the display currency, so once it answers, it wins
+  // over the local default.
+  useEffect(() => {
+    if (session.user) setCurrency(session.user.displayCurrency);
+  }, [session.user]);
+
   const filtered = useMemo(() => {
     let out = SKINS.filter((s) => {
       const q = search.toLowerCase();
@@ -2349,7 +2362,7 @@ export default function App() {
             <div className="w-7 h-7 rounded flex items-center justify-center" style={{ background: "#f0c040" }}>
               <Zap className="w-4 h-4 text-black" />
             </div>
-            <span className="font-display text-xl font-bold tracking-wider" style={{ color: "#f0c040" }}>SKINDEX</span>
+            <span className="font-display text-xl font-bold tracking-wider" style={{ color: "#f0c040" }}>NextSkins</span>
           </div>
 
           {/* Nav links */}
@@ -2387,9 +2400,17 @@ export default function App() {
               <NavDropdown value={language} onChange={setLanguage} options={LANGUAGES as unknown as { value: string; label: string; sub: string }[]} compactTrigger />
               <NavDropdown value={currency} onChange={setCurrency} options={CURRENCIES as unknown as { value: string; label: string; sub: string }[]} />
             </div>
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded border" style={{ borderColor: "rgba(240,192,64,0.3)", background: "rgba(240,192,64,0.08)" }}>
-              <span className="font-mono text-xs font-semibold" style={{ color: "#f0c040" }}>$2,847.50</span>
-            </div>
+            {/* Balance: shown only when there is a session, because there
+                is no such thing as a logged-out balance. It stays the
+                string the API returned — turning money into a JS number
+                is where cents start disappearing. */}
+            {session.user && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded border" style={{ borderColor: "rgba(240,192,64,0.3)", background: "rgba(240,192,64,0.08)" }}>
+                <span className="font-mono text-xs font-semibold" style={{ color: "#f0c040" }}>
+                  {session.user.balance} {session.user.displayCurrency}
+                </span>
+              </div>
+            )}
             <button className="relative text-muted-foreground hover:text-foreground transition-colors">
               <Bell className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-mono font-bold flex items-center justify-center" style={{ background: "#e84060", color: "#fff" }}>4</span>
@@ -2403,9 +2424,38 @@ export default function App() {
                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-mono font-bold flex items-center justify-center" style={{ background: "#f0c040", color: "#08090d" }}>{cartCount}</span>
               )}
             </button>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
-              <User className="w-4 h-4 text-muted-foreground" />
-            </div>
+            {/* Three states, not two: still asking, signed in, signed
+                out. Rendering "sign in" while the answer is in flight
+                makes the button flicker on every load for someone who
+                is in fact logged in. */}
+            {session.loading ? (
+              <div className="w-7 h-7 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} />
+            ) : session.user ? (
+              <div className="flex items-center gap-2">
+                {session.user.avatarUrl ? (
+                  <img
+                    src={session.user.avatarUrl}
+                    alt={session.user.username}
+                    className="w-7 h-7 rounded-full"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
+                    <User className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                )}
+                <span className="hidden lg:inline font-mono text-xs" style={{ color: "#9da3c0" }}>
+                  {session.user.username}
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={startSteamLogin}
+                className="px-3 py-1.5 rounded font-display text-xs font-semibold tracking-wide transition-colors"
+                style={{ background: "#f0c040", color: "#08090d" }}
+              >
+                SIGN IN WITH STEAM
+              </button>
+            )}
           </div>
         </div>
       </nav>
