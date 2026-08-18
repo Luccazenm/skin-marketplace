@@ -1,385 +1,415 @@
-# Estado atual
+# Current state
 
-Atualizado em 13/08/2026. Branch `feat/modelagem-dominio-e-infra-backend`,
-nada em `main` e nada enviado ao GitHub.
+Updated 2026-08-18. Branch `feat/modelagem-dominio-e-infra-backend`,
+nothing on `main`.
 
-**236 testes passando · cobertura 77,9% · typecheck, lint e build limpos.**
+**398 tests passing across 30 suites · typecheck, lint and build clean ·
+CI green on GitHub.**
 
-Toda a integração com a Steam está em 100% de statements:
-`steam-inventory`, `steam-profile`, `steam-ban`, e `steam-openid` em 97%.
+The whole Steam integration is at 100% of statements:
+`steam-inventory`, `steam-profile`, `steam-ban`, with `steam-openid` at
+97%.
 
 ---
 
-## Implementado
+## Implemented
 
-### Infraestrutura
+### Infrastructure
 
-- Monorepo pnpm + turbo. `pnpm dev` sobe backend e frontend juntos;
-  `build`, `lint`, `test`, `typecheck` e atalhos `db:*` funcionam da raiz.
-- Postgres 16 e Redis 7 no docker-compose, com healthcheck. Redis com
-  `appendonly` ligado — a fila vai guardar jobs agendados para dias no
-  futuro.
-- `@nestjs/config` com validação por zod: env inválida derruba o boot com
-  mensagem apontando a variável.
-- Prisma 7 conectado por driver adapter, com shutdown hooks.
-- Swagger em `/docs`, desligado em produção.
-- Seed idempotente criando a conta da plataforma; repara identidade
-  divergente sem tocar no saldo.
+- pnpm + turbo monorepo. `pnpm dev` brings up backend and frontend
+  together; `build`, `lint`, `test`, `typecheck` and the `db:*`
+  shortcuts all work from the root.
+- Postgres 16 and Redis 7 in docker-compose, with healthchecks. Redis has
+  `appendonly` on — the queue will hold jobs scheduled days into the
+  future.
+- `@nestjs/config` with zod validation: an invalid env kills the boot
+  with a message naming the variable.
+- Prisma 7 connected through a driver adapter, with shutdown hooks.
+- Swagger at `/docs`, disabled in production.
+- An idempotent seed creating the platform account; it repairs a
+  diverging identity without touching the balance.
+- **CI on GitHub Actions** (17/08): typecheck, lint, tests and build on
+  every branch, with Postgres and Redis service containers.
 
-### Modelo de dados
+### Data model
 
-Dez tabelas, sete migrations aplicadas: `User`, `SkinTemplate`, `Item`,
+Ten tables, eight migrations applied: `User`, `SkinTemplate`, `Item`,
 `ItemApplication`, `Listing`, `Order`, `Transaction`, `TradeOffer`,
 `TradeOfferItem`, `Bot`, `AuditLog`.
 
-CHECK constraints escritos à mão:
+Hand-written CHECK constraints:
 
-- `Transaction`: valor não pode ser zero; sinal coerente com o tipo, só
-  para tipos de uma perna só (FEE, BUYOUT, REFUND e ADJUSTMENT geram duas
-  linhas de sinais opostos e ficam de fora).
-- `Item`: arma, faca e luva exigem os quatro campos de padrão; float
-  dentro de [0,1].
-- `ItemApplication`: raspagem só em sticker e dentro de [0,1]; slot dentro
-  do limite de cada tipo (5 / 3 / 1).
-- `AuditLog`: trigger recusando UPDATE e DELETE.
+- `Transaction`: the amount cannot be zero; the sign is consistent with
+  the type, but only for single-legged types (FEE, BUYOUT, REFUND and
+  ADJUSTMENT produce two rows of opposite signs and are left out).
+- `Item`: weapons, knives and gloves require all four pattern fields;
+  the float sits within [0,1].
+- `ItemApplication`: a scrape only on stickers and within [0,1]; the slot
+  within each kind's limit (5 / 3 / 1).
+- `AuditLog`: a trigger refusing UPDATE and DELETE.
 
-### Login via Steam (completo)
+### Steam login (complete)
 
 ```
-GET  /api/auth/steam         redireciona para a Steam
-GET  /api/auth/steam/return  valida, cria usuário, seta cookie, redireciona
-GET  /api/auth/me            perfil, saldo, capabilities, trade URL
-POST /api/auth/logout        invalida este token
-POST /api/auth/logout-all    invalida todos
+GET  /api/auth/steam         redirects to Steam
+GET  /api/auth/steam/return  validates, creates the user, sets the cookie, redirects
+GET  /api/auth/me            profile, balance, capabilities, trade URL
+POST /api/auth/logout        invalidates this token
+POST /api/auth/logout-all    invalidates all of them
 ```
 
-OpenID 2.0 implementado direto, sem `passport-steam` — a biblioteca tem
-falha conhecida que permite autenticar como qualquer conta.
+OpenID 2.0 implemented directly, without `passport-steam` — that library
+has a known flaw allowing authentication as any account.
 
-Verificado com a conta real: login funciona ponta a ponta.
+Verified with a real account: login works end to end.
 
-### Inventário
+### Inventory
 
-`GET /api/inventory` — leitura ao vivo com cache, `?depositable=true`
-filtra mantendo `total` e `blocked` no resumo.
+`GET /api/inventory` — a live read with a cache; `?depositable=true`
+filters while keeping `total` and `blocked` in the summary.
 
-Classifica em 20 categorias pela tag `Type`; extrai stickers, patches e
-chaveiros aplicados (nome, imagem, ordem). Verificado contra inventário
-real: 192 itens, nenhum caiu em `OTHER`.
+It classifies into 20 categories from the `Type` tag, and extracts
+applied stickers, patches and charms (name, image, order). Verified
+against a real inventory: 192 items, none fell into `OTHER`.
 
-### Dados de item: resolvido sem infraestrutura (17/08)
+### Item data: solved without infrastructure (17/08)
 
-O endpoint público de inventário já devolve, por item, em
-`asset_properties`: paint seed (`propertyid 1`), float (`propertyid 2`) e
-o inspect link auto-codificado (`propertyid 6`). Os adesivos aplicados
-vêm em `asset_accessories`, cada um com `classid` e um float próprio.
+The public inventory endpoint already returns, per item, in
+`asset_properties`: the paint seed (`propertyid 1`), the float
+(`propertyid 2`) and the self-encoded inspect link (`propertyid 6`). The
+applied stickers come in `asset_accessories`, each with a `classid` and a
+float of its own.
 
-Verificado contra inventário real: `StatTrak™ AK-47 | Inheritance
-(Battle-Scarred)`, seed 401, float 0,6661146879196167, 5 adesivos.
+Verified against a real inventory: `StatTrak™ AK-47 | Inheritance
+(Battle-Scarred)`, seed 401, float 0.6661146879196167, 5 stickers.
 
-**Consequência:** cai do plano toda a infraestrutura de inspect — conta
-dedicada, Game Coordinator, fila, limite de 1 req/s. E float e padrão
-passam a estar disponíveis **antes** do depósito, o que muda o que a tela
-de depósito e a vitrine conseguem mostrar.
+**Consequence:** the entire inspect infrastructure drops off the plan —
+dedicated account, Game Coordinator, queue, 1 req/s limit. And float and
+pattern are now available **before** the deposit, which changes what the
+deposit screen and the storefront can show.
 
-**Raspagem confirmada** contra dois itens conhecidos: AK-47 Blue Laminate
-com 4 adesivos intactos devolve `0 | 0 | 0 | 0`; a AK-47 Inheritance
-devolve `0,63 | 0,84 | 0,80 | 0,75 | 0,97`. `propertyid 4` é a raspagem,
-0 = intacto.
+**The scrape was confirmed** against two known items: an AK-47 Blue
+Laminate with 4 untouched stickers returns `0 | 0 | 0 | 0`; the AK-47
+Inheritance returns `0.63 | 0.84 | 0.80 | 0.75 | 0.97`. `propertyid 4` is
+the scrape, 0 = untouched.
 
-**Implementado** no `steam-inventory` (17/08): `float`, `paintSeed` e a
-raspagem de cada aplicação. Verificado contra o inventário real — 191
-itens, 24 com float, 11 com aplicação, 10 com raspagem. O décimo primeiro
-é um chaveiro, que não raspa e não aparece em `asset_accessories`.
+**Implemented** in `steam-inventory` (17/08): `float`, `paintSeed` and
+each application's scrape. Verified against the real inventory — 191
+items, 24 with a float, 11 with an application, 10 with a scrape. The
+eleventh is a charm, which does not scrape and does not appear in
+`asset_accessories`.
 
-Nome e imagem da aplicação vêm do HTML; a raspagem vem de
-`asset_accessories`, que identifica cada peça só por `classid` — e esse
-`classid` não está em `descriptions`. **A única ligação entre as duas
-listas é a ordem**, então o casamento só acontece quando as quantidades
-batem. Divergiu, `wear` fica `null`: errar a raspagem mexe direto no
-preço, e mostrar nada é melhor que mostrar errado.
+The application's name and image come from the HTML; the scrape comes
+from `asset_accessories`, which identifies each piece only by `classid` —
+and that `classid` is not in `descriptions`. **Order is the only link
+between the two lists**, so the pairing only happens when the counts
+match. If they diverge, `wear` stays `null`: getting the scrape wrong
+moves the price directly, and showing nothing beats showing something
+wrong.
 
 ### Trade URL
 
-`PUT /api/users/me/trade-url` — confere que o `partner` corresponde ao
-usuário autenticado. Guarda versão normalizada.
+`PUT /api/users/me/trade-url` — checks that the `partner` corresponds to
+the authenticated user. Stores a normalised version.
 
-### Depósito (parcial)
+### Deposit (partial)
 
-`POST /api/deposits` registra a intenção e enfileira a `TradeOffer` em
-`CREATED`. Valida trade URL, restrição da Steam, posse dos itens, se são
-depositáveis, se já estão em outra troca, e escolhe o bot mais vazio.
+`POST /api/deposits` records the intent and queues the `TradeOffer` in
+`CREATED`. It validates the trade URL, Steam restrictions, ownership of
+the items, whether they are depositable, whether they are already in
+another trade, and picks the emptiest bot.
 
-**Hoje responde 503 em qualquer depósito**, porque não há bot cadastrado.
-Isso é o comportamento correto, não um bug.
+**Today it answers 503 on any deposit**, because no bot is registered.
+That is the correct behaviour, not a bug.
 
 ### Trade Bots
 
-`pnpm bot:check`, `pnpm bot:add` e `pnpm bot:list`.
+`pnpm bot:check`, `pnpm bot:add` and `pnpm bot:list`.
 
-`bot:check` é só leitura: responde "posso cadastrar esta conta?" sem
-gravar nada. Mostra todas as pendências de uma vez, para o operador não
-corrigir uma, rodar de novo e descobrir a seguinte.
+`bot:check` is read-only: it answers "can I register this account?"
+without writing anything. It shows every blocker at once, so the operator
+does not fix one, run again and discover the next.
 
-`bot:add` confirma com a Steam que a conta existe, que não tem restrição
-de economia nem VAC, e **que não está limitada** — conta limitada não é
-ban, a Web API não reporta esse estado, e conta recém-criada passaria por
-todas as outras barreiras sem conseguir negociar. A checagem vem do XML
-do perfil (`isLimitedAccount`).
+`bot:add` confirms with Steam that the account exists, that it has
+neither an economy restriction nor a VAC ban, and **that it is not
+limited** — a limited account is not a ban, the Web API does not report
+that state, and a freshly created account would clear every other barrier
+without being able to trade. The check comes from the profile XML
+(`isLimitedAccount`).
 
-Os dois consomem a mesma regra (`scripts/bot-eligibility.ts`, pura e
-testada): o `check` informa, o `add` barra. Critérios separados
-discordariam, e a discordância só apareceria com item em custódia.
+Both consume the same rule (`scripts/bot-eligibility.ts`, pure and
+tested): `check` informs, `add` blocks. Separate criteria would disagree,
+and the disagreement would only surface with an item in custody.
 
-Recusa registra na auditoria como `bot.registration_denied` com o motivo
-— inclusive duplicidade e perfil ilegível.
+A refusal is recorded in the audit log as `bot.registration_denied` with
+the reason — including duplicates and an unreadable profile.
 
-**Dois Trade Bots cadastrados**, ambos `OFFLINE`:
+**Two Trade Bots registered**, both `OFFLINE`:
 
-| | steamID64 | ref | libera |
+| | steamID64 | ref | unlocks |
 |---|---|---|---|
-| Trade Bot 1 | 76561198659520305 | `bot/01` | 20/08/2026 |
-| Trade Bot 2 | 76561198654117612 | `bot/02` | 24/08/2026 |
+| Trade Bot 1 | 76561198659520305 | `bot/01` | 2026-08-20 |
+| Trade Bot 2 | 76561198654117612 | `bot/02` | 2026-08-24 |
 
-Nenhum recebe depósito ainda: `escolherBot` só considera `ONLINE`, e nada
-põe em rotação até o `bot-service` existir. Os R$ 50 na carteira contaram
-para tirar a limitação mesmo sem serem gastos — confirmado nos dois.
+Neither receives deposits yet: `pickBot` only considers `ONLINE`, and
+nothing puts a bot into rotation until `bot-service` exists. The R$ 50 in
+the wallet counted towards lifting the limitation even without being
+spent — confirmed on both.
 
-Falta em ambos: avatar (ainda o padrão da Steam), que espera a identidade
-visual e deve ser aplicado nos dois de uma vez.
+Missing on both: the avatar (still Steam's default), which is waiting on
+the visual identity and should be applied to both at once.
 
-### Auditoria
+### Auditing
 
-Integrada em login (sucesso e três recusas), logout, logout-all, trade URL
-(sucesso e cada recusa), depósito (sucesso e sete recusas) e cadastro de
-bot.
+Wired into login (success and three refusals), logout, logout-all, the
+trade URL (success and each refusal), deposits (success and seven
+refusals) and bot registration.
 
-Consulta por comando: `pnpm audit:user` monta a linha do tempo de uma
-pessoa (aceita steamId ou id interno, mostra antes/depois e IP);
-`pnpm audit:suspicious` lista quem acumulou recusas no período. Há também
-busca por assetId no `AuditQueryService`.
+Querying by command: `pnpm audit:user` assembles one person's timeline
+(it accepts a steamId or an internal id, and shows before/after and the
+IP); `pnpm audit:suspicious` lists whoever accumulated refusals in the
+period. There is also a search by assetId in `AuditQueryService`.
 
-### Logs estruturados
+### Structured logging
 
-Toda requisição recebe um `requestId` e o carrega até o fim, inclusive
-atravessando `await` — é `AsyncLocalStorage`, ninguém precisa passar isso
-como parâmetro. O id vai no cabeçalho `x-request-id` da resposta, então o
-usuário que reclama pode informar o número da requisição que falhou.
+Every request receives a `requestId` and carries it to the end, including
+across `await` — it is `AsyncLocalStorage`, nobody has to pass it as a
+parameter. The id goes in the response's `x-request-id` header, so a user
+who complains can quote the number of the request that failed.
 
-Em produção sai uma linha JSON por evento, com `requestId`, `userId`,
-`ip`, `method` e `path` — dá para filtrar tudo de uma pessoa ou de uma
-falha. Em desenvolvimento sai texto legível com os 8 primeiros caracteres
-do id como prefixo.
+In production it emits one JSON line per event, with `requestId`,
+`userId`, `ip`, `method` and `path` — everything from one person or one
+failure can be filtered out. In development it emits readable text with
+the id's first 8 characters as a prefix.
 
-Se o cliente mandar `x-request-id`, ele é reaproveitado (permite seguir a
-requisição desde o proxy) — mas só se casar com `/^[A-Za-z0-9._-]{8,128}$/`.
-Sem essa validação, bastaria mandar uma quebra de linha para **forjar
-entradas no log**, arruinando justamente a investigação que ele apoia.
+If the client sends `x-request-id`, it is reused (which allows following
+the request from the proxy onwards) — but only if it matches
+`/^[A-Za-z0-9._-]{8,128}$/`. Without that validation, sending a line
+break would be enough to **forge log entries**, ruining the very
+investigation the id supports.
 
-Campos cujo nome lembra credencial (`senha`, `password`, `secret`,
-`token`, `authorization`, `cookie`, `apiKey`, `credential`) saem como
-`[oculto]`, em qualquer profundidade. É rede de proteção: o certo é não
-passar credencial adiante, mas despejar um objeto inteiro num log de erro
-é acidente comum.
+Fields whose names suggest a credential (`senha`, `password`, `secret`,
+`token`, `authorization`, `cookie`, `apikey`, `api_key`, `credential`)
+come out as `[hidden]`, at any depth. It is a safety net: the right thing is not to
+pass credentials around, but dumping a whole object into an error log is
+a common accident.
 
-`userId` só entra depois do guard autenticar. Os logs anteriores saem sem
-dono — o que é correto: ali ainda não se sabia quem era.
+`userId` only enters after the guard authenticates. Earlier logs come out
+without an owner — which is correct: at that point we did not know who it
+was.
 
 ---
 
-## Em andamento
+## In progress
 
-### Tradução do código para inglês (17/08) — EM CURSO
+### Translating the codebase to English (17–18/08) — COMPLETE
 
-Convenção nova, registrada no CLAUDE.md: **tudo em inglês** —
-identificadores, comentários, descrições de teste, mensagens ao usuário e
-documentação. Até 17/08 a convenção dizia o contrário, então isto é
-migração, não faxina.
+A new convention, recorded in CLAUDE.md: **everything in English** —
+identifiers, comments, test descriptions, user-facing messages and
+documentation. Until 17/08 the convention said the opposite, so this was
+a migration, not a tidy-up.
 
-**Feito** (cada um com typecheck, lint e 398 testes verdes):
+Every pass was verified with typecheck, lint and the full suite before
+being committed:
 
-| Passada | Commit | Módulo |
+| Pass | Commit | Scope |
 |---|---|---|
 | 1 | `83bb1fb` | `inventory` |
 | 2 | `9eb9a9f` | `catalog` |
 | 3 | `ac8d777` | `pricing` |
-| 4 | `b50c18f` | `test-utils` + setup do jest |
+| 4 | `b50c18f` | `test-utils` + jest setup |
 | 5 | `2ef37de` | `observability` |
 | 6 | `ddc1ed0` | `scripts` + `audit-query` |
 | 7 | `ea3fc23` | `audit` + `users` |
 | 8 | `838fad1` | `deposits` |
+| 9 | `9a8bc5b` | `auth` (14 files) |
+| 10 | `1387811` | inventory remainder, users, deposits specs, infra, schema |
+| 11 | `3406759` | documentation, CI, turbo, docs/ renamed |
 
-**Falta:**
+#### What crossed a boundary, and how
 
-- **`auth`** — 14 arquivos, o bloco mais denso (OpenID, JWT, revogação em
-  duas camadas, restrições da Steam, perfil e ban)
-- `redis`, `prisma`, `config`, `app.module`, `app-setup`, `main` — 8
-- Documentação: `CLAUDE.md`, `STATE.md`, `docs/*.md`, READMEs — 8
+**Audit metadata keys change on both sides at once.**
+`motivo`/`erro`/`de`/`para`/`itens`/`nome` became
+`reason`/`error`/`from`/`to`/`items`/`name`. The writers are in `auth`,
+`deposits` and `users`; the readers are the scripts and `findByAssetId`.
+Splitting them would have made `audit:user` stop rendering the "from X to
+Y". The 354 old rows in the development database keep the old keys —
+harmless, and there is no production.
 
-**O schema do Prisma já estava em inglês** e não precisou de migration.
+**A refusal reason is a code, not a message.** `sem_trade_url` →
+`no_trade_url` and its kin are stable strings for querying the trail.
 
-#### O que aprendemos traduzindo, e vale repetir
+**A renamed command:** `pnpm audit:suspeitos` → `pnpm audit:suspicious`,
+with `--days` and `--minimum`.
 
-**Chaves de metadata da auditoria mudam nas duas pontas juntas.**
-`motivo`/`erro`/`de`/`para`/`itens`/`nome` viraram
-`reason`/`error`/`from`/`to`/`items`/`name`. Quem escreve está em `auth`,
-`deposits` e `users`; quem lê são os scripts e o `findByAssetId`. Separar
-faria o `audit:user` parar de renderizar o "de X para Y". As 354 linhas
-antigas do banco de desenvolvimento mantêm as chaves velhas — inofensivo,
-e não há produção.
+**A renamed Redis key:** `steam:inventory:bloqueado` →
+`steam:inventory:blocked`. On deploy an existing block key is orphaned;
+it expires on its own within 5 minutes.
 
-**Motivo de recusa é código, não mensagem.** `sem_trade_url` →
-`no_trade_url` e afins são strings estáveis para consultar a trilha.
+**One enum value needed a migration:** `PriceSource.INTERNO` → `INTERNAL`
+(`20260818094500_rename_price_source_internal`), using `RENAME VALUE`
+rather than dropping the type, so rows referencing it would survive.
+There are none today; the destructive version would only be found out the
+day there are.
 
-**Mensagem ao usuário também virou inglês.** O site é internacional, então
-isso aconteceria de qualquer forma.
+**The seed's platform username** went from `Plataforma` to `Platform`.
+The seed repairs the existing row on the next run — already done in
+development.
 
-**Comando renomeado:** `pnpm audit:suspeitos` → `pnpm audit:suspicious`,
-com `--days` e `--minimum`.
+#### What deliberately stayed in Portuguese
 
-#### Como retomar
+- **The migration files.** Their directory names are recorded in
+  `_prisma_migrations` and their contents are checksummed; renaming or
+  editing them would make Prisma report modified migrations.
+- **The "Description — Portuguese" block in `docs/steam-group.md`.** That
+  is the published copy Brazilian users read on Steam, not project
+  documentation. Translating it would delete the localisation.
+- **The masking list in `structured-logger.ts` keeps `senha`** alongside
+  `password`: it matches field names that might arrive from anywhere,
+  and dropping the Portuguese one would only narrow the net.
 
-Os commits seguem `refactor(<módulo>): translate to English (N/N)`. Basta
-continuar a numeração. Ordem sugerida do que resta: `auth`, depois a
-infraestrutura, depois a documentação.
-
-
-Nada em código.
-
-**Fora do código:** as contas de bot estão sendo criadas. O autenticador
-leva 7 dias para maturar; os prazos correm em paralelo. Roteiro em
-`docs/criar-conta-de-bot.md`.
+**Outside the code:** the bot accounts are being created. The
+authenticator takes 7 days to mature; the clocks run in parallel. The
+script is in `docs/create-trade-bot-account.md`.
 
 ---
 
-## Próximos passos
+## Next steps
 
-### Bloqueado até haver bot operante
+### Blocked until there is a working bot
 
-- `bot-service` inteiro: enviar oferta, detectar aceite, criar `Item` com
-  float lido do inspect link, preencher `ItemApplication.wear`
-- Fila agendada pelo trade lock (`SCHEDULED` + `scheduledFor`)
-- Retry com limite — `TradeOffer.attempts` existe e ninguém respeita
-- Rechecar ban antes de entregar, senão o retry roda infinito
-- Detectar ban do próprio bot — conta banida continua **recebendo** itens,
-  então a perda cresce depois do incidente
-- Reconciliar `Bot.itemCount`
+- The whole of `bot-service`: sending an offer, detecting acceptance,
+  creating an `Item` with the float read from the inspect link, filling
+  in `ItemApplication.wear`
+- The queue scheduled by the trade lock (`SCHEDULED` + `scheduledFor`)
+- Retry with a limit — `TradeOffer.attempts` exists and nothing respects
+  it
+- Re-checking the ban before delivering, otherwise the retry runs forever
+- Detecting a ban on the bot itself — a banned account keeps **receiving**
+  items, so the loss grows after the incident
+- Reconciling `Bot.itemCount`
 
-Detalhes em `apps/bot-service/README.md`.
+Details in `apps/bot-service/README.md`.
 
-### Livre para fazer agora
+### Free to do now
 
-- **Página pública de Trade Bots** — só depois que **todos** os bots
-  estiverem cadastrados (decisão de 17/08). Fazer antes significaria
-  publicar uma lista incompleta, e conta nossa que não aparece na lista
-  é indistinguível de conta falsa: a página estaria acusando de falso
-  justamente o que ela existe para autenticar.
-  Enquanto isso, a âncora é a lista de steamID64 na descrição do grupo,
-  que precisa ser atualizada a cada bot criado.
-  Decisões já tomadas: HTML servido pelo backend, sem depender do
-  frontend, com a paleta do `theme.css`. Precisa junto: `retiredAt` e URL
-  personalizada no `Bot`.
-- **Paralelizar os testes** (um banco por worker). São 393 testes em
-  série; agora é velocidade, não integridade.
-- **Trocar a descrição do grupo da Steam quando o site subir.** Hoje ela
-  abre com "o site não está no ar, não negociamos, qualquer oferta em
-  nosso nome é golpe". Isso é proteção enquanto não há nada no ar, e vira
-  mentira perigosa no dia do lançamento: o usuário lê que não negociamos
-  bem quando começar a negociar de verdade. Os dois textos (inglês e
-  português) estão em `docs/grupo-steam.md`. **Fazer no mesmo dia do
-  lançamento, não depois.**
-- Frontend — preso à decisão de fronteira com o Figma, que é **sua**, não
-  de terceiro.
+- **The public Trade Bots page** — only once **every** bot is registered
+  (decided 17/08). Doing it sooner would mean publishing an incomplete
+  list, and an account of ours that is missing from the list is
+  indistinguishable from a fake one: the page would be accusing of
+  forgery exactly what it exists to authenticate.
+  In the meantime the anchor is the steamID64 list in the group
+  description, which has to be updated with every bot created.
+  Decisions already taken: HTML served by the backend, without depending
+  on the frontend, using the `theme.css` palette. Needed alongside it:
+  `retiredAt` and a custom URL on `Bot`.
+- **Parallelise the tests** (one database per worker). 398 tests run in
+  series; this is now about speed, not integrity.
+- **Swap the Steam group description when the site goes live.** Today it
+  opens with "the site is not live, we are not trading, any offer in our
+  name is a scam". That is protection while nothing is live, and it turns
+  into a dangerous lie on launch day: the user reads that we are not
+  trading exactly when we start trading for real. Both texts (English and
+  Portuguese) are in `docs/steam-group.md`. **Do it on launch day, not
+  after.**
+- Frontend — held up by the Figma boundary decision, which is **yours**,
+  not a third party's.
 
-**Vitrine e anúncios saíram desta lista:** `Listing` existe no modelo,
-mas não há o que anunciar enquanto item nenhum entra em custódia — e isso
-depende do `bot-service`, que destrava em 20/08.
+**The storefront and listings left this list:** `Listing` exists in the
+model, but there is nothing to list while no item enters custody — and
+that depends on `bot-service`, which unblocks on 20/08.
 
-### Assim que a hospedagem for definida
+### As soon as hosting is decided
 
-- **`docker-compose` de produção**, garantindo que os comandos de terminal
-  (`audit:user`, `audit:suspicious`, `bot:add`, `bot:list`) tenham as
-  mesmas variáveis de ambiente da API. Rodando em container isso vem de
-  graça; direto na VM, o `.env` precisa estar acessível ao usuário que
-  executa.
-- **Testar os comandos no ambiente real**, não só aqui. Eles executam a
-  partir do `dist`, então o deploy precisa rodar `pnpm build`.
-- **Destino dos logs**, porque hoje eles morrem com o container. Se houver
-  proxy na frente (nginx, Caddy, Cloudflare), configurar para gerar o
-  `x-request-id` — assim a correlação começa antes do backend.
-- Documentar o acesso: `docker compose exec backend pnpm audit:user -- --id=...`
-  via SSH, ou túnel SSH (`ssh -L 5433:localhost:5432`) para consultar do
-  próprio computador. **Nunca expor a porta do Postgres na internet.**
+- **A production `docker-compose`**, making sure the terminal commands
+  (`audit:user`, `audit:suspicious`, `bot:add`, `bot:list`) have the same
+  environment variables as the API. Running in a container gives that for
+  free; straight on a VM, the `.env` has to be reachable by the user
+  running them.
+- **Test the commands in the real environment**, not only here. They run
+  from `dist`, so the deploy has to run `pnpm build`.
+- **A destination for the logs**, because today they die with the
+  container. If there is a proxy in front (nginx, Caddy, Cloudflare),
+  configure it to generate the `x-request-id` — that way correlation
+  starts before the backend.
+- Document the access: `docker compose exec backend pnpm audit:user --
+  --id=...` over SSH, or an SSH tunnel (`ssh -L 5433:localhost:5432`) to
+  query from your own computer. **Never expose the Postgres port to the
+  internet.**
 
-### Banco de teste isolado (17/08)
+### An isolated test database (17/08)
 
-Os testes rodam em **`skin_marketplace_test`**, criado e migrado
-automaticamente pelo `globalSetup` do jest. O seed roda junto, porque a
-conta da plataforma vem dele e não das migrations.
+The tests run against **`skin_marketplace_test`**, created and migrated
+automatically by jest's `globalSetup`. The seed runs with it, because the
+platform account comes from there and not from the migrations.
 
-O endereço é **derivado** do `DATABASE_URL` de desenvolvimento, trocando
-o nome do banco por `<nome>_test` — não há `.env.test`, que seria mais um
-arquivo para desincronizar. O Redis também é separado (banco 1), porque o
-limitador global da Steam vive lá e é estado compartilhado.
+The address is **derived** from the development `DATABASE_URL`, swapping
+the database name for `<name>_test` — there is no `.env.test`, which
+would be one more file to fall out of sync. Redis is separate too
+(database 1), because the global Steam rate limiter lives there and is
+shared state.
 
-**Barreira em `test-utils/test-database.ts`:** a suíte se recusa a rodar
-contra banco cujo nome não termine em `_test`. A checagem é pelo nome, e
-não por host — produção pode estar em localhost por um túnel SSH, e "é
-local, então pode" é o raciocínio que destrói dado.
+**The barrier in `test-utils/test-database.ts`:** the suite refuses to
+run against a database whose name does not end in `_test`. The check is
+by name, not by host — production can be on localhost through an SSH
+tunnel, and "it is local, so it is fine" is the reasoning that destroys
+data.
 
-**O `ALTER TABLE ... DISABLE TRIGGER` sumiu dos cinco specs.** A limpeza
-virou `TRUNCATE`, que não dispara trigger de linha — então a imutabilidade
-da auditoria fica **ligada o tempo todo**, inclusive durante a limpeza.
-Antes, um teste que morresse no meio da janela deixava a proteção
-desligada em silêncio.
+**`ALTER TABLE ... DISABLE TRIGGER` is gone from all five specs.** The
+cleanup became `TRUNCATE`, which does not fire a row trigger — so the
+audit log's immutability stays **on the whole time**, cleanup included.
+Before, a test dying inside that window left the protection off in
+silence.
 
-Verificado: uma suíte completa deixa o `AuditLog` de desenvolvimento em
-354 linhas, exatamente onde estava. Antes, cada rodada somava ~50.
+Verified: a full suite leaves the development `AuditLog` at 354 rows,
+exactly where it was. Before, every run added about 50.
 
-Para recriar do zero: `DROP DATABASE skin_marketplace_test` — a próxima
-rodada o refaz.
+To recreate it from scratch: `DROP DATABASE skin_marketplace_test` — the
+next run rebuilds it.
 
-### Catálogo (17/08)
+### The catalog (17/08)
 
-**33.950 itens importados**, com `pnpm catalog:sync` — idempotente,
-levando ~220s. Verificado rodando duas vezes: a segunda atualiza tudo e
-não cria nada.
+**33,950 items imported**, with `pnpm catalog:sync` — idempotent, taking
+about 220s. Verified by running it twice: the second run updates
+everything and creates nothing.
 
 | | | | |
 |---|---|---|---|
-| STICKER | 10.433 | GRAFFITI | 1.812 |
-| PISTOL | 5.050 | MACHINEGUN | 597 |
-| RIFLE | 3.922 | GLOVES | 470 |
-| SMG | 3.534 | CONTAINER | 469 |
-| KNIFE | 3.428 | MUSIC_KIT | 183 |
-| SHOTGUN | 1.885 | PATCH | 112 |
-| SNIPER_RIFLE | 1.809 | CHARM / AGENT / KEY | 78 / 63 / 25 |
+| STICKER | 10,433 | GRAFFITI | 1,812 |
+| PISTOL | 5,050 | MACHINEGUN | 597 |
+| RIFLE | 3,922 | GLOVES | 470 |
+| SMG | 3,534 | CONTAINER | 469 |
+| KNIFE | 3,428 | MUSIC_KIT | 183 |
+| SHOTGUN | 1,885 | PATCH | 112 |
+| SNIPER_RIFLE | 1,809 | CHARM / AGENT / KEY | 78 / 63 / 25 |
 
-Fonte: dataset público `ByMykel/CSGO-API`, espelhado no nosso banco.
-Descartados 1.032: medalha e passe (nunca negociáveis) e 701 adesivos com
-`market_hash_name` nulo, que não existem no mercado.
+Source: the public `ByMykel/CSGO-API` dataset, mirrored into our
+database. 1,032 were discarded: medals and passes (never tradable) and
+701 stickers with a null `market_hash_name`, which do not exist on the
+market.
 
-`SkinTemplate` agora aceita item sem arma. `weapon`, `skinName`,
-`minFloat` e `maxFloat` viraram opcionais, com duas CHECK constraints no
-lugar: **arma exige `weapon`**, e **item com skin exige faixa de float**.
-A primeira versão exigia skin de toda arma e recusou 40 facas *vanilla*
-na importação real — item legítimo e caro que não tem skin nem desgaste.
+`SkinTemplate` now accepts an item with no weapon. `weapon`, `skinName`,
+`minFloat` and `maxFloat` became optional, with two CHECK constraints in
+their place: **a weapon requires `weapon`**, and **an item with a skin
+requires a float range**. The first version required a skin on every
+weapon and refused 40 *vanilla* knives during the real import —
+legitimate, expensive items with neither a skin nor wear.
 
-**Classificação:** o nome resolve o caso específico (prefixo `Sticker |`,
-`★`, nome da arma); o arquivo de origem resolve o tipo quando o nome não
-diz nada. Foi o que classificou cápsulas de torneio como `CONTAINER` —
-"Katowice 2019 Legends (Holo-Foil)" não anuncia isso em lugar nenhum,
-mas veio de `crates.json`.
+**Classification:** the name settles the specific case (the `Sticker |`
+prefix, `★`, the weapon's name); the source file settles the type when
+the name says nothing. That is what classified tournament capsules as
+`CONTAINER` — "Katowice 2019 Legends (Holo-Foil)" announces that
+nowhere, but it came from `crates.json`.
 
-**`EQUIPMENT`** é categoria nova, criada para o **Zeus x27** (80 itens).
-Tem skin, exterior e float como qualquer arma, mas a Valve o classifica à
-parte (`CSGO_Type_Equipment`). Está mapeado nos dois lados — catálogo e
-inventário — e conta como categoria com padrão único, então o float dele
-aparece. **Nenhum item ficou em `OTHER`.**
+**`EQUIPMENT`** is a new category, created for the **Zeus x27** (80
+items). It has a skin, an exterior and a float like any weapon, but Valve
+classifies it separately (`CSGO_Type_Equipment`). It is mapped on both
+sides — catalog and inventory — and counts as a category with a unique
+pattern, so its float shows up. **No item was left in `OTHER`.**
 
-**Origem: `collections` é lista, não campo único** — 31.115 de 33.950
-preenchidos (91,6%), e **17.325 saem de mais de uma origem**, com máximo
-de 19.
+**Origin: `collections` is a list, not a single field** — 31,115 of
+33,950 filled in (91.6%), and **17,325 come from more than one origin**,
+up to a maximum of 19.
 
 ```
 ★ Karambit | Doppler        {Chroma Case, Chroma 2 Case, Chroma 3 Case}
@@ -388,184 +418,192 @@ AK-47 | Redline (FT)        {Operation Phoenix Weapon Case,
                              The Phoenix Collection}
 ```
 
-A primeira versão guardava só uma, e a última processada apagava as
-outras — por acidente de ordem de iteração, não por escolha. **Não existe
-"origem principal"**: o Karambit não vem mais da Chroma 3 do que da
-Chroma 1. E a quantidade de origens importa além da exibição: skin que
-cai de três caixas tem oferta muito maior que uma exclusiva, e oferta é
-entrada do `buyoutEligible`.
+The first version stored only one, and the last processed erased the
+others — by accident of iteration order, not by choice. **There is no
+"primary origin"**: the Karambit is no more from Chroma 3 than from
+Chroma 1. And the number of origins matters beyond display: a skin that
+drops from three cases has far more supply than an exclusive one, and
+supply is an input to `buyoutEligible`.
 
-Cruzamento por `skin_id` com `collections.json` e `crates.json`. Faca e
-luva estão em `contains_rare`, não em `contains` — sem ler esse campo, as
-3.898 ficariam sem origem. Índice **GIN**, porque índice comum não serve
-para "contém este valor" em coluna de lista; a consulta da vitrine
-(`'Chroma 2 Case' = ANY(collections)`) devolve 373 itens.
+Cross-referenced by `skin_id` against `collections.json` and
+`crates.json`. Knives and gloves are in `contains_rare`, not in
+`contains` — without reading that field, 3,898 of them would be left with
+no origin. A **GIN** index, because a plain index is no use for "contains
+this value" on a list column; the storefront query (`'Chroma 2 Case' =
+ANY(collections)`) returns 373 items.
 
-Os vazios restantes são, em maioria, corretos: caixa não pertence a
-coleção, e grafite não sai de coleção nenhuma.
+The remaining blanks are mostly correct: a case does not belong to a
+collection, and graffiti drops from no collection at all.
 
-**Descrição: 33.742 itens** (99,4%), com `flavorText` separado em 17.951 —
-a frase em itálico que a Valve põe no fim ("Never be afraid to push it to
-the limit"). Guardados **sem HTML**: devolver marcação de terceiro para a
-tela obrigaria o frontend a sanitizar, e página de item é onde alguém
-decide vender algo caro.
+**Descriptions: 33,742 items** (99.4%), with `flavorText` separated out
+on 17,951 — the italic line Valve puts at the end ("Never be afraid to
+push it to the limit"). Stored **without HTML**: handing a third party's
+markup to the screen would force the frontend to sanitise it, and an item
+page is where someone decides to sell something expensive.
 
-**`hasStickerSlots` foi removido.** Era derivável da categoria e nunca
-foi preenchido — lia `false` nos 33.950, inclusive em toda arma. Virou
-`aceitaAdesivo(categoria)` em `item-category.ts`, junto de
-`temPadraoUnico`: função pura não diverge, coluna duplicada sim.
+**`hasStickerSlots` was removed.** It was derivable from the category and
+was never filled in — it read `false` on all 33,950, weapons included. It
+became `acceptsSticker(category)` in `item-category.ts`, alongside
+`hasUniquePattern`: a pure function does not drift, a duplicated column
+does.
 
-Não confundir com faca e luva, que **têm padrão mas não têm slot** — é o
-que impede derivar uma função da outra. Zeus x27 aceita adesivo, apesar
-de ser família própria da Valve.
+Not to be confused with knives and gloves, which **have a pattern but no
+slots** — that is what stops one function being derived from the other.
+The Zeus x27 accepts stickers, despite being its own Valve family.
 
-**`src/catalog` em 98,7% de cobertura.** O `CatalogSyncService` tinha
-zero: é a parte que fala com rede e banco, e a que pode estragar dado já
-gravado — o `upsert` passa por cima de 33.950 linhas a cada rodada.
+**`src/catalog` at 98.7% coverage.** `CatalogSyncService` was at zero: it
+is the part that talks to the network and the database, and the one that
+can damage data already stored — the `upsert` runs over 33,950 rows on
+every pass.
 
-O teste que mais importa é o que garante que a sincronização **não toca**
-em `referencePrice`, `buyoutEligible`, `buyoutDiscountPct` nem
-`salesVolume30d`: são decisões nossas, e sobrescrevê-las tiraria uma skin
-do fluxo rápido — ou deixaria uma entrar — sem ninguém perceber.
+The test that matters most is the one guaranteeing the sync **does not
+touch** `referencePrice`, `buyoutEligible`, `buyoutDiscountPct` or
+`salesVolume30d`: those are our decisions, and overwriting them would
+take a skin out of the fast flow — or let one in — with nobody noticing.
 
-As fixtures usam o prefixo `TESTE-SYNC`, **inclusive os nomes de caixa**:
-o arquivo `crates` alimenta o cruzamento de origem e também vira template
-de `CONTAINER`, então caixa de teste sem prefixo escapa da limpeza e fica
-no catálogo real. Aconteceu na primeira versão do teste.
+The fixtures use the `TESTE-SYNC` prefix, **including the case names**:
+the `crates` file feeds the origin cross-reference and also becomes
+`CONTAINER` templates, so a test case without the prefix escapes the
+cleanup and stays in the real catalog. That happened in the test's first
+version.
 
-### Preço: o lado neutro está pronto (17/08)
+### Pricing: the vendor-neutral layer is ready (17/08)
 
-`PriceSnapshot` (append-only) + `PricingModule`, sem nenhum fornecedor
-acoplado. Migration `20260817171329_price_snapshot`.
+`PriceSnapshot` (append-only) + `PricingModule`, with no vendor coupled
+in. Migration `20260817171329_price_snapshot`.
 
-- **`price-provider.ts`** — o contrato que qualquer fornecedor preenche.
-  Nenhuma tela ou regra conhece cs2.sh ou SteamWebAPI: conhecem
-  `CotacaoBruta`. Item sem cotação é omitido, nunca devolvido com preço
-  zero.
-- **`price-reconciliation.ts`** — regra pura, 19 testes. Não faz média
-  entre mercados; prefere BUFF163 e deixa Steam por último; descarta
-  cotação velha; **recusa quando as fontes divergem além de 40%.** Em
-  todos os casos duvidosos, não exibir preço em vez de exibir errado.
-- **`price-history.service.ts`** — grava o lote e lê o preço atual do
-  **nosso banco**, nunca do fornecedor. Repetição é ignorada, então o job
-  pode ser rodado de novo depois de uma queda.
+- **`price-provider.ts`** — the contract any vendor fills in. No screen
+  or rule knows about cs2.sh or SteamWebAPI: they know `RawQuote`. An
+  item with no quote is omitted, never returned with a zero price.
+- **`price-reconciliation.ts`** — a pure rule, 19 tests. It does not
+  average across markets; it prefers BUFF163 and leaves Steam last; it
+  discards stale quotes; **it refuses when the sources diverge by more
+  than 40%.** In every doubtful case, show no price rather than a wrong
+  one.
+- **`price-history.service.ts`** — stores the batch and reads the current
+  price from **our own database**, never from the vendor. Repetition is
+  ignored, so the job can be re-run after an outage.
 
-`quotedAt` (quando a fonte apurou) é separado de `capturedAt` (quando
-gravamos): fornecedor que serve dado de dez minutos atrás precisa ser
-distinguível de um que serve ao vivo.
+`quotedAt` (when the source determined it) is separate from `capturedAt`
+(when we stored it): a vendor serving data from ten minutes ago has to be
+distinguishable from one serving it live.
 
-**Falta:** o adaptador do fornecedor escolhido, e o job que roda a
-captura. Nenhum dos dois depende de decisão nova — só de saber qual
-fornecedor.
+**Missing:** the adapter for the chosen vendor, and the job that runs the
+capture. Neither depends on a new decision — only on knowing which
+vendor.
 
-### Fonte de preço — levantamento de 17/08/2026
+### The price source — survey of 2026-08-17
 
 | | cs2.sh | SteamWebAPI | CSGOSKINS.GG | SteamApis |
 |---|---|---|---|---|
-| Mercados | 6, com BUFF | 13, com BUFF | 37 | 6, com BUFF |
-| Atualização | ~5 min, declarado | não declara | 5 min + carimbo | não declara |
-| Preço | bid/ask | atual, mediana, menor venda, maior compra | só anúncio | atual |
-| Histórico | OHLC 4 intervalos; Steam 13 anos | 365 dias | 90–365 dias | 15–30 dias |
-| Liquidez | endpoint próprio | não | não | não |
-| Custo | US$ 75 (só atual) / US$ 200 (tudo) | € 25–50 | € 179–279 | ~€ 110 |
-| Uso comercial | **não publicado** | **permitido, explícito** | não publicado | não publicado |
+| Markets | 6, incl. BUFF | 13, incl. BUFF | 37 | 6, incl. BUFF |
+| Refresh | ~5 min, stated | not stated | 5 min + timestamp | not stated |
+| Price | bid/ask | current, median, lowest sale, highest buy | listings only | current |
+| History | OHLC across 4 intervals; Steam 13 years | 365 days | 90–365 days | 15–30 days |
+| Liquidity | its own endpoint | no | no | no |
+| Cost | US$ 75 (current only) / US$ 200 (everything) | € 25–50 | € 179–279 | ~€ 110 |
+| Commercial use | **not published** | **allowed, explicit** | not published | not published |
 
-**Recomendado:** cs2.sh Developer (US$ 75) como referência de preço —
-BUFF163 é a âncora do mercado, bid/ask separados revelam o spread, e o
-endpoint de liquidez serve direto ao `buyoutEligible`. Opcionalmente
-SteamWebAPI Starter (€ 25) ao lado, para preço nos mercados ocidentais.
+**Recommended:** cs2.sh Developer (US$ 75) as the price reference —
+BUFF163 is the market's anchor, separate bid/ask reveal the spread, and
+the liquidity endpoint feeds `buyoutEligible` directly. Optionally
+SteamWebAPI Starter (€ 25) alongside it, for prices in Western markets.
 
-**CSGOSKINS.GG está fora**: rastreia preço de anúncio, não de venda — o
-mesmo defeito do Steam Market, e o mais caro da lista.
+**CSGOSKINS.GG is out**: it tracks listing prices, not sale prices — the
+same defect as the Steam Market, and the most expensive on the list.
 
-**cs2.sh respondeu em 17/08/2026** (Alex, `hello@cs2.sh`):
+**cs2.sh replied on 2026-08-17** (Alex, `hello@cs2.sh`):
 
-1. **Exibir os dados num marketplace comercial é permitido.** A única
-   restrição é revender ou redistribuir a API e os dados — cachear e
-   exibir é explicitamente aceito ("often necessary for our users'
-   applications or websites"). Termos em
+1. **Displaying the data on a commercial marketplace is allowed.** The
+   only restriction is reselling or redistributing the API and the data —
+   caching and displaying are explicitly accepted ("often necessary for
+   our users' applications or websites"). Terms at
    `cs2.sh/terms#fair-use-and-rate-limits`.
-2. **`/v1/liquidity/items` é exclusivo do plano Scale** (US$ 200).
-3. **Atribuição não é exigida**, só apreciada.
+2. **`/v1/liquidity/items` is exclusive to the Scale plan** (US$ 200).
+3. **Attribution is not required**, only appreciated.
 
-**Decisão: começar no Developer (US$ 75).** O sinal de liquidez que o
-`buyoutEligible` precisa não tem que vir pronto: o **spread entre bid e
-ask** já indica liquidez e vem no Developer, e a série própria dá
-estabilidade de preço em ~3 meses. São US$ 1.500/ano de diferença antes
-de haver faturamento, e subir de plano depois é trivial.
+**Decision: start on Developer (US$ 75).** The liquidity signal
+`buyoutEligible` needs does not have to arrive ready-made: the **spread
+between bid and ask** already indicates liquidity and comes with
+Developer, and our own series gives price stability in about 3 months.
+That is US$ 1,500/year of difference before there is any revenue, and
+moving up a plan later is trivial.
 
-**Ainda em aberto:** se o Developer traz volume junto do preço. É o que
-decide se o Scale se paga. Resolver com a **chave gratuita de 2 dias**
-(pedida no Discord) antes de assinar.
+**Still open:** whether Developer includes volume alongside the price.
+That is what decides whether Scale pays for itself. Settle it with the
+**free 2-day key** (requested on Discord) before subscribing.
 
-Falta a resposta do SteamWebAPI. Ver
-[docs/emails-e-fornecedores.md](docs/emails-e-fornecedores.md).
+SteamWebAPI's reply is still pending. See
+[docs/emails-and-vendors.md](docs/emails-and-vendors.md).
 
-**Regra ao juntar fontes:** BUFF manda no preço de referência; mercados
-ocidentais aparecem ao lado, nunca numa média. Média entre mercados de
-liquidez diferente produz número que não existe em lugar nenhum. Se duas
-fontes divergirem além de um limite, **não exibir preço recomendado** em
-vez de exibir um errado — mesmo critério da raspagem de adesivo.
+**The rule when combining sources:** BUFF governs the reference price;
+Western markets appear alongside it, never in an average. An average
+across markets of different liquidity produces a number that exists
+nowhere. If two sources diverge beyond a threshold, **show no recommended
+price** rather than a wrong one — the same criterion as the sticker
+scrape.
 
-### Decisões suas, sem código
+### Your decisions, no code involved
 
-| Decisão | Quando |
+| Decision | When |
 |---|---|
-| Fonte de preço — ver abaixo, esperando resposta dos fornecedores | perto da vitrine |
-| Hospedagem | em avaliação — requisitos em `docs/` |
-| Fronteira com o Figma Make | quando a primeira tela usar a API |
-| Reserva financeira proporcional ao custodiado | antes de volume real |
+| The price source — see above, awaiting vendor replies | close to the storefront |
+| Hosting | under evaluation — requirements in `docs/` |
+| The boundary with Figma Make | when the first screen uses the API |
+| A financial reserve proportional to what is in custody | before there is real volume |
 
 ---
 
-## Pendências conhecidas
+## Known open items
 
-- **`suspiciousActivity` varre a tabela inteira**, então recusas antigas
-  contam. Isso afeta o `pnpm audit:suspicious` **em produção**: sem
-  `--days` curto, tentativas antigas inflam a contagem.
-- **Testes ainda rodam em série** (`maxWorkers: 1`). O banco isolado
-  tirou o risco de estragar dado real, mas os workers compartilham o
-  mesmo banco de teste entre si — paralelizar exige um banco por worker.
-- **Log estruturado ainda não vai para lugar nenhum.** Sai em stdout e
-  fica na máquina. Sem coleta, um `docker compose restart` apaga a
-  investigação. Decidir o destino (arquivo rotacionado, Loki, serviço
-  gerenciado) junto com a hospedagem.
-- **`Bot.itemCount` é denormalizado** e vai divergir.
-- **Sem CI.**
-- **`.gitattributes` ausente** — o git avisa sobre LF/CRLF a cada commit.
-- **`STEAM_API_KEY` é da conta pessoal.** Em produção, gerar numa conta da
-  operação.
-- **Frontend:** React declarado como peer opcional, MUI instalado sem uso,
-  `App.tsx` com 1730 linhas sem rotas, `Guidelines.md` vazio.
+- **`suspiciousActivity` scans the whole table**, so old refusals count.
+  That affects `pnpm audit:suspicious` **in production**: without a short
+  `--days`, old attempts inflate the count.
+- **The tests still run in series** (`maxWorkers: 1`). The isolated
+  database removed the risk of damaging real data, but the workers share
+  the same test database among themselves — parallelising requires one
+  database per worker.
+- **Structured logs still go nowhere.** They come out on stdout and stay
+  on the machine. With no collection, a `docker compose restart` erases
+  the investigation. Decide the destination (a rotated file, Loki, a
+  managed service) together with hosting.
+- **`Bot.itemCount` is denormalised** and will drift.
+- **`STEAM_API_KEY` belongs to a personal account.** In production,
+  generate one on an operations account.
+- **Frontend:** React declared as an optional peer, MUI installed and
+  unused, `App.tsx` at 1730 lines with no routes, an empty
+  `Guidelines.md`.
 
-Sem bug aberto conhecido.
+No known open bug.
 
 ---
 
-## Decisões técnicas não descritas no CLAUDE.md
+## Technical decisions not described in CLAUDE.md
 
-- **Itens fungíveis: cada unidade é um anúncio próprio.** Decisão de
-  adiar, não de ignorar. Motivo: agentes precisam ser diferenciados por
-  causa dos patches. Revisitar ao construir a vitrine, quando cinquenta
-  linhas idênticas impedirem descobrir o preço de mercado de uma caixa.
-  Migrar depois não desfaz nada — `Item` continua uma linha por unidade
-  física; muda só a camada de anúncio.
-- **Cancelamento de anúncio é sempre permitido**, com a devolução agendada
-  para quando o trade lock expirar. Reusa a fila da entrega, mudando só o
-  `reason`.
-- **Item encalhado não expira.** A resposta a slot cheio é adicionar bot,
-  não devolver item de quem está esperando o preço subir.
-- **Falha de entrega é coberta pela plataforma** com reembolso integral em
-  saldo interno, nunca no método original.
-- **Whitelist do fluxo rápido = liquidez + teto de preço**, calculada por
-  job, não curada à mão. Campos já existem em `SkinTemplate`.
-- **Item travado aparece na vitrine com contador**, não oculto.
-- **Jest roda em série** (`maxWorkers: 1`): há estado compartilhado real
-  (banco e limitador global de Steam no Redis), e paralelismo produz falha
-  dependente de ordem.
-- **`app-setup.ts` centraliza a configuração do app**, usada pelo
-  bootstrap e pelos testes. Sem isso os testes rodariam sem prefixo de
-  rota, sem ValidationPipe e sem cookie-parser — verde num app que não
-  existe em produção.
-- **Depois de `pnpm add` no backend, rodar `npx prisma generate`.** O
-  preinstall do Prisma apaga o client gerado.
+- **Fungible items: each unit is its own listing.** A decision to defer,
+  not to ignore. The reason: agents have to be told apart because of
+  patches. Revisit while building the storefront, when fifty identical
+  rows make it impossible to discover a case's market price. Migrating
+  later undoes nothing — `Item` stays one row per physical unit; only the
+  listing layer changes.
+- **Cancelling a listing is always allowed**, with the return scheduled
+  for when the trade lock expires. It reuses the delivery queue, changing
+  only the `reason`.
+- **A stuck item does not expire.** The answer to a full slot is adding a
+  bot, not returning the item of someone waiting for the price to rise.
+- **A failed delivery is covered by the platform** with a full refund in
+  internal balance, never to the original method.
+- **The fast-flow whitelist = liquidity + a price ceiling**, computed by
+  a job, not curated by hand. The fields already exist on
+  `SkinTemplate`.
+- **A locked item appears in the storefront with a countdown**, not
+  hidden.
+- **Jest runs in series** (`maxWorkers: 1`): there is real shared state
+  (the database and the global Steam limiter in Redis), and parallelism
+  produces order-dependent failures.
+- **`app-setup.ts` centralises the app's configuration**, used by the
+  bootstrap and by the tests. Without it the tests would run with no
+  route prefix, no ValidationPipe and no cookie-parser — green on an app
+  that does not exist in production.
+- **After `pnpm add` in the backend, run `npx prisma generate`.**
+  Prisma's preinstall deletes the generated client.
