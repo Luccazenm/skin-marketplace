@@ -18,7 +18,7 @@ import {
   Tag,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { startSteamLogin } from "@/lib/api";
+import { logout, startSteamLogin } from "@/lib/api";
 import { useSession } from "@/lib/use-session";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
@@ -2312,6 +2312,32 @@ export default function App() {
     if (session.user) setCurrency(session.user.displayCurrency);
   }, [session.user]);
 
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [signingOut, setSigningOut]     = useState(false);
+
+  /**
+   * Signing out has to clear the session on the SERVER, not just locally:
+   * the cookie is httpOnly, and the backend revokes the token in Redis so
+   * a copied one stops working too.
+   *
+   * The session is re-read afterwards rather than assumed empty — if the
+   * request failed, the user is still signed in and the header must keep
+   * saying so instead of showing a logged-out screen that lies.
+   */
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await logout();
+    } catch {
+      // Swallowed on purpose: the refresh below settles the real state,
+      // whichever way the request went.
+    } finally {
+      await session.refresh();
+      setSigningOut(false);
+      setUserMenuOpen(false);
+    }
+  }
+
   const filtered = useMemo(() => {
     let out = SKINS.filter((s) => {
       const q = search.toLowerCase();
@@ -2450,22 +2476,60 @@ export default function App() {
                  with it in alt and title, so it is one hover away and a
                  screen reader still announces it — on a site holding
                  money, "which account am I in?" has to stay answerable. */
-              session.user.avatarUrl ? (
-                <img
-                  src={session.user.avatarUrl}
-                  alt={session.user.username}
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen((open) => !open)}
                   title={session.user.username}
-                  className="w-7 h-7 rounded-full"
-                />
-              ) : (
-                <div
-                  title={session.user.username}
-                  className="w-7 h-7 rounded-full flex items-center justify-center"
-                  style={{ background: "rgba(255,255,255,0.1)" }}
+                  aria-label={`Account: ${session.user.username}`}
+                  aria-expanded={userMenuOpen}
+                  className="block rounded-full"
                 >
-                  <User className="w-4 h-4 text-muted-foreground" />
-                </div>
-              )
+                  {session.user.avatarUrl ? (
+                    <img
+                      src={session.user.avatarUrl}
+                      alt={session.user.username}
+                      className="w-7 h-7 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)" }}>
+                      <User className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  )}
+                </button>
+
+                {userMenuOpen && (
+                  <>
+                    {/* Catches the click that closes the menu. Without it
+                        the only way out is clicking the avatar again,
+                        which is not where anyone aims. */}
+                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                    <div
+                      className="absolute right-0 mt-2 w-56 rounded border z-50 overflow-hidden"
+                      style={{ background: "#0f1117", borderColor: "rgba(255,255,255,0.1)" }}
+                    >
+                      {/* The name lives here, spelled out. This is the
+                          screen someone opens to check which account
+                          they are in before signing out of it. */}
+                      <div className="px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                        <div className="font-mono text-xs truncate" style={{ color: "#e8eaf0" }}>
+                          {session.user.username}
+                        </div>
+                        <div className="font-mono text-[10px] mt-0.5" style={{ color: "#6c7290" }}>
+                          {session.user.steamId}
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleSignOut}
+                        disabled={signingOut}
+                        className="w-full text-left px-3 py-2 font-display text-xs font-semibold tracking-wide transition-colors hover:bg-white/5 disabled:opacity-50"
+                        style={{ color: "#e84060" }}
+                      >
+                        {signingOut ? "SIGNING OUT…" : "SIGN OUT"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
               <button
                 onClick={startSteamLogin}

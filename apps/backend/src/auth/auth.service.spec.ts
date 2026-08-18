@@ -196,6 +196,66 @@ describe('AuthService.loginWithSteam', () => {
     );
   });
 
+  // Regression: signing in with a Trade Bot account used to create an
+  // ordinary User row for it. Our own custody account would then be able
+  // to deposit, sell and hold a balance, and the audit trail would carry
+  // a customer identity for something that must only ever be a
+  // counterparty. Found by logging in with Trade Bot 2 by accident.
+  describe('Trade Bot accounts', () => {
+    const BOT_STEAM_ID = '76561199000000003';
+
+    beforeEach(async () => {
+      await prisma.bot.deleteMany({ where: { steamId: BOT_STEAM_ID } });
+      await prisma.user.deleteMany({ where: { steamId: BOT_STEAM_ID } });
+
+      await prisma.bot.create({
+        data: {
+          steamId: BOT_STEAM_ID,
+          username: 'login-barrier-test-bot',
+          credentialRef: 'vault/login-barrier-test-bot',
+        },
+      });
+    });
+
+    afterEach(async () => {
+      await prisma.bot.deleteMany({ where: { steamId: BOT_STEAM_ID } });
+      await prisma.user.deleteMany({ where: { steamId: BOT_STEAM_ID } });
+    });
+
+    it('refuses the login', async () => {
+      await expect(authService.loginWithSteam(BOT_STEAM_ID)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    // The refusal is worthless if the row is created anyway.
+    it('creates no User row for it', async () => {
+      await expect(authService.loginWithSteam(BOT_STEAM_ID)).rejects.toThrow();
+
+      const user = await prisma.user.findUnique({
+        where: { steamId: BOT_STEAM_ID },
+      });
+
+      expect(user).toBeNull();
+    });
+
+    // A refusal nobody can find later is not much of a barrier.
+    it('records the refusal against the bot', async () => {
+      await expect(authService.loginWithSteam(BOT_STEAM_ID)).rejects.toThrow();
+
+      const [log] = await prisma.auditLog.findMany({
+        where: { targetType: 'Bot', outcome: 'DENIED' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      });
+
+      expect(log.metadata).toMatchObject({
+        reason: 'trade_bot_account',
+        steamId: BOT_STEAM_ID,
+      });
+    });
+  });
+
   // Regression: the previous version ran the upsert before checking
   // isPlatform, so the login attempt overwrote the system account's name
   // and avatar with the data of whoever tried to get in.

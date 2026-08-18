@@ -62,6 +62,42 @@ export class AuthService {
       throw new ForbiddenException('Account unavailable');
     }
 
+    // A Trade Bot is an operational account, and must never also be a
+    // customer.
+    //
+    // The isPlatform check above exists for exactly this reason, but it
+    // only covers the system account: a Trade Bot lives in the Bot table
+    // and, without this, signing in with one simply creates an ordinary
+    // User row. That account could then deposit, sell and hold a
+    // balance — our own custody account mixed into customer money, and a
+    // second identity for something the audit trail expects to see only
+    // as a counterparty.
+    //
+    // Checked before any write, like the one above, so a refused attempt
+    // cannot touch anything.
+    const bot = await this.prisma.bot.findUnique({
+      where: { steamId },
+      select: { id: true, username: true },
+    });
+
+    if (bot) {
+      this.logger.error(
+        `Attempt to log in with a Trade Bot account: ${steamId} (${bot.username})`,
+      );
+
+      await this.audit.record({
+        actorType: AuditActorType.ANONYMOUS,
+        action: AUDIT_ACTIONS.LOGIN,
+        outcome: AuditOutcome.DENIED,
+        targetType: 'Bot',
+        targetId: bot.id,
+        metadata: { reason: 'trade_bot_account', steamId },
+        context,
+      });
+
+      throw new ForbiddenException('Account unavailable');
+    }
+
     // A banned account still records the attempt — only the timestamp,
     // nothing coming from outside. Knowing that a suspended user tried to
     // get in is useful information.
