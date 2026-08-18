@@ -187,6 +187,19 @@ Regra pura e testável fica em arquivo próprio, sem framework
 - `Decimal(12,2)` para USD; precisão alta em moeda de origem, porque
   cripto não sobrevive a duas casas.
 
+### Testes e banco
+
+Os testes rodam em **`skin_marketplace_test`**, derivado do
+`DATABASE_URL` de desenvolvimento e criado sozinho na primeira execução.
+A suíte **se recusa a rodar** contra banco cujo nome não termine em
+`_test`.
+
+**Nunca desligar trigger para limpar.** Limpeza de auditoria é
+`limparAuditoria(prisma)`, que usa TRUNCATE — trigger de linha não
+dispara, e a imutabilidade continua ligada. `DISABLE TRIGGER` desliga a
+proteção da tabela inteira, e um teste que morra no meio a deixa
+desligada em silêncio.
+
 ### Antes de dar algo por pronto
 
 ```bash

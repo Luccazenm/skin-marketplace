@@ -248,6 +248,34 @@ Detalhes em `apps/bot-service/README.md`.
   via SSH, ou túnel SSH (`ssh -L 5433:localhost:5432`) para consultar do
   próprio computador. **Nunca expor a porta do Postgres na internet.**
 
+### Banco de teste isolado (17/08)
+
+Os testes rodam em **`skin_marketplace_test`**, criado e migrado
+automaticamente pelo `globalSetup` do jest. O seed roda junto, porque a
+conta da plataforma vem dele e não das migrations.
+
+O endereço é **derivado** do `DATABASE_URL` de desenvolvimento, trocando
+o nome do banco por `<nome>_test` — não há `.env.test`, que seria mais um
+arquivo para desincronizar. O Redis também é separado (banco 1), porque o
+limitador global da Steam vive lá e é estado compartilhado.
+
+**Barreira em `test-utils/test-database.ts`:** a suíte se recusa a rodar
+contra banco cujo nome não termine em `_test`. A checagem é pelo nome, e
+não por host — produção pode estar em localhost por um túnel SSH, e "é
+local, então pode" é o raciocínio que destrói dado.
+
+**O `ALTER TABLE ... DISABLE TRIGGER` sumiu dos cinco specs.** A limpeza
+virou `TRUNCATE`, que não dispara trigger de linha — então a imutabilidade
+da auditoria fica **ligada o tempo todo**, inclusive durante a limpeza.
+Antes, um teste que morresse no meio da janela deixava a proteção
+desligada em silêncio.
+
+Verificado: uma suíte completa deixa o `AuditLog` de desenvolvimento em
+354 linhas, exatamente onde estava. Antes, cada rodada somava ~50.
+
+Para recriar do zero: `DROP DATABASE skin_marketplace_test` — a próxima
+rodada o refaz.
+
 ### Catálogo (17/08)
 
 **33.950 itens importados**, com `pnpm catalog:sync` — idempotente,
@@ -429,23 +457,12 @@ vez de exibir um errado — mesmo critério da raspagem de adesivo.
 
 ## Pendências conhecidas
 
-- **Testes usam o banco de desenvolvimento**, e isso já custou caro duas
-  vezes. Resolve com banco de teste isolado — subiu de prioridade.
-  - **Os testes desligam o trigger de imutabilidade do `AuditLog`** para
-    limpar o que criaram (`ALTER TABLE ... DISABLE TRIGGER`, em cinco
-    specs). Enquanto a janela está aberta, o trigger está desligado **para
-    a tabela inteira**, não só para aquela transação. Se um teste morrer
-    entre o DISABLE e o ENABLE, a proteção fica desligada em silêncio — e
-    a garantia de que "auditoria não pode ser apagada" deixa de existir
-    sem ninguém perceber. Pior: apontar os testes para o banco errado
-    desligaria a proteção lá.
-  - **`suspiciousActivity` varre a tabela inteira**, então recusas de
-    rodadas anteriores contam. O teste de ordenação afirmava quem era o
-    primeiro da lista global, passava por um tempo e quebrava sozinho
-    depois de algumas rodadas. Corrigido para comparar posições relativas
-    dos seus próprios atores (13/08). **O mesmo acúmulo afeta o
-    `pnpm audit:suspeitos` em produção**: sem `--dias` curto, tentativas
-    antigas inflam a contagem.
+- **`suspiciousActivity` varre a tabela inteira**, então recusas antigas
+  contam. Isso afeta o `pnpm audit:suspeitos` **em produção**: sem
+  `--dias` curto, tentativas antigas inflam a contagem.
+- **Testes ainda rodam em série** (`maxWorkers: 1`). O banco isolado
+  tirou o risco de estragar dado real, mas os workers compartilham o
+  mesmo banco de teste entre si — paralelizar exige um banco por worker.
 - **Log estruturado ainda não vai para lugar nenhum.** Sai em stdout e
   fica na máquina. Sem coleta, um `docker compose restart` apaga a
   investigação. Decidir o destino (arquivo rotacionado, Loki, serviço

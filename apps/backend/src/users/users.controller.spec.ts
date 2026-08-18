@@ -5,6 +5,7 @@ import {
   createTestApp,
   type TestApp,
 } from '../test-utils/create-test-app';
+import { limparAuditoria } from '../test-utils/limpar-auditoria';
 
 describe('UsersController', () => {
   let ctx: TestApp;
@@ -144,13 +145,7 @@ async function limpar(ctx: TestApp, steamId: string) {
   const user = await ctx.prisma.user.findUnique({ where: { steamId } });
 
   if (user) {
-    await ctx.prisma.$executeRawUnsafe(
-      'ALTER TABLE "AuditLog" DISABLE TRIGGER audit_log_sem_delete',
-    );
-    await ctx.prisma.auditLog.deleteMany({ where: { actorId: user.id } });
-    await ctx.prisma.$executeRawUnsafe(
-      'ALTER TABLE "AuditLog" ENABLE TRIGGER audit_log_sem_delete',
-    );
+    await limparAuditoria(ctx.prisma);
     await ctx.prisma.user.delete({ where: { id: user.id } });
   }
 }

@@ -5,6 +5,7 @@ import {
   createTestApp,
   type TestApp,
 } from '../test-utils/create-test-app';
+import { limparAuditoria as limpar } from '../test-utils/limpar-auditoria';
 
 /**
  * A camada HTTP: é onde exceção vira status. Um 403 que escapa como 500
@@ -162,14 +163,4 @@ describe('AuthController', () => {
   });
 });
 
-async function limparAuditoria(ctx: TestApp) {
-  await ctx.prisma.$executeRawUnsafe(
-    'ALTER TABLE "AuditLog" DISABLE TRIGGER audit_log_sem_delete',
-  );
-  await ctx.prisma.auditLog.deleteMany({
-    where: { metadata: { path: ['steamId'], string_starts_with: '765611990' } },
-  });
-  await ctx.prisma.$executeRawUnsafe(
-    'ALTER TABLE "AuditLog" ENABLE TRIGGER audit_log_sem_delete',
-  );
-}
+const limparAuditoria = (ctx: TestApp) => limpar(ctx.prisma);

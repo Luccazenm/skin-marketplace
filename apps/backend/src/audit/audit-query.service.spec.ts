@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AuditActorType, AuditOutcome, type User } from '@prisma/client';
 import { validateEnv } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
+import { limparAuditoria } from '../test-utils/limpar-auditoria';
 import { AuditQueryService } from './audit-query.service';
 import { AUDIT_ACTIONS, AuditService } from './audit.service';
 
@@ -302,21 +303,6 @@ describe('AuditQueryService', () => {
 });
 
 async function limpar(prisma: PrismaService, steamIds: string[]) {
-  const users = await prisma.user.findMany({
-    where: { steamId: { in: steamIds } },
-    select: { id: true },
-  });
-  const ids = users.map((u) => u.id);
-
-  await prisma.$executeRawUnsafe(
-    'ALTER TABLE "AuditLog" DISABLE TRIGGER audit_log_sem_delete',
-  );
-  await prisma.auditLog.deleteMany({
-    where: { OR: [{ actorId: { in: ids } }, { targetId: { in: ids } }] },
-  });
-  await prisma.$executeRawUnsafe(
-    'ALTER TABLE "AuditLog" ENABLE TRIGGER audit_log_sem_delete',
-  );
-
+  await limparAuditoria(prisma);
   await prisma.user.deleteMany({ where: { steamId: { in: steamIds } } });
 }

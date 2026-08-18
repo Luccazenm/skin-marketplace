@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AuditActorType, AuditOutcome } from '@prisma/client';
 import { validateEnv } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
+import { limparAuditoria } from '../test-utils/limpar-auditoria';
 import { AUDIT_ACTIONS, AuditService } from './audit.service';
 
 describe('AuditService', () => {
@@ -25,15 +26,7 @@ describe('AuditService', () => {
   });
 
   afterEach(async () => {
-    // Só dá para apagar por SQL cru: o trigger recusa DELETE pelo ORM, o
-    // que é justamente o comportamento que queremos em produção.
-    await prisma.$executeRawUnsafe(
-      'ALTER TABLE "AuditLog" DISABLE TRIGGER audit_log_sem_delete',
-    );
-    await prisma.auditLog.deleteMany({ where: { actorId: ATOR } });
-    await prisma.$executeRawUnsafe(
-      'ALTER TABLE "AuditLog" ENABLE TRIGGER audit_log_sem_delete',
-    );
+    await limparAuditoria(prisma);
   });
 
   afterAll(async () => {
