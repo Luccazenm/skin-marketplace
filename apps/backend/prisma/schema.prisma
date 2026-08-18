@@ -129,7 +129,7 @@ model SkinTemplate {
   ///
   /// There is no "primary origin": the Karambit is no more from Chroma 3
   /// than from Chroma 1.
-  collections String[]
+  collections String[] @default([])
 
   /// What kind of item this is. The same classification as the
   /// inventory, so the catalog and the Steam reading agree.
@@ -752,6 +752,9 @@ model TradeOffer {
   // only valid while the items are in the user's inventory.
   requestedAssetIds String[]
 
+  /// The prices the seller set, waiting for the items to arrive.
+  intendedListings IntendedListing[]
+
   attempts  Int     @default(0)
   lastError String?
 
@@ -793,6 +796,50 @@ enum TradeOfferStatus {
   CANCELED // cancelled by the platform
   EXPIRED // the user did not answer in time
   FAILED // a Steam error / the bot is unavailable
+}
+
+// =========================
+// INTENDED LISTING
+// =========================
+// The price the seller set, held from the deposit request until the bot
+// receives the item.
+//
+// Selling is one step for the user — pick, price, confirm — and two for
+// us: the Trade Bot asks for the items, and the listing goes live the
+// moment they arrive. That gap is minutes at best and days at worst if
+// the user leaves the offer sitting on Steam, and the price has to
+// survive it. Without this the price would exist only in the browser,
+// and the user would be asked for it a second time after the trade they
+// already accepted.
+//
+// One row per item, not a map on the offer: it is a price, so it is a
+// Decimal like every other price in the system, and a JSON blob would
+// give that up. It is also the shape a CHECK can defend.
+//
+// These rows are consumed when the items arrive: the worker reads them
+// to create each Listing, and they are useless afterwards. They are kept
+// rather than deleted so a dispute about "I listed it at X" has an
+// answer.
+model IntendedListing {
+  id String @id @default(uuid(7))
+
+  tradeOfferId String
+  tradeOffer   TradeOffer @relation(fields: [tradeOfferId], references: [id], onDelete: Cascade)
+
+  /// Which item this price is for. An assetId, because there is no Item
+  /// yet — and it only means anything while the item sits in the user's
+  /// inventory, exactly like TradeOffer.requestedAssetIds.
+  assetId String
+
+  /// What the seller wants for it, in USD like the rest of the system.
+  price Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  /// One price per item per offer. A second row for the same asset would
+  /// be two answers to the same question.
+  @@unique([tradeOfferId, assetId])
+  @@index([tradeOfferId])
 }
 
 // N:N between TradeOffer and Item (one offer can carry several items)

@@ -82,6 +82,34 @@ ours to record. That is why a deposit only stores
 receive. Float and pattern, however, can already be displayed before
 that.
 
+### Selling
+
+**Selling is one step for the user and two for us.** They pick items,
+set a price, and confirm. The Trade Bot then sends an offer asking for
+those items, and the moment it receives them the listing is already
+live at the price they set. There is no second "now list it" screen.
+
+**The price is therefore chosen before the `Item` exists.** It has to
+travel with the deposit and survive until the bot receives — that is
+what `IntendedListing` is for, one row per item, carrying the price from
+the request to the moment the listing is created. Decided 2026-08-18.
+
+**A locked item is listed like any other, with the lock shown.** Valve's
+7-day lock does not hold the listing back: it is published with a
+padlock and the days remaining, and the buyer decides whether that suits
+them. Buying it changes the owner in our database; delivery happens when
+the lock expires. Hiding locked items would shrink the storefront to
+almost nothing in the first week of any deposit.
+
+**An item in custody does not have to be listed.** Deposit and listing
+are separable in both directions: a listing can be cancelled at any
+time, with or without a lock, and the owner can ask for the item back.
+The return is scheduled for when the lock expires, reusing the delivery
+queue with `TradeOfferReason.RETURN`. So "in a bot" never implies "for
+sale".
+
+### Steam trade lock
+
 **Valve's 7-day trade lock binds both sides.** Whoever receives is
 locked, so the bot does not deliver until 7 days after the deposit. That
 is why the virtual inventory exists: a sale is a change of owner in the
