@@ -332,12 +332,44 @@ Details in `apps/bot-service/README.md`.
   into a dangerous lie on launch day: the user reads that we are not
   trading exactly when we start trading for real. Both versions are in
   `docs/steam-group.md`. **Do it on launch day, not after.**
-- Frontend — held up by the Figma boundary decision, which is **yours**,
-  not a third party's.
+- **Frontend — unblocked on 18/08.** The Figma boundary decision was
+  taken: Make was the starting point, not a continuous source. The code
+  lives here and changes are made here. See the section below.
 
 **The storefront and listings left this list:** `Listing` exists in the
 model, but there is nothing to list while no item enters custody — and
 that depends on `bot-service`, which unblocks on 20/08.
+
+### The frontend: Figma Make stops being the source (18/08)
+
+**Decision:** Figma Make was the starting point. `apps/frontend` was
+generated there once; from now on the code lives in this repository and
+changes are made here. The alternative — confining the import to
+`src/app/` and `src/styles/` so hand-written code survives — was set
+aside because it only pays off if screens really keep being generated
+over there, and it creates a boundary nobody would remember to respect
+in two months.
+
+**A live preview replaced what Make gave visually.** `.claude/launch.json`
+declares the Vite dev server on 5173 and the API on 3000. Vite's hot
+reload shows an edit in under a second, and the browser tools read the
+page's DOM, console and network, so a change can be checked rather than
+assumed.
+
+#### What a Figma import overwrites, if one ever happens again
+
+A Make import replaces the entire folder. Everything below is
+hand-written and would be lost — it is a short list on purpose, and
+re-applying it is mechanical:
+
+| File | What is ours |
+|---|---|
+| `apps/frontend/tsconfig.json` | the whole file; Make does not generate one |
+| `apps/frontend/package.json` | devDeps `@types/react`, `@types/react-dom`, `typescript`, and the `typecheck` script |
+| `apps/frontend/vite.config.ts` | `resolveId(id)` → `resolveId(id: string)`, without which typecheck fails |
+
+Bring an import in as its own commit, so the diff shows exactly what it
+replaced.
 
 ### As soon as hosting is decided
 
@@ -569,7 +601,6 @@ scrape.
 |---|---|
 | The price source — see above, awaiting vendor replies | close to the storefront |
 | Hosting | under evaluation — requirements in `docs/` |
-| The boundary with Figma Make | when the first screen uses the API |
 | A financial reserve proportional to what is in custody | before there is real volume |
 
 ---

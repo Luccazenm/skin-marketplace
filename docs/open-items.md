@@ -46,8 +46,8 @@ Nothing here can really be tested without a functioning account.
   until a bot is registered.
 - **The storefront and listings** — `Listing` already exists in the
   model; it can be built and tested with seeded data.
-- **The whole frontend** — held up by the Figma boundary decision, not by
-  the bots.
+- **The whole frontend** — unblocked on 2026-08-18, when the Figma
+  boundary was decided. Never depended on the bots.
 - **Infrastructure** — CI, a separate test database, `.gitattributes`, a
   production Steam key.
 
@@ -57,7 +57,6 @@ Nothing here can really be tested without a functioning account.
 |---|---|
 | Price source (a paid service, a recurring cost) | close to building the storefront |
 | Hosting | under evaluation |
-| The boundary with Figma Make | when the first screen is wired to the API |
 | A financial reserve proportional to what is in custody | before there is real volume |
 
 ---
@@ -270,18 +269,18 @@ case.
 
 ## Frontend
 
-All of these depend on the Figma Make boundary decision, which only needs
-to be taken when the first screen is wired to the API.
-
-- **The Figma boundary**: today the import replaces the entire folder, so
-  nothing hand-written survives in `apps/frontend`. Two proposed ways
-  out: replace only `src/app/` and `src/styles/`, or isolate the bundle
-  and create a separate app that consumes it.
-- **An empty `guidelines/Guidelines.md`**: this is where the Figma agent
-  is instructed. Filling it in is cheaper than correcting every import by
-  hand.
-- **MUI vs shadcn**: both installed, MUI unused anywhere in the code. Do
-  not remove it before knowing whether Make can generate screens with it.
+- **~~The Figma boundary~~ — resolved on 2026-08-18.** Make was the
+  starting point, not a continuous source: the code lives in this
+  repository and changes are made here. The alternative, confining the
+  import to `src/app/` and `src/styles/`, was set aside because it only
+  pays off if screens keep being generated over there. What an import
+  would overwrite, should one ever happen, is listed in STATE.md.
+- **~~An empty `guidelines/Guidelines.md`~~ — moot.** That file
+  instructed the Make agent; with Make out of the loop there is nothing
+  to instruct. Delete it whenever the frontend is next touched.
+- **MUI vs shadcn**: both installed, MUI unused anywhere in the code.
+  The reason to keep it — "Make might generate screens with it" — is
+  gone, so it can now be removed once nothing imports it.
 - **React as an optional peer**: `react` and `react-dom` sit in
   `peerDependencies` with `optional: true`. It works by accident of
   pnpm's auto-install.

@@ -17,7 +17,7 @@ No loot boxes, no roulette. A marketplace and nothing else.
 | Backend | TypeScript + NestJS |
 | Database | PostgreSQL 16 via Prisma 7 (driver adapter `@prisma/adapter-pg`) |
 | Cache and queue | Redis 7 (ioredis; BullMQ once the worker exists) |
-| Frontend | TypeScript + React 18 + Vite + Tailwind v4 (generated in Figma Make) |
+| Frontend | TypeScript + React 18 + Vite + Tailwind v4 (bootstrapped in Figma Make; the code lives here now) |
 | Bot worker | `apps/bot-service` — still empty |
 | Monorepo | pnpm workspaces + turbo |
 
@@ -113,6 +113,23 @@ logout), a per-user cutoff drops all of them (a compromised account). If
 Redis goes down, the check lets requests through — the guard still blocks
 banned accounts via the database, and refusing every session over a cache
 outage would take the site down.
+
+### Frontend
+
+**Figma Make was the starting point, not a continuous source.** Decided
+on 2026-08-18. `apps/frontend` was generated there once; from that point
+on the code lives in this repository and changes are made here.
+
+The reason is that a Figma Make import **replaces the whole folder**.
+While it stayed the source of truth, anything written by hand would
+vanish on the next import — silently, with nothing in the diff to catch
+the eye. The alternative was to confine the import to `src/app/` and
+`src/styles/` and keep hand-written code outside that reach, which only
+pays off if screens really keep being generated over there.
+
+**So do not re-import from Figma Make.** If a new screen ever comes from
+it, treat it as a one-off paste into a branch and re-apply what the
+import overwrites — the list is in STATE.md.
 
 ### Steam
 
