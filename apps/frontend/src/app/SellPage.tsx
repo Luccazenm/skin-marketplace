@@ -140,6 +140,16 @@ export function SellPage({
           </div>
         )}
 
+        {/* The confirmation lives here, not in the panel: sending clears
+            the selection, and the panel goes with it. Here it sits with
+            the other notices, where the eye already is. */}
+        {submitted !== null && (
+          <div className="mb-3 font-mono text-[11px] flex-shrink-0" style={{ color: '#4ade80' }}>
+            {submitted} item{submitted > 1 ? 's' : ''} queued. Accept the
+            Trade Bot&apos;s offer on Steam to finish.
+          </div>
+        )}
+
         {filtered.length === 0 ? (
           <Notice title="Nothing to sell here" body={search ? 'No item matches that search.' : 'No item in this inventory can be traded on Steam.'} />
         ) : (
@@ -159,21 +169,26 @@ export function SellPage({
         )}
       </div>
 
-      <div className="hidden lg:flex flex-col flex-shrink-0 pt-6 pb-4 overflow-hidden" style={{ width: 320, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>
-        <SellPanel
-          items={selectedItems}
-          prices={prices}
-          setPrice={(assetId, price) => setPrices((p) => ({ ...p, [assetId]: price }))}
-          onRemove={toggle}
-          onClear={() => { setSelected([]); setPrices({}); }}
-          hasTradeUrl={hasTradeUrl}
-          canSubmit={canSubmit}
-          submitting={submitting}
-          error={submitError}
-          submitted={submitted}
-          onSubmit={() => void submit()}
-        />
-      </div>
+      {/* The panel only exists while something is selected. Reserving the
+          column would leave a permanent empty rectangle beside a full
+          grid; letting the grid have the width back costs a reflow when
+          the first item is picked, which is the cheaper of the two. */}
+      {selectedItems.length > 0 && (
+        <div className="hidden lg:flex flex-col flex-shrink-0 pt-6 pb-4 overflow-hidden" style={{ width: 320, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>
+          <SellPanel
+            items={selectedItems}
+            prices={prices}
+            setPrice={(assetId, price) => setPrices((p) => ({ ...p, [assetId]: price }))}
+            onRemove={toggle}
+            onClear={() => { setSelected([]); setPrices({}); }}
+            hasTradeUrl={hasTradeUrl}
+            canSubmit={canSubmit}
+            submitting={submitting}
+            error={submitError}
+            onSubmit={() => void submit()}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -316,31 +331,8 @@ function SellPanel(props: {
   canSubmit: boolean;
   submitting: boolean;
   error: string | null;
-  submitted: number | null;
   onSubmit: () => void;
 }) {
-  // Nothing selected, nothing to say. An empty panel explaining how the
-  // page works is instruction nobody asked for, sitting where the thing
-  // being acted on belongs. The grid on the left is self-explanatory.
-  //
-  // The one exception is the confirmation of a deposit that just went
-  // through: that is the answer to something the person did, and it
-  // disappears with the next selection.
-  if (props.items.length === 0) {
-    if (props.submitted === null) {
-      return null;
-    }
-
-    return (
-      <div className="px-5">
-        <div className="font-mono text-[11px] leading-relaxed" style={{ color: '#4ade80' }}>
-          {props.submitted} item{props.submitted > 1 ? 's' : ''} queued.
-          Accept the Trade Bot&apos;s offer on Steam to finish.
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="px-5 mb-3 flex-shrink-0 flex items-center justify-between">
