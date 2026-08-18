@@ -12,8 +12,8 @@
     "noEmit": true,
     "skipLibCheck": true,
     "strict": true,
-    // Espelha o alias declarado no vite.config.ts. Sem isso o editor
-    // nao resolve "@/..." mesmo o build funcionando.
+    // Mirrors the alias declared in vite.config.ts. Without it the editor
+    // does not resolve "@/..." even though the build works.
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]

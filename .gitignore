@@ -1,4 +1,4 @@
-# dependências
+# dependencies
 node_modules
 **/node_modules
 
@@ -10,7 +10,7 @@ build
 .next
 .turbo
 
-# variáveis de ambiente
+# environment variables
 .env
 .env.*
 !.env.example
@@ -23,7 +23,7 @@ apps/backend/prisma/migrations/dev.db
 npm-debug.log*
 pnpm-debug.log*
 
-# editores/SO
+# editors/OS
 .vscode
 .idea
 .DS_Store

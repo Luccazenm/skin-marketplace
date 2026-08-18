@@ -17,13 +17,14 @@ services:
       timeout: 5s
       retries: 10
 
-  # Fila do BullMQ: agenda a entrega para quando o trade lock do item expirar
+  # BullMQ's queue: schedules the delivery for when the item's trade lock
+  # expires
   redis:
     image: redis:7-alpine
     container_name: skin-marketplace-redis
     restart: unless-stopped
-    # appendonly: a fila guarda jobs agendados para dias no futuro.
-    # Perder isso num restart significa entrega que nunca sai.
+    # appendonly: the queue holds jobs scheduled days into the future.
+    # Losing that on a restart means a delivery that never goes out.
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"

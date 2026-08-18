@@ -3,7 +3,7 @@ packages:
   - "packages/*"
 allowBuilds:
   '@prisma/engines': true
-  # Telemetria de terceiros: nao roda build script neste projeto
+  # Third-party telemetry: no build script runs for it in this project
   '@scarf/scarf': false
   '@tailwindcss/oxide': true
   esbuild: true

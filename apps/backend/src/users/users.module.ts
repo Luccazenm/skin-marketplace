@@ -4,7 +4,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
-  // Precisa do AuthModule pelo JwtAuthGuard
+  // Needs AuthModule for JwtAuthGuard
   imports: [AuthModule],
   controllers: [UsersController],
   providers: [UsersService],

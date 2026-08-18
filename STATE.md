@@ -267,6 +267,19 @@ development.
 - **The masking list in `structured-logger.ts` keeps `senha`** alongside
   `password`: it matches field names that might arrive from anywhere,
   and dropping the Portuguese one would only narrow the net.
+- **The language picker's endonyms in the frontend** (`Português`,
+  `Español`, `Русский`, `中文`): a language picker has to show each
+  language in its own script.
+
+#### How the sweep was done, and what it nearly missed
+
+Searching for accented characters is not enough — most Portuguese in
+comments has none. The reliable pass is a word list (`nao`, `porque`,
+`usuario`, `motivo`, `guardar`, …) run over `git ls-files`, not over a
+glob by extension: **`.gitattributes`, `.gitignore` and `.env.example`
+have no extension a glob catches**, and all three were fully in
+Portuguese after the first eleven passes reported "done". `jest.config.js`
+was missed the same way, by a glob that covered `.ts` and not `.js`.
 
 **Outside the code:** the bot accounts are being created. The
 authenticator takes 7 days to mature; the clocks run in parallel. The
