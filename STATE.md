@@ -214,13 +214,19 @@ Detalhes em `apps/bot-service/README.md`.
 
 ### Livre para fazer agora
 
-- Catálogo para itens que não são armas (`SkinTemplate` tem `weapon` e
-  `skinName`; sticker não tem arma) — bloqueia guardar preço de sticker
-- Campo de URL personalizada em `Bot`, só exibição
-- Página pública de bots, listando steamID64 (defesa contra bot falso).
-  **A descrição do grupo da Steam já aponta para `nextskins.gg/bots`** —
-  enquanto a página não existir, o link quebra exatamente na hora em que
-  o usuário desconfiado vai conferir.
+- **Página pública de Trade Bots**, listando steamID64 (defesa contra bot
+  falso). É a única coisa aqui que fecha uma promessa **já feita em
+  público**: a descrição do grupo da Steam aponta para
+  `nextskins.gg/bots`, e enquanto a página não existir o link quebra
+  exatamente na hora em que o usuário desconfiado vai conferir. Decisão
+  já tomada: HTML servido pelo backend, sem depender do frontend, com a
+  paleta do `theme.css`. Precisa junto: `retiredAt` e URL personalizada
+  no `Bot`.
+- **CI.** Ficou simples agora que o banco de teste se cria sozinho: um
+  workflow que roda typecheck, lint, test e build a cada push.
+- **`.gitattributes`** — o git avisa sobre LF/CRLF em todo commit.
+- **Paralelizar os testes** (um banco por worker). São 393 testes em
+  série; agora é velocidade, não integridade.
 - **Trocar a descrição do grupo da Steam quando o site subir.** Hoje ela
   abre com "o site não está no ar, não negociamos, qualquer oferta em
   nosso nome é golpe". Isso é proteção enquanto não há nada no ar, e vira
@@ -228,9 +234,12 @@ Detalhes em `apps/bot-service/README.md`.
   bem quando começar a negociar de verdade. Os dois textos (inglês e
   português) estão em `docs/grupo-steam.md`. **Fazer no mesmo dia do
   lançamento, não depois.**
-- Vitrine e anúncios (`Listing` já existe no modelo)
-- Frontend — preso à decisão de fronteira com o Figma
-- CI, banco de teste separado, `.gitattributes`
+- Frontend — preso à decisão de fronteira com o Figma, que é **sua**, não
+  de terceiro.
+
+**Vitrine e anúncios saíram desta lista:** `Listing` existe no modelo,
+mas não há o que anunciar enquanto item nenhum entra em custódia — e isso
+depende do `bot-service`, que destrava em 20/08.
 
 ### Assim que a hospedagem for definida
 
