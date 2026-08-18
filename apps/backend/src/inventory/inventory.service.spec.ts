@@ -228,8 +228,8 @@ describe('InventoryService', () => {
       expect(r.items[0].catalog).toEqual({
         weapon: 'AK-47',
         skinName: 'Redline',
-        collections: expect.any(Array),
-        description: expect.any(String),
+        collections: ['The Phoenix Collection'],
+        description: 'It has been custom painted with a hot rod flame job.',
       });
     });
 
