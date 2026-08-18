@@ -20,6 +20,8 @@ import {
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { logout, startSteamLogin } from "@/lib/api";
 import { useSession } from "@/lib/use-session";
+import { SellPage } from "./SellPage";
+import { TradeUrlBanner } from "./TradeUrlBanner";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
 const RARITY: Record<string, { label: string; color: string; glow: string; from: string; to: string }> = {
@@ -1220,299 +1222,18 @@ function MiniSortDropdown({ value, onChange, options = TRADE_SORTS }: { value: s
   );
 }
 
-/* ─── Sell page ──────────────────────────────────────────────────────── */
-const USER_INVENTORY = SKINS.slice(0, 18);
-
-function SellSkinCard({ skin, selected, onToggle, onDetail }: { skin: Skin; selected: boolean; onToggle: () => void; onDetail: () => void }) {
-  const r = RARITY[skin.rarity];
-  const [hovered, setHovered] = useState(false);
-  const active = selected || hovered;
-
-  return (
-    <button
-      onClick={onDetail}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
-      style={{
-        height: "230px",
-        borderColor: selected ? r.color : hovered ? r.color : "rgba(255,255,255,0.07)",
-        background: selected
-          ? `linear-gradient(160deg, ${r.color}28, ${r.color}0e)`
-          : `linear-gradient(160deg, ${r.from}, ${r.to})`,
-        boxShadow: selected ? `0 0 20px ${r.glow}` : hovered ? `0 0 20px ${r.glow}` : "none",
-      }}
-    >
-      {/* Rarity strip */}
-      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
-
-      {/* Selection checkmark */}
-      {selected && (
-        <div className="absolute top-2 left-2 w-4 h-4 rounded-full flex items-center justify-center z-20"
-          style={{ background: "#f0c040" }}>
-          <Check className="w-2.5 h-2.5" style={{ color: "#08090d" }} />
-        </div>
-      )}
-
-      {/* Stickers — top right */}
-      {skin.stickers > 0 && (
-        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
-          {Array.from({ length: skin.stickers }).map((_, i) => (
-            <div key={i} className="w-5 h-5 rounded-sm flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
-              <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5"/>
-                <circle cx="6" cy="6" r="1.5" fill="#c0c4d8"/>
-              </svg>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Illustration */}
-      <div className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
-        style={{ paddingTop: active ? "8px" : "16px", paddingBottom: active ? "8px" : "16px" }}>
-        {skin.statTrak && (
-          <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10"
-            style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}>ST</span>
-        )}
-        <div className="w-full h-full max-w-[160px]">
-          <WeaponSVG weapon={skin.weapon} color={r.color} />
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="mx-3" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
-
-      {/* Info footer */}
-      <div className="px-3 py-2.5">
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          <div className="min-w-0">
-            <div className="text-[9px] font-mono uppercase tracking-wider leading-none mb-0.5" style={{ color: r.color }}>{skin.weapon}</div>
-            <div className="font-display text-sm font-semibold text-foreground leading-tight truncate">{skin.name}</div>
-          </div>
-          <div className="text-right flex-shrink-0">
-            <div className="font-mono text-[9px] text-muted-foreground">{skin.wear}</div>
-            <div className="font-mono text-[9px]" style={{ color: r.color }}>{skin.float.toFixed(4)}</div>
-          </div>
-        </div>
-        <div className="font-mono font-semibold text-sm leading-none" style={{ color: "#f0f2f8" }}>
-          ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </div>
-      </div>
-
-      {/* Select overlay — shown on hover */}
-      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
-        <div style={{ overflow: "hidden" }}>
-          <div className="px-3 pb-2.5">
-            <div
-              className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
-              style={{ background: selected ? r.color : "#f0c040", color: "#08090d", opacity: active ? 1 : 0 }}
-              onClick={(e) => { e.stopPropagation(); onToggle(); }}
-            >
-              {selected ? "DESELECT" : "SELECT"}
-            </div>
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-}
-const PLATFORM_FEE = 0.05; // 5%
-
-function SellPage() {
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("Default");
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [detailSkin, setDetailSkin] = useState<typeof USER_INVENTORY[0] | null>(null);
-  // per-item listing prices
-  const [prices, setPrices] = useState<Record<number, string>>({});
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    let out = USER_INVENTORY.filter((s) =>
-      !q || s.name.toLowerCase().includes(q) || s.weapon.toLowerCase().includes(q)
-    );
-    if (sort === "Highest Price") out = [...out].sort((a, b) => b.price - a.price);
-    if (sort === "Lowest Price")  out = [...out].sort((a, b) => a.price - b.price);
-    if (sort === "Highest Float") out = [...out].sort((a, b) => b.float - a.float);
-    if (sort === "Lowest Float")  out = [...out].sort((a, b) => a.float - b.float);
-    return out;
-  }, [search, sort]);
-
-  const selectedItems = USER_INVENTORY.filter((s) => selectedIds.includes(s.id));
-
-  const toggle = (id: number, skin: typeof USER_INVENTORY[0]) => {
-    setSelectedIds((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      setPrices((p) => ({ ...p, [id]: skin.price.toFixed(2) }));
-      return [...prev, id];
-    });
-  };
-
-  const totalReceive = selectedItems.reduce((sum, s) => {
-    const p = parseFloat(prices[s.id] ?? s.price.toFixed(2));
-    return sum + (isNaN(p) ? 0 : p * (1 - PLATFORM_FEE));
-  }, 0);
-
-  const canList = selectedIds.length > 0;
-
-  return (
-    <>
-    <div className="flex gap-0" style={{ height: "calc(100vh - 56px)", overflow: "hidden" }}>
-
-      {/* ── Left: inventory grid ───────────────────────────────────── */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden pt-6 pb-4 pr-6">
-        {/* Search + count */}
-        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search your inventory…"
-              className="w-full pl-9 pr-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
-            />
-          </div>
-          <MiniSortDropdown value={sort} onChange={setSort} options={SELL_SORTS} />
-          <span className="font-mono text-xs text-muted-foreground flex-shrink-0">
-            <span className="text-foreground font-semibold">{filtered.length}</span> items
-            {selectedIds.length > 0 && <span style={{ color: "#f0c040" }}> · {selectedIds.length} selected</span>}
-          </span>
-        </div>
-
-        {/* Grid — 8 columns */}
-        <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-          <div className="grid gap-3 pb-4" style={{ gridTemplateColumns: "repeat(8, 1fr)" }}>
-            {filtered.map((skin) => {
-              const r = RARITY[skin.rarity];
-              const isSel = selectedIds.includes(skin.id);
-              return (
-                <SellSkinCard key={skin.id} skin={skin} selected={isSel} onToggle={() => toggle(skin.id, skin)} onDetail={() => setDetailSkin(skin)} />
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Right: sell panel ─────────────────────────────────────── */}
-      <div className="hidden lg:flex flex-col flex-shrink-0 pt-6 pb-4 overflow-hidden" style={{ width: 300, borderLeft: "1px solid rgba(255,255,255,0.07)" }}>
-        {canList ? (
-          <>
-            {/* Header */}
-            <div className="px-5 mb-3 flex-shrink-0 flex items-center justify-between">
-              <div>
-                <div className="font-display text-sm font-bold text-foreground">Listing</div>
-                <div className="font-mono text-[10px] text-muted-foreground">{selectedIds.length} item{selectedIds.length > 1 ? "s" : ""} selected</div>
-              </div>
-              <button onClick={() => setSelectedIds([])} className="font-mono text-[9px] px-2 py-1 rounded transition-colors"
-                style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}>
-                Clear
-              </button>
-            </div>
-
-            {/* Scrollable item list */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-5" style={{ scrollbarWidth: "none" }}>
-              <div className="flex flex-col gap-2">
-                {selectedItems.map((skin) => {
-                  const r = RARITY[skin.rarity];
-                  const price = prices[skin.id] ?? skin.price.toFixed(2);
-                  const recv = parseFloat(price) * (1 - PLATFORM_FEE);
-                  return (
-                    <div key={skin.id} className="rounded-lg border overflow-hidden flex-shrink-0"
-                      style={{ background: `linear-gradient(135deg, ${r.color}12 0%, rgba(13,15,23,0.6) 100%)`, borderColor: r.color + "30" }}>
-                      <div className="absolute-0 top-0 left-0 right-0 h-0.5 rounded-t" style={{ background: r.color }} />
-
-                      {/* Mini card header */}
-                      <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
-                        {/* Small weapon preview */}
-                        <div className="w-10 h-8 flex-shrink-0">
-                          <WeaponSVG weapon={skin.weapon} color={r.color} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-mono text-[8px] uppercase tracking-wider truncate" style={{ color: r.color }}>{skin.weapon}</div>
-                          <div className="font-display text-xs font-semibold text-foreground truncate leading-tight">{skin.name}</div>
-                          <div className="font-mono text-[9px] text-muted-foreground">{skin.wear}</div>
-                        </div>
-                        <button onClick={() => toggle(skin.id, skin)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition-colors"
-                          style={{ background: "rgba(255,255,255,0.07)" }}>
-                          <X className="w-3 h-3 text-muted-foreground" />
-                        </button>
-                      </div>
-
-                      {/* Price inputs */}
-                      <div className="px-3 pb-2.5 flex items-center gap-2">
-                        <div className="flex-1">
-                          <div className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground mb-1">Listing price</div>
-                          <div className="relative">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[10px] text-muted-foreground">$</span>
-                            <input
-                              type="number" min="0" step="0.01" value={price}
-                              onChange={(e) => setPrices((p) => ({ ...p, [skin.id]: e.target.value }))}
-                              className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs font-semibold focus:outline-none"
-                              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#e8eaf0" }}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-mono text-[8px] uppercase tracking-wider mb-1" style={{ color: "#4ade80" }}>You receive</div>
-                          <div className="px-2 py-1.5 rounded font-mono text-xs font-semibold"
-                            style={{ background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.15)", color: "#4ade80" }}>
-                            ${isNaN(recv) ? "—" : recv.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Total + CTA */}
-            <div className="px-5 pt-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-[10px] text-muted-foreground">Total you receive</span>
-                <span className="font-display text-base font-bold" style={{ color: "#4ade80" }}>${totalReceive.toFixed(2)}</span>
-              </div>
-              <button
-                className="w-full py-2.5 rounded-lg font-display font-bold text-sm tracking-wide transition-all duration-200"
-                style={{ background: "#f0c040", color: "#08090d", boxShadow: "0 0 24px rgba(240,192,64,0.25)" }}
-              >
-                LIST {selectedIds.length} ITEM{selectedIds.length > 1 ? "S" : ""} FOR SALE
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 px-6">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.05)" }}>
-              <Tag className="w-5 h-5 text-muted-foreground" />
-            </div>
-            <div className="font-display text-sm font-semibold text-foreground">Select items to sell</div>
-            <div className="font-mono text-[11px] text-muted-foreground leading-relaxed">Choose one or more skins from your inventory to set listing prices.</div>
-          </div>
-        )}
-      </div>
-    </div>
-    {detailSkin && (
-      <SkinDetail
-        skin={detailSkin}
-        onClose={() => setDetailSkin(null)}
-        ctaLabel={selectedIds.includes(detailSkin.id) ? "ALREADY IN LIST" : "ADD TO SELL LIST"}
-        showSellInputs
-        onCta={(price) => {
-          if (!selectedIds.includes(detailSkin.id)) {
-            setPrices((p) => ({ ...p, [detailSkin.id]: price }));
-            setSelectedIds((prev) => [...prev, detailSkin.id]);
-          }
-        }}
-      />
-    )}
-    </>
-  );
-}
-
 /* ─── Trade page ─────────────────────────────────────────────────────── */
+
+/**
+ * Still the Figma mock, and deliberately so.
+ *
+ * Trading needs items already in custody, which needs the bot service,
+ * which does not exist yet. Wiring this screen to the API today would
+ * mean inventing endpoints to match a design nobody has tested against
+ * real trades. It is named MOCK so nobody mistakes it for a live read.
+ */
+const MOCK_TRADE_INVENTORY = SKINS.slice(0, 18);
+
 function TradePage() {
   const [mySelected, setMySelected]     = useState<number[]>([]);
   const [mktSelected, setMktSelected]   = useState<number[]>([]);
@@ -1540,7 +1261,7 @@ function TradePage() {
 
 
   const myFiltered = useMemo(() => {
-    let out = USER_INVENTORY.filter((s) => {
+    let out = MOCK_TRADE_INVENTORY.filter((s) => {
       const q = mySearch.toLowerCase();
       return !q || s.name.toLowerCase().includes(q) || s.weapon.toLowerCase().includes(q);
     });
@@ -1579,7 +1300,7 @@ function TradePage() {
     return out;
   }, [mktSearch, mktRarity, mktExterior, mktWeapon, mktPriceMin, mktPriceMax, mktFloatMin, mktFloatMax, mktStatTrak, mktStickers, mktCharms, mktSort]);
 
-  const myItems  = USER_INVENTORY.filter((s) => mySelected.includes(s.id));
+  const myItems  = MOCK_TRADE_INVENTORY.filter((s) => mySelected.includes(s.id));
   const mktItems = SKINS.filter((s) => mktSelected.includes(s.id));
   const myTotal  = myItems.reduce((sum, s)  => sum + s.price, 0);
   const mktTotal = mktItems.reduce((sum, s) => sum + s.price, 0);
@@ -1603,10 +1324,10 @@ function TradePage() {
         <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
           <div className="min-w-0">
             <div className="font-display text-sm font-bold tracking-wide text-foreground">Your Inventory</div>
-            <div className="font-mono text-[10px] text-muted-foreground">{USER_INVENTORY.length} items{mySelected.length > 0 && <span style={{ color: "#f0c040" }}> · {mySelected.length} selected</span>}</div>
+            <div className="font-mono text-[10px] text-muted-foreground">{MOCK_TRADE_INVENTORY.length} items{mySelected.length > 0 && <span style={{ color: "#f0c040" }}> · {mySelected.length} selected</span>}</div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {mySelected.length > 0 && mySelected.length < USER_INVENTORY.length && (
+            {mySelected.length > 0 && mySelected.length < MOCK_TRADE_INVENTORY.length && (
               <button
                 onClick={() => setMySelected([])}
                 className="font-mono text-[9px] px-2 py-1 rounded transition-colors"
@@ -1616,15 +1337,15 @@ function TradePage() {
               </button>
             )}
             <button
-              onClick={() => setMySelected(mySelected.length === USER_INVENTORY.length ? [] : USER_INVENTORY.map((s) => s.id))}
+              onClick={() => setMySelected(mySelected.length === MOCK_TRADE_INVENTORY.length ? [] : MOCK_TRADE_INVENTORY.map((s) => s.id))}
               className="font-mono text-[9px] px-2 py-1 rounded transition-all"
               style={{
-                background: mySelected.length === USER_INVENTORY.length ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)",
-                color: mySelected.length === USER_INVENTORY.length ? "#f0c040" : "#9da3c0",
-                border: `1px solid ${mySelected.length === USER_INVENTORY.length ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
+                background: mySelected.length === MOCK_TRADE_INVENTORY.length ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)",
+                color: mySelected.length === MOCK_TRADE_INVENTORY.length ? "#f0c040" : "#9da3c0",
+                border: `1px solid ${mySelected.length === MOCK_TRADE_INVENTORY.length ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
               }}
             >
-              {mySelected.length === USER_INVENTORY.length ? "Deselect All" : "Select All"}
+              {mySelected.length === MOCK_TRADE_INVENTORY.length ? "Deselect All" : "Select All"}
             </button>
           </div>
         </div>
@@ -2543,8 +2264,21 @@ export default function App() {
         </div>
       </nav>
 
+      {/* Account-level, not part of any one flow: a buyer needs a trade
+          URL as much as a seller, since it is where the bot delivers
+          what they bought. The moment it is needed is the worst moment
+          to discover it is missing. */}
+      {session.user && !session.user.hasTradeUrl && (
+        <TradeUrlBanner onSaved={() => void session.refresh()} />
+      )}
+
       <div className={`w-full px-4 ${activeNav === "Trade" || activeNav === "Sell" ? "py-0" : "py-6"}`}>
-        {activeNav === "Trade" ? <TradePage /> : activeNav === "Sell" ? <SellPage /> : (
+        {activeNav === "Trade" ? <TradePage /> : activeNav === "Sell" ? (
+          <SellPage
+            signedIn={!!session.user}
+            hasTradeUrl={session.user?.hasTradeUrl ?? false}
+          />
+        ) : (
         <div className="flex gap-6">
 
           {/* ── Sidebar ─────────────────────────────────────────── */}

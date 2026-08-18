@@ -178,8 +178,26 @@ export interface AppliedItem {
   wear: number | null;
 }
 
+/**
+ * What the catalog knows about the model, beyond what Steam returns.
+ *
+ * Null when the catalog does not have the item — it mirrors a public
+ * dataset, Valve ships items before it catches up, and medals were
+ * dropped from it on purpose for never being tradable.
+ */
+export interface CatalogFacts {
+  /** e.g. "AK-47". Null on stickers, cases and anything with no weapon. */
+  weapon: string | null;
+  /** e.g. "Redline". Null on vanilla knives and items with no skin. */
+  skinName: string | null;
+  collections: string[];
+  description: string | null;
+}
+
 /** One item in the user's Steam inventory. */
 export interface InventoryItem {
+  /** Resolved by the backend, never split from the name in the browser. */
+  catalog: CatalogFacts | null;
   /** Changes on every trade. It is the item's address, not its identity. */
   assetId: string;
   classId: string;
@@ -253,11 +271,21 @@ export interface DepositCreated {
   createdAt: string;
 }
 
+/** One item to sell, with the price it opens at. */
+export interface DepositItem {
+  assetId: string;
+  /**
+   * USD, as a string with up to two decimals. A string the whole way:
+   * a JSON number is a float, and this is money.
+   */
+  price: string;
+}
+
 export async function requestDeposit(
-  assetIds: string[],
+  items: DepositItem[],
 ): Promise<DepositCreated> {
   return request<DepositCreated>('/deposits', {
     method: 'POST',
-    body: JSON.stringify({ assetIds }),
+    body: JSON.stringify({ items }),
   });
 }

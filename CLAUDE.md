@@ -117,6 +117,14 @@ the new one. Charging more than was on screen is indefensible, and
 letting the buyer pay a stale lower price would let a seller be robbed
 by a slow page.
 
+**The trade URL belongs to the account, not to selling.** A buyer needs
+one just as much as a seller: the bot delivers what they bought to that
+URL, and plenty of people will only ever buy. So it is asked for once,
+at account level, and every flow that ends in the bot sending an offer —
+deposit, delivery, return, withdrawal — requires it. Asking for it
+inside the sell flow would leave a buyer stuck at checkout with no idea
+why.
+
 **An item in custody does not have to be listed.** Deposit and listing
 are separable in both directions: a listing can be cancelled at any
 time, with or without a lock, and the owner can ask for the item back.
