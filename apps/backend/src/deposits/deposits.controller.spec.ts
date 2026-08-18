@@ -87,7 +87,7 @@ describe('DepositsController', () => {
   it('requires a session', async () => {
     await http()
       .post('/api/deposits')
-      .send({ assetIds: ['111'] })
+      .send({ items: [{ assetId: '111', price: '10.00' }] })
       .expect(401);
   });
 
@@ -95,7 +95,12 @@ describe('DepositsController', () => {
     const r = await http()
       .post('/api/deposits')
       .set(ctx.authFor(user))
-      .send({ assetIds: ['111', '222'] })
+      .send({
+        items: [
+          { assetId: '111', price: '10.00' },
+          { assetId: '222', price: '10.00' },
+        ],
+      })
       .expect(201);
 
     const created = body<{ id: string; status: string; itemCount: number }>(r);
@@ -114,7 +119,7 @@ describe('DepositsController', () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: [] })
+        .send({ items: [] })
         .expect(400);
     });
 
@@ -122,26 +127,59 @@ describe('DepositsController', () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: ['../../etc/passwd'] })
+        .send({ items: [{ assetId: '../../etc/passwd', price: '10.00' }] })
         .expect(400);
     });
 
+    // Valid items plus one extra field, so the refusal can only be about
+    // the extra field — an outdated client, or an attempt to pick the bot.
     it('refuses an unknown field', async () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: ['111'], botId: 'chosen-by-me' })
+        .send({
+          items: [{ assetId: '111', price: '10.00' }],
+          botId: 'chosen-by-me',
+        })
+        .expect(400);
+    });
+
+    // Money arrives as a string so it never passes through a float. The
+    // shapes below all mean something the seller did not intend.
+    it.each([
+      ['a number rather than a string', 42.5],
+      ['more than two decimals', '10.005'],
+      ['exponent notation', '1e3'],
+      ['a negative', '-5.00'],
+      ['zero', '0.00'],
+      ['empty', ''],
+    ])('refuses a price given as %s', async (_label, price) => {
+      await http()
+        .post('/api/deposits')
+        .set(ctx.authFor(user))
+        .send({ items: [{ assetId: '111', price }] })
+        .expect(400);
+    });
+
+    it('refuses an item with no price at all', async () => {
+      await http()
+        .post('/api/deposits')
+        .set(ctx.authFor(user))
+        .send({ items: [{ assetId: '111' }] })
         .expect(400);
     });
 
     // A ceiling so we never build an offer Steam would refuse for size.
     it('refuses a selection above the limit', async () => {
-      const tooMany = Array.from({ length: 101 }, (_, i) => String(i));
+      const tooMany = Array.from({ length: 101 }, (_, i) => ({
+        assetId: String(i),
+        price: '10.00',
+      }));
 
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: tooMany })
+        .send({ items: tooMany })
         .expect(400);
     });
   });
@@ -156,7 +194,7 @@ describe('DepositsController', () => {
       const r = await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: ['111'] })
+        .send({ items: [{ assetId: '111', price: '10.00' }] })
         .expect(400);
 
       expect(body<{ message: string }>(r).message).toContain('trade URL');
@@ -166,7 +204,7 @@ describe('DepositsController', () => {
       const r = await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: ['333'] })
+        .send({ items: [{ assetId: '333', price: '10.00' }] })
         .expect(400);
 
       expect(body<{ message: string }>(r).message).toContain(
@@ -180,13 +218,13 @@ describe('DepositsController', () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: ['111'] })
+        .send({ items: [{ assetId: '111', price: '10.00' }] })
         .expect(201);
 
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: ['111'] })
+        .send({ items: [{ assetId: '111', price: '10.00' }] })
         .expect(409);
     });
 
@@ -202,7 +240,7 @@ describe('DepositsController', () => {
       await http()
         .post('/api/deposits')
         .set(ctx.authFor(user))
-        .send({ assetIds: ['111'] })
+        .send({ items: [{ assetId: '111', price: '10.00' }] })
         .expect(503);
     });
   });
@@ -211,7 +249,7 @@ describe('DepositsController', () => {
     await http()
       .post('/api/deposits')
       .set(ctx.authFor(user))
-      .send({ assetIds: ['111'] })
+      .send({ items: [{ assetId: '111', price: '10.00' }] })
       .expect(201);
 
     const [log] = await ctx.prisma.auditLog.findMany({

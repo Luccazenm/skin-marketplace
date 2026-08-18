@@ -42,7 +42,7 @@ export class DepositsController {
   ) {
     const offer = await this.deposits.requestDeposit(
       user,
-      dto.assetIds,
+      dto.items,
       auditContext(req),
     );
 

@@ -24,6 +24,13 @@ import { capabilitiesFor } from '../auth/steam-restrictions';
 import { InventoryService } from '../inventory/inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** One item the seller wants to deposit, with the price to open at. */
+export interface DepositRequestItem {
+  assetId: string;
+  /** USD, as a string: it goes to Postgres' Decimal untouched. */
+  price: string;
+}
+
 /** States in which an offer can still go through. */
 const OPEN_OFFERS = [
   TradeOfferStatus.SCHEDULED,
@@ -72,13 +79,14 @@ export class DepositsService {
    */
   async requestDeposit(
     user: User,
-    assetIds: string[],
+    requested: DepositRequestItem[],
     context?: AuditContext,
   ): Promise<TradeOffer> {
-    if (assetIds.length === 0) {
+    if (requested.length === 0) {
       throw new BadRequestException('Select at least one item.');
     }
 
+    const assetIds = requested.map((i) => i.assetId);
     const unique = [...new Set(assetIds)];
 
     if (unique.length !== assetIds.length) {
@@ -115,8 +123,20 @@ export class DepositsService {
 
     const bot = await this.pickBot(user, unique, context);
 
+    const priceByAssetId = new Map(requested.map((i) => [i.assetId, i.price]));
+
+    // The offer and the prices are written together. A deposit whose
+    // prices did not land would leave the worker with items to receive
+    // and nothing to list them at, and it would only be discovered days
+    // later when the user accepted the trade.
     const offer = await this.prisma.tradeOffer.create({
       data: {
+        intendedListings: {
+          create: requested.map((i) => ({
+            assetId: i.assetId,
+            price: i.price,
+          })),
+        },
         type: TradeOfferType.DEPOSIT,
         reason: TradeOfferReason.DEPOSIT_INTAKE,
         // CREATED, not SCHEDULED: a deposit does not wait for a trade
@@ -146,9 +166,12 @@ export class DepositsService {
         botId: bot.id,
         botSteamId: bot.steamId,
         tradeUrl: user.tradeUrl,
+        // The price goes in the trail too: it is what the seller asked
+        // for, and "I listed it at X" needs an answer months later.
         items: items.map((i) => ({
           assetId: i.assetId,
           name: i.marketHashName,
+          price: priceByAssetId.get(i.assetId),
         })),
       },
       context,

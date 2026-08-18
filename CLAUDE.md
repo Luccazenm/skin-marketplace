@@ -101,6 +101,22 @@ them. Buying it changes the owner in our database; delivery happens when
 the lock expires. Hiding locked items would shrink the storefront to
 almost nothing in the first week of any deposit.
 
+**The price is never final.** The seller can raise or lower it at any
+time, before or after the item is in custody, for as long as the listing
+is open. `IntendedListing.price` is only the opening price; once the
+item arrives, `Listing.price` is the live one and it is meant to be
+edited. A price change touches money, so it is audited with the before
+and the after, like the trade URL.
+
+**But an `Order` freezes it.** The price, the fee and the payout are
+copied onto the order when it closes and are never recalculated — the
+listing can move afterwards, the order cannot. That is also why a
+purchase has to confirm the price the buyer was shown: if it changed
+between the storefront and the checkout, refuse the purchase and show
+the new one. Charging more than was on screen is indefensible, and
+letting the buyer pay a stale lower price would let a seller be robbed
+by a slow page.
+
 **An item in custody does not have to be listed.** Deposit and listing
 are separable in both directions: a listing can be cancelled at any
 time, with or without a lock, and the owner can ask for the item back.

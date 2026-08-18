@@ -17,6 +17,7 @@ import { validateEnv } from '../config/env.validation';
 import { InventoryService } from '../inventory/inventory.service';
 import type { InventoryItem } from '../inventory/steam-inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { clearAuditLog } from '../test-utils/clear-audit-log';
 import { DepositsService } from './deposits.service';
 
 describe('DepositsService.requestDeposit', () => {
@@ -51,6 +52,16 @@ describe('DepositsService.requestDeposit', () => {
     paintSeed: 7,
     inspectLink: null,
   });
+
+  /**
+   * A deposit request from a list of assetIds, at a nominal price.
+   *
+   * Most of these tests are about the rules around the items — ownership,
+   * trade locks, bot capacity — and not about the price, so it stays out
+   * of the way. The tests that ARE about the price pass it explicitly.
+   */
+  const sell = (...assetIds: string[]) =>
+    assetIds.map((assetId) => ({ assetId, price: '10.00' }));
 
   const inventoryMock = {
     getInventory: jest.fn(),
@@ -107,7 +118,7 @@ describe('DepositsService.requestDeposit', () => {
   });
 
   it('queues the offer with the requested assetIds', async () => {
-    const offer = await service.requestDeposit(user, ['111', '222']);
+    const offer = await service.requestDeposit(user, sell('111', '222'));
 
     expect(offer.status).toBe(TradeOfferStatus.CREATED);
     expect(offer.requestedAssetIds.sort()).toEqual(['111', '222']);
@@ -117,54 +128,109 @@ describe('DepositsService.requestDeposit', () => {
     expect(offer.tradeUrl).toBe(TRADE_URL);
   });
 
+  // Selling is one step for the user and two for us. The price is chosen
+  // before the Item exists, so it has to survive until the bot receives —
+  // otherwise the person would be asked for it again after a trade they
+  // already accepted.
+  describe('the seller price', () => {
+    it('is stored per item, alongside the offer', async () => {
+      const offer = await service.requestDeposit(user, [
+        { assetId: '111', price: '42.50' },
+        { assetId: '222', price: '1350.00' },
+      ]);
+
+      const intended = await prisma.intendedListing.findMany({
+        where: { tradeOfferId: offer.id },
+        orderBy: { assetId: 'asc' },
+      });
+
+      expect(intended.map((i) => [i.assetId, i.price.toString()])).toEqual([
+        ['111', '42.5'],
+        ['222', '1350'],
+      ]);
+    });
+
+    // Nothing half-written: an offer whose prices did not land would
+    // leave the worker with items to receive and no price to list them
+    // at, discovered days later when the user accepts the trade.
+    it('leaves no offer behind when the deposit is refused', async () => {
+      await expect(
+        service.requestDeposit(user, [{ assetId: '999', price: '10.00' }]),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(
+        await prisma.intendedListing.count({
+          where: { tradeOffer: { userId: user.id } },
+        }),
+      ).toBe(0);
+      expect(
+        await prisma.tradeOffer.count({ where: { userId: user.id } }),
+      ).toBe(0);
+    });
+
+    it('reaches the audit trail with the item name', async () => {
+      await service.requestDeposit(user, [{ assetId: '111', price: '42.50' }]);
+
+      const [log] = await prisma.auditLog.findMany({
+        where: { actorId: user.id, action: 'deposit.requested' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      });
+
+      expect(log.metadata).toMatchObject({
+        items: [{ assetId: '111', name: 'AK-47 | Test 111', price: '42.50' }],
+      });
+    });
+  });
+
   it('refuses someone who has not registered a trade URL', async () => {
     const withoutUrl = await prisma.user.update({
       where: { id: user.id },
       data: { tradeUrl: null },
     });
 
-    await expect(service.requestDeposit(withoutUrl, ['111'])).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      service.requestDeposit(withoutUrl, sell('111')),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it("refuses an item that is not in the user's inventory", async () => {
-    await expect(service.requestDeposit(user, ['999'])).rejects.toThrow(
+    await expect(service.requestDeposit(user, sell('999'))).rejects.toThrow(
       BadRequestException,
     );
   });
 
   it('refuses an item blocked from being deposited', async () => {
-    await expect(service.requestDeposit(user, ['333'])).rejects.toThrow(
+    await expect(service.requestDeposit(user, sell('333'))).rejects.toThrow(
       BadRequestException,
     );
   });
 
   it('refuses a selection with repeated items', async () => {
-    await expect(service.requestDeposit(user, ['111', '111'])).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      service.requestDeposit(user, sell('111', '111')),
+    ).rejects.toThrow(BadRequestException);
   });
 
   // A double click or a resubmitted form must not produce two offers for
   // the same item.
   it('refuses an item that is already in an open trade', async () => {
-    await service.requestDeposit(user, ['111']);
+    await service.requestDeposit(user, sell('111'));
 
-    await expect(service.requestDeposit(user, ['111', '222'])).rejects.toThrow(
-      ConflictException,
-    );
+    await expect(
+      service.requestDeposit(user, sell('111', '222')),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('frees the item again if the previous trade failed', async () => {
-    const first = await service.requestDeposit(user, ['111']);
+    const first = await service.requestDeposit(user, sell('111'));
 
     await prisma.tradeOffer.update({
       where: { id: first.id },
       data: { status: TradeOfferStatus.FAILED },
     });
 
-    const second = await service.requestDeposit(user, ['111']);
+    const second = await service.requestDeposit(user, sell('111'));
     expect(second.id).not.toBe(first.id);
   });
 
@@ -174,7 +240,7 @@ describe('DepositsService.requestDeposit', () => {
       data: { steamEconomyBan: SteamEconomyBan.BANNED },
     });
 
-    await expect(service.requestDeposit(banned, ['111'])).rejects.toThrow(
+    await expect(service.requestDeposit(banned, sell('111'))).rejects.toThrow(
       BadRequestException,
     );
   });
@@ -182,7 +248,7 @@ describe('DepositsService.requestDeposit', () => {
   it('refuses when the inventory is private', async () => {
     inventoryMock.getInventory.mockResolvedValue({ status: 'private' });
 
-    await expect(service.requestDeposit(user, ['111'])).rejects.toThrow(
+    await expect(service.requestDeposit(user, sell('111'))).rejects.toThrow(
       BadRequestException,
     );
   });
@@ -190,7 +256,7 @@ describe('DepositsService.requestDeposit', () => {
   it('does not queue anything when Steam is unavailable', async () => {
     inventoryMock.getInventory.mockResolvedValue({ status: 'rate_limited' });
 
-    await expect(service.requestDeposit(user, ['111'])).rejects.toThrow(
+    await expect(service.requestDeposit(user, sell('111'))).rejects.toThrow(
       ServiceUnavailableException,
     );
   });
@@ -202,7 +268,7 @@ describe('DepositsService.requestDeposit', () => {
         data: { status: BotStatus.OFFLINE },
       });
 
-      await expect(service.requestDeposit(user, ['111'])).rejects.toThrow(
+      await expect(service.requestDeposit(user, sell('111'))).rejects.toThrow(
         ServiceUnavailableException,
       );
     });
@@ -215,7 +281,7 @@ describe('DepositsService.requestDeposit', () => {
         data: { tradeHoldUntil: new Date(Date.now() + 3 * 86_400_000) },
       });
 
-      await expect(service.requestDeposit(user, ['111'])).rejects.toThrow(
+      await expect(service.requestDeposit(user, sell('111'))).rejects.toThrow(
         ServiceUnavailableException,
       );
     });
@@ -224,13 +290,17 @@ describe('DepositsService.requestDeposit', () => {
       await prisma.bot.update({ where: { id: botId }, data: { maxItems: 1 } });
 
       await expect(
-        service.requestDeposit(user, ['111', '222']),
+        service.requestDeposit(user, sell('111', '222')),
       ).rejects.toThrow(ServiceUnavailableException);
     });
   });
 });
 
 async function cleanUp(prisma: PrismaService, ...steamIds: string[]) {
+  // AuditLog is immutable by a Postgres trigger, so it cannot be
+  // DELETEd — clearAuditLog uses TRUNCATE, which a row trigger does not
+  // see, leaving the protection on throughout. See CLAUDE.md.
+  await clearAuditLog(prisma);
   await prisma.tradeOffer.deleteMany({
     where: { user: { steamId: { in: steamIds } } },
   });
