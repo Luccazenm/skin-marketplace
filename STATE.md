@@ -261,15 +261,23 @@ development.
 - **The migration files.** Their directory names are recorded in
   `_prisma_migrations` and their contents are checksummed; renaming or
   editing them would make Prisma report modified migrations.
-- **The "Description — Portuguese" block in `docs/steam-group.md`.** That
-  is the published copy Brazilian users read on Steam, not project
-  documentation. Translating it would delete the localisation.
 - **The masking list in `structured-logger.ts` keeps `senha`** alongside
   `password`: it matches field names that might arrive from anywhere,
   and dropping the Portuguese one would only narrow the net.
 - **The language picker's endonyms in the frontend** (`Português`,
   `Español`, `Русский`, `中文`): a language picker has to show each
   language in its own script.
+
+The Steam group description **was** on this list and left it on 18/08:
+the group now publishes in English only, and the Portuguese block was
+removed from `docs/steam-group.md` rather than translated, since
+translating it would have produced a twin of the English block above it.
+
+Worth remembering if it is ever revisited: that description is the
+anti-fraud warning, read at the moment a suspicious user is deciding
+whether to trust an account, and the Brazilian reader now meets it in a
+second language. The removed text is in the git history and can come
+back as a second block.
 
 #### How the sweep was done, and what it nearly missed
 
@@ -322,9 +330,8 @@ Details in `apps/bot-service/README.md`.
   opens with "the site is not live, we are not trading, any offer in our
   name is a scam". That is protection while nothing is live, and it turns
   into a dangerous lie on launch day: the user reads that we are not
-  trading exactly when we start trading for real. Both texts (English and
-  Portuguese) are in `docs/steam-group.md`. **Do it on launch day, not
-  after.**
+  trading exactly when we start trading for real. Both versions are in
+  `docs/steam-group.md`. **Do it on launch day, not after.**
 - Frontend — held up by the Figma boundary decision, which is **yours**,
   not a third party's.
 

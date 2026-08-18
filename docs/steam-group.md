@@ -7,10 +7,17 @@ Always **Trade Bot** in user-facing text, never just "bot" — see
 CLAUDE.md. The URL `nextskins.gg/bots` is short on purpose: it is an
 address to type, not an account name.
 
-> The two description blocks below are the group's published copy, in
-> English and in Portuguese. The Portuguese one is deliberate: it is what
-> Brazilian users read on Steam, not project documentation, and it is not
-> translated.
+> The description block below is the group's published copy. **English
+> only**, decided on 2026-08-18: the project's convention is English
+> everywhere, and Steam shows a single description to everyone rather
+> than one per viewer's language.
+>
+> The consequence to keep in mind: the anti-fraud warning is what a
+> suspicious user reads at the exact moment they are deciding whether to
+> trust an account, and the Brazilian reader now reads it in a second
+> language. If that turns out to matter, the Portuguese version is in the
+> git history (`docs/steam-group.md`, before 2026-08-18) and can go back
+> as a second block.
 
 ## Why a closed group is not enough on its own
 
@@ -51,7 +58,7 @@ not listed is indistinguishable from a fake one.
 ⚠ Site under construction — we are NOT trading yet. Any NextSkins trade offer or login page right now is a scam. This group is the public record of our official Trade Bot accounts ahead of launch.
 ```
 
-## Description — English
+## Description
 
 ```
 Official Trade Bot group of NextSkins.gg
@@ -106,63 +113,6 @@ Check the item names and the sender's profile against what the site is showing y
 [b]Staff will never DM you.[/b] Support happens only through the site. Someone claiming to be support in your Steam chat is a scammer, no exceptions.
 
 Trades are held for 7 days by Valve's trade lock. That wait is normal and applies to everyone. Nobody can bypass it, and anyone offering to is stealing from you.
-```
-
-## Description — Portuguese (published copy, not translated)
-
-```
-Grupo oficial dos Trade Bots do NextSkins.gg
-
-[h1]⚠ O SITE AINDA NÃO ESTÁ NO AR[/h1]
-O NextSkins.gg está em construção. Nós [b]não[/b] estamos negociando, não fazemos sorteios e não aceitamos depósitos.
-
-[b]Até o lançamento, qualquer uma destas coisas é golpe — sem exceção:[/b]
-[list]
-[*] Uma oferta de troca dizendo vir do NextSkins
-[*] Um site dizendo ser o NextSkins e pedindo seu login
-[*] Alguém oferecendo acesso antecipado, vaga no beta ou bônus
-[*] Alguém dizendo trabalhar aqui
-[/list]
-Não envie itens para ninguém. Ainda não existe onde depositar.
-
-Este grupo já existe para deixar as contas dos Trade Bots registradas publicamente antes do lançamento. O que aparecer nesse meio-tempo veio de outra pessoa.
-
-[b]Nossas contas de Trade Bot, por steamID64 — o único identificador que não dá para falsificar:[/b]
-[list]
-[*] 76561198659520305 — NextSkins.gg | Trade Bot 1
-[*] 76561198654117612 — NextSkins.gg | Trade Bot 2
-[/list]
-Abra o perfil em steamcommunity.com/profiles/<steamID64>. Nome, avatar e URL personalizada qualquer um copia em minutos; o steamID64 não.
-
-[hr][/hr]
-
-[b]Depois do lançamento: como conferir um Trade Bot[/b]
-Comece sempre por [url=https://nextskins.gg/bots]nextskins.gg/bots[/url] e siga o link até este grupo. Nunca o contrário.
-Qualquer um cria um grupo com o nosso nome e o nosso avatar. Ninguém cria um com a nossa URL. Se você chegou aqui por um link que alguém mandou no chat, feche e digite nextskins.gg você mesmo.
-
-Um Trade Bot só é legítimo se [b]todas[/b] estas condições forem verdadeiras:
-[list]
-[*] O steamID64 dele aparece em nextskins.gg/bots
-[*] Ele é membro deste grupo exato
-[*] A oferta chegou depois de [b]você[/b] iniciar a troca no site
-[/list]
-
-[b]O que nossos Trade Bots nunca fazem[/b]
-[list]
-[*] Nunca enviam pedido de amizade
-[*] Nunca mandam mensagem primeiro — nem na Steam, nem em lugar nenhum
-[*] Nunca pedem sua senha, código do Steam Guard ou API key
-[*] Nunca pedem para você "guardar", "verificar" ou "testar" um item
-[*] Nunca falam sobre uma troca que você não iniciou
-[*] [b]Nunca aceitam uma oferta que você enviar.[/b] Quem envia a oferta somos nós; você aceita. Oferta enviada para um Trade Bot nosso é recusada — sempre, sem exceção. Ou seja, "o bot aceitou minha oferta" nunca é verdade.
-[/list]
-
-[b]Antes de confirmar qualquer troca[/b]
-Compare os nomes dos itens e o perfil de quem enviou com o que o site está mostrando. Se algo divergir, cancele e abra um chamado. Uma troca de verdade continua lá depois.
-
-[b]A equipe nunca chama no privado.[/b] Suporte acontece só pelo site. Alguém dizendo ser suporte no seu chat da Steam é golpista, sem exceção.
-
-As trocas ficam presas por 7 dias pelo trade lock da Valve. Essa espera é normal e vale para todo mundo. Ninguém consegue burlar, e quem se oferecer para isso está te roubando.
 ```
 
 ---
