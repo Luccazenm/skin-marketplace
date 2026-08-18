@@ -15,7 +15,7 @@ import {
   Package,
   User,
   Check,
-  Plus,
+  Tag,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -98,6 +98,12 @@ const SKINS_RAW: Skin[] = [
   { id: 40, name: "Detour",          weapon: "SSG 08",      wear: "Field-Tested",  price: 12.60,   rarity: "covert",     float: 0.187, trend: +2.8,  discount: -4.9,  volume: 1240, stickers: 0, charms: false, statTrak: true  },
   { id: 41, name: "Contractor",      weapon: "G3SG1",       wear: "Factory New",   price: 8.10,    rarity: "milspec",    float: 0.044, trend: +0.5,  discount: +1.2,  volume: 2300, stickers: 0, charms: false, statTrak: false },
   { id: 42, name: "Hyper Beast",     weapon: "SCAR-20",     wear: "Factory New",   price: 14.90,   rarity: "covert",     float: 0.031, trend: +1.6,  discount: -5.2,  volume: 950,  stickers: 0, charms: true,  statTrak: false },
+
+  // ST + 5 sticker examples
+  { id: 49, name: "Asiimov",         weapon: "AWP",         wear: "Factory New",   price: 210.00,  rarity: "covert",     float: 0.018, trend: +4.1,  discount: -11.2, volume: 312,  stickers: 5, charms: false, statTrak: true  },
+  { id: 50, name: "Redline",         weapon: "AK-47",       wear: "Field-Tested",  price: 68.00,   rarity: "classified", float: 0.224, trend: +2.3,  discount: -7.8,  volume: 890,  stickers: 5, charms: true,  statTrak: true  },
+  { id: 51, name: "Hyper Beast",     weapon: "M4A4",        wear: "Minimal Wear",  price: 95.00,   rarity: "covert",     float: 0.073, trend: +3.6,  discount: -9.1,  volume: 540,  stickers: 5, charms: false, statTrak: true  },
+  { id: 52, name: "Printstream",     weapon: "USP-S",       wear: "Factory New",   price: 185.00,  rarity: "covert",     float: 0.009, trend: +5.8,  discount: -6.4,  volume: 274,  stickers: 4, charms: false, statTrak: true  },
 
   // More knives & gloves
   { id: 43, name: "Doppler",         weapon: "M9 Bayonet",  wear: "Factory New",   price: 890.00,  rarity: "rare",       float: 0.007, trend: +5.2,  discount: -3.8,  volume: 42,   stickers: 0, charms: false, statTrak: false },
@@ -407,13 +413,13 @@ function FilterSection({ title, defaultOpen, children }: { title: string; defaul
     <div className="border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between py-2.5 group"
+        className="w-full flex items-center justify-between px-3 py-2.5 group"
       >
         <span className="font-mono text-sm uppercase tracking-widest transition-colors" style={{ color: "#d0d4e8" }}>
           {title}
         </span>
         <span
-          className="w-4 h-4 rounded flex items-center justify-center transition-colors font-mono text-xs leading-none font-bold"
+          className="w-4 h-4 rounded flex items-center justify-center transition-colors font-mono text-xs leading-none font-bold flex-shrink-0"
           style={{
             background: open ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.06)",
             color: open ? "#f0c040" : "#9da3c0",
@@ -426,7 +432,7 @@ function FilterSection({ title, defaultOpen, children }: { title: string; defaul
         className="overflow-hidden transition-all duration-200"
         style={{ maxHeight: open ? "9999px" : "0px", opacity: open ? 1 : 0 }}
       >
-        <div className="pb-3">{children}</div>
+        <div className="pb-3 px-1">{children}</div>
       </div>
     </div>
   );
@@ -453,34 +459,32 @@ function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
       {/* Rarity strip */}
       <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
 
-      {/* Badges */}
-      <div className="absolute top-2 right-2 flex gap-1">
-        {skin.statTrak && (
-          <span className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040" }}>ST</span>
-        )}
-        {skin.stickers > 0 && (
-          <div className="flex flex-col gap-0.5">
-            {Array.from({ length: skin.stickers }).map((_, i) => (
-              <div
-                key={i}
-                className="w-5 h-5 rounded-sm flex items-center justify-center"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
-              >
-                <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                  <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5"/>
-                  <circle cx="6" cy="6" r="1.5" fill="#c0c4d8"/>
-                </svg>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Stickers — top right, one per row */}
+      {skin.stickers > 0 && (
+        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
+          {Array.from({ length: skin.stickers }).map((_, i) => (
+            <div
+              key={i}
+              className="w-5 h-5 rounded-sm flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+            >
+              <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5"/>
+                <circle cx="6" cy="6" r="1.5" fill="#c0c4d8"/>
+              </svg>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Illustration — flex-1 so it fills remaining space above the footer */}
       <div
-        className="flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
+        className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
         style={{ paddingTop: hovered ? "8px" : "16px", paddingBottom: hovered ? "8px" : "16px" }}
       >
+        {skin.statTrak && (
+          <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}>ST</span>
+        )}
         <div className="w-full h-full max-w-[160px]">
           <WeaponSVG weapon={skin.weapon} color={r.color} />
         </div>
@@ -523,7 +527,7 @@ function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
           <div className="px-3 pb-2.5">
             <div
               className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
-              style={{ background: r.color, color: "#08090d", opacity: hovered ? 1 : 0 }}
+              style={{ background: "#f0c040", color: "#08090d", opacity: hovered ? 1 : 0 }}
             >
               BUY NOW
             </div>
@@ -668,132 +672,238 @@ function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) =>
 }
 
 /* ─── Detail modal ──────────────────────────────────────────────────── */
-function SkinDetail({ skin, onClose }: { skin: Skin; onClose: () => void }) {
+function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellInputs = false }: { skin: Skin; onClose: () => void; ctaLabel?: string; onCta?: (price: string) => void; showSellInputs?: boolean }) {
   const r = RARITY[skin.rarity];
-  const [tab, setTab] = useState<"listings" | "history">("listings");
+  const [tab] = useState<"history">("history");
+  const [listingPrice, setListingPrice] = useState(skin.price.toFixed(2));
+  const instantPrice = skin.price * 0.70;
 
-  const listings = Array.from({ length: 6 }, (_, i) => ({
-    price: skin.price * (1 + i * 0.02),
-    float: skin.float + i * 0.003,
-    seller: ["vapor_trade", "skinbaron_eu", "dmarkt", "cs2_store", "items_shop", "buff_proxy"][i],
-    stickers: i === 1 ? 2 : 0,
-    statTrak: i === 2,
-  }));
+  // Float bar: 0=FN 0.07, MW 0.15, FT 0.38, WW 0.45, BS 1.0
+  const floatPct = Math.min(skin.float / 1.0, 1) * 100;
+
+  // Mock sticker slots (4 slots)
+  const mockStickers = [
+    { color: r.color,   label: "S1", price: 3.38, wear: 0  },
+    { color: "#e84060", label: "S2", price: 2.71, wear: 12 },
+    { color: "#4ade80", label: "S3", price: 4.09, wear: 0  },
+    { color: "#60a5fa", label: "S4", price: 7.21, wear: 55 },
+  ];
+
+  const charmValue   = skin.charms   ? 24.15 * 0.95 : 0;
+  const stickerValue = skin.stickers > 0
+    ? Array.from({ length: skin.stickers }).reduce<number>((sum, _, i) => sum + mockStickers[i % 4].price, 0) * 0.10
+    : 0;
+  const recommendedPrice = skin.price + charmValue + stickerValue;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
-        className="relative w-full max-w-2xl rounded-lg border overflow-hidden"
-        style={{ background: "#10121a", borderColor: r.color + "40" }}
+        className="relative w-full rounded-xl border overflow-hidden flex flex-col"
+        style={{ maxWidth: 860, maxHeight: "90vh", background: "#10121a", borderColor: "rgba(255,255,255,0.1)" }}
       >
-        {/* Top bar */}
-        <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-          <div>
-            <div className="font-mono text-xs uppercase tracking-wider mb-0.5" style={{ color: r.color }}>{skin.weapon} · {r.label}</div>
-            <h2 className="font-display text-xl font-bold text-foreground">{skin.weapon} | {skin.name}</h2>
+        {/* ── Header ──────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center gap-2 min-w-0">
+            {skin.statTrak && (
+              <span className="font-mono text-xs font-bold flex-shrink-0" style={{ color: "#f0c040" }}>StatTrak™</span>
+            )}
+            <h2 className="font-display text-lg font-bold text-foreground truncate">
+              {skin.weapon} | {skin.name}
+              <span className="font-mono text-sm font-normal text-muted-foreground ml-2">({skin.wear})</span>
+            </h2>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="flex-shrink-0 ml-4 p-1.5 rounded transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex gap-0 flex-col sm:flex-row">
-          {/* Left: weapon */}
-          <div className="sm:w-56 flex-shrink-0 flex flex-col items-center justify-center py-8 px-6" style={{ background: `linear-gradient(160deg, ${r.from}, ${r.to})` }}>
-            <div className="w-40 h-28">
-              <WeaponSVG weapon={skin.weapon} color={r.color} />
-            </div>
-            <div className="mt-4 text-center">
-              <div className="font-mono text-2xl font-bold" style={{ color: r.color }}>
-                ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+        {/* ── Body ────────────────────────────────────────────────── */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+
+          {/* LEFT: illustration + stickers + tabs ───────────────── */}
+          <div className="flex flex-col flex-1 min-w-0 border-r" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+
+            {/* Weapon illustration area */}
+            <div className="relative flex items-center justify-center px-8 flex-shrink-0"
+              style={{ height: 220, background: `linear-gradient(160deg, ${r.color}18 0%, rgba(10,12,20,0) 100%)` }}>
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color, opacity: 0.6 }} />
+              <div className="w-full max-w-xs">
+                <WeaponSVG weapon={skin.weapon} color={r.color} />
               </div>
-              <div className="font-mono text-xs mt-1" style={{ color: skin.trend >= 0 ? "#4ade80" : "#f87171" }}>
-                {skin.trend >= 0 ? "▲" : "▼"} {Math.abs(skin.trend)}% 7d
+            </div>
+
+            {/* Sticker slots */}
+            {(skin.stickers > 0 || skin.charms) && (
+              <div className="px-5 py-3 border-t border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                <div className="flex items-end justify-center gap-3">
+                  {/* Charm first */}
+                  {skin.charms && (
+                    <>
+                      <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                        <div className="w-10 h-10 rounded flex items-center justify-center"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                          <Star className="w-5 h-5" style={{ color: "#e8eaf0" }} />
+                        </div>
+                        <span className="font-mono text-[9px] text-foreground">$24.15</span>
+                      </div>
+                      {skin.stickers > 0 && (
+                        <div className="self-stretch w-px mx-1 flex-shrink-0" style={{ background: "rgba(255,255,255,0.1)" }} />
+                      )}
+                    </>
+                  )}
+                  {/* Stickers */}
+                  {Array.from({ length: skin.stickers }).map((_, i) => {
+                    const s = mockStickers[i % 4];
+                    return (
+                      <div key={i} className="flex flex-col items-center gap-1 flex-shrink-0">
+                        <div className="relative w-10 h-10 rounded flex items-center justify-center"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                          <div className="w-6 h-6 rounded-full" style={{ background: s.color + "80", border: `1px solid ${s.color}60` }} />
+                          <span className="absolute -top-1.5 -left-1.5 font-mono text-[8px] font-bold px-0.5 rounded leading-none"
+                            style={{ background: "rgba(0,0,0,0.7)", color: s.wear === 0 ? "#9da3c0" : s.wear > 50 ? "#f87171" : "#facc15", border: "1px solid rgba(255,255,255,0.12)" }}>
+                            {s.wear}%
+                          </span>
+                        </div>
+                        <span className="font-mono text-[9px] text-foreground">${s.price.toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* History label */}
+            <div className="px-5 pt-3 pb-0 flex-shrink-0">
+              <span className="font-display text-[11px] uppercase tracking-widest font-semibold" style={{ color: r.color }}>History</span>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-5" style={{ scrollbarWidth: "none" }}>
+              <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">30-Day Price History</div>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart key={`detail-chart-${skin.id}`} data={PRICE_HISTORY}>
+                  <XAxis key="detail-xaxis" dataKey="d" tick={{ fill: "#9da3c0", fontSize: 9, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
+                  <YAxis key="detail-yaxis" tick={{ fill: "#9da3c0", fontSize: 9, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+                  <Tooltip
+                    key="detail-tooltip"
+                    contentStyle={{ background: "#1a1d28", border: `1px solid ${r.color}40`, borderRadius: 4, fontFamily: "JetBrains Mono", fontSize: 11 }}
+                    labelStyle={{ color: r.color }}
+                    itemStyle={{ color: "#e8eaf0" }}
+                    formatter={(v: number) => [`$${v.toFixed(2)}`, "Price"]}
+                  />
+                  <Line key="detail-line" type="monotone" dataKey="p" name="Price" stroke={r.color} strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* RIGHT: stats + buy ──────────────────────────────────── */}
+          <div className="flex flex-col flex-shrink-0 overflow-y-auto" style={{ width: 280, scrollbarWidth: "none" }}>
+
+            {/* Float bar */}
+            <div className="px-5 pt-5 pb-4 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              {/* Gradient bar */}
+              <div className="relative h-2 rounded-full mb-2 overflow-hidden"
+                style={{ background: "linear-gradient(to right, #4ade80 0%, #a3e635 15%, #facc15 38%, #fb923c 45%, #f87171 100%)" }}>
+                <div className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-lg"
+                  style={{ left: `calc(${floatPct}% - 5px)`, background: "#fff" }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] text-muted-foreground">Float</span>
+                <span className="font-mono text-[11px] text-foreground font-semibold">{skin.float.toFixed(10)}</span>
               </div>
             </div>
-            <div className="mt-4 w-full space-y-2">
+
+            {/* Attributes */}
+            <div className="px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
               {[
-                ["Wear", skin.wear],
-                ["Float", skin.float.toFixed(6)],
-                ["Volume", `${skin.volume}/day`],
-              ].map(([label, val]) => (
-                <div key={label} className="flex justify-between text-xs font-mono">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="text-foreground">{val}</span>
+                ["Rarity", r.label, r.color],
+                ["Wear", skin.wear, null],
+                ["Pattern", String(Math.floor(skin.float * 1000) % 1000), null],
+                ["Volume", `${skin.volume}/day`, null],
+              ].map(([label, val, color]) => (
+                <div key={label} className="flex items-center justify-between py-1.5">
+                  <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
+                  <span className="font-mono text-[11px] font-semibold" style={{ color: color ?? "#e8eaf0" }}>{val}</span>
                 </div>
               ))}
             </div>
-            <button
-              className="mt-5 w-full py-2 rounded font-display font-bold text-sm tracking-wide transition-opacity hover:opacity-90"
-              style={{ background: r.color, color: "#08090d" }}
-            >
-              ADD TO CART
-            </button>
-          </div>
 
-          {/* Right: listings + chart */}
-          <div className="flex-1 flex flex-col">
-            {/* Tabs */}
-            <div className="flex border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-              {(["listings", "history"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className="px-5 py-3 font-display text-xs uppercase tracking-widest font-semibold transition-colors"
-                  style={{
-                    color: tab === t ? r.color : "#9da3c0",
-                    borderBottom: tab === t ? `2px solid ${r.color}` : "2px solid transparent",
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
+            {/* Sticker value + recommended price */}
+            <div className="px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              {skin.charms && (
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-[11px] text-muted-foreground">Charm</span>
+                  <span className="font-mono text-[11px] font-semibold" style={{ color: "#4ade80" }}>+ ${charmValue.toFixed(2)}</span>
+                </div>
+              )}
+              {skin.stickers > 0 && (
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-[11px] text-muted-foreground">Rare stickers</span>
+                  <span className="font-mono text-[11px] font-semibold" style={{ color: "#4ade80" }}>+ ${stickerValue.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="font-mono text-[11px] text-muted-foreground">Recommended</span>
+                <span className="font-mono text-[11px] font-semibold" style={{ color: "#4ade80" }}>${recommendedPrice.toFixed(2)}</span>
+              </div>
+              <div className="font-mono text-[9px] text-muted-foreground leading-relaxed">Based on recent market sales and float value.</div>
             </div>
 
-            {tab === "listings" ? (
-              <div className="flex-1 overflow-y-auto" style={{ maxHeight: 280 }}>
-                {listings.map((l, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between px-4 py-2 border-b hover:bg-white/[0.03] transition-colors"
-                    style={{ borderColor: "rgba(255,255,255,0.05)" }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="font-mono text-xs text-muted-foreground w-4">{i + 1}</div>
-                      <div>
-                        <div className="font-mono text-sm text-foreground">${l.price.toFixed(2)}</div>
-                        <div className="font-mono text-[10px] text-muted-foreground">Float {l.float.toFixed(4)} · {l.seller}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {l.statTrak && <span className="text-[9px] font-mono px-1 py-0.5 rounded" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040" }}>ST</span>}
-                      {l.stickers > 0 && <span className="text-[9px] font-mono px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.07)", color: "#c0c4d8" }}>{l.stickers}×sticker</span>}
-                      <button className="text-[10px] font-display font-bold px-3 py-1 rounded hover:opacity-80 transition-opacity" style={{ background: r.color, color: "#08090d" }}>
-                        BUY
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            {/* Price + trend */}
+            <div className="px-5 py-4 flex-shrink-0">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Current price</div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-display text-2xl font-bold text-foreground">
+                  ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </span>
+                <span className="font-mono text-xs px-1.5 py-0.5 rounded font-semibold"
+                  style={{ background: skin.discount <= 0 ? "rgba(74,222,128,0.12)" : "rgba(248,113,113,0.12)", color: skin.discount <= 0 ? "#4ade80" : "#f87171" }}>
+                  {skin.discount <= 0 ? "" : "+"}{skin.discount}%
+                </span>
               </div>
-            ) : (
-              <div className="p-4 flex-1">
-                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">30-Day Price History</div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart key={skin.id} data={PRICE_HISTORY}>
-                    <XAxis key="xaxis" dataKey="d" tick={{ fill: "#9da3c0", fontSize: 9, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
-                    <YAxis key="yaxis" tick={{ fill: "#9da3c0", fontSize: 9, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
-                    <Tooltip
-                      key="tooltip"
-                      contentStyle={{ background: "#1a1d28", border: `1px solid ${r.color}40`, borderRadius: 4, fontFamily: "JetBrains Mono", fontSize: 11 }}
-                      labelStyle={{ color: r.color }}
-                      itemStyle={{ color: "#e8eaf0" }}
-                      formatter={(v: number) => [`$${v.toFixed(2)}`, "Price"]}
+              <div className="font-mono text-xs mb-4" style={{ color: skin.trend >= 0 ? "#4ade80" : "#f87171" }}>
+                {skin.trend >= 0 ? "▲" : "▼"} {Math.abs(skin.trend)}% past 7 days
+              </div>
+
+              {showSellInputs && (
+                <div className="mb-3">
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block mb-1.5">Listing price</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-muted-foreground">$</span>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={listingPrice}
+                      onChange={(e) => setListingPrice(e.target.value)}
+                      className="w-full pl-7 pr-3 py-2.5 rounded-lg font-mono text-sm font-semibold focus:outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#e8eaf0" }}
                     />
-                    <Line key="line" type="monotone" dataKey="p" name="Price" stroke={r.color} strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 px-0.5">
+                    <span className="font-mono text-[10px] text-muted-foreground">You receive</span>
+                    <span className="font-mono text-[10px] font-semibold" style={{ color: "#4ade80" }}>
+                      ${(Math.max(0, parseFloat(listingPrice) || 0) * (1 - 0.05)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => { onCta?.(listingPrice); onClose(); }}
+                className="w-full py-3 rounded-lg font-display font-bold text-sm tracking-wide transition-all hover:opacity-90 mb-2"
+                style={{ background: "#f0c040", color: "#08090d", boxShadow: "0 0 24px rgba(240,192,64,0.2)" }}>
+                {ctaLabel}
+              </button>
+
+              {showSellInputs && (
+                <button
+                  onClick={onClose}
+                  className="w-full py-2.5 rounded-lg font-display font-bold text-sm tracking-wide transition-all hover:opacity-80"
+                  style={{ background: "linear-gradient(135deg, #e84060, #c0284a)", color: "#fff", boxShadow: "0 0 20px rgba(232,64,96,0.35)" }}>
+                  SELL INSTANTLY FOR ${instantPrice.toFixed(2)}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -952,8 +1062,903 @@ const TRADE_OFFERS: TradeOffer[] = [
   },
 ];
 
-/* ─── New Trade Modal ────────────────────────────────────────────────── */
-function NewTradeModal({ onClose }: { onClose: () => void }) {
+/* ─── Trade skin card (compact, selectable) ─────────────────────────── */
+function TradeSkinCard({
+  skin,
+  selected,
+  onClick,
+}: {
+  skin: Skin;
+  selected: boolean;
+  onClick: () => void;
+  side?: "left" | "right";
+}) {
+  const r = RARITY[skin.rarity];
+  const [hovered, setHovered] = useState(false);
+  const active = selected || hovered;
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
+      style={{
+        height: "230px",
+        borderColor: selected ? r.color : hovered ? r.color : "rgba(255,255,255,0.07)",
+        background: selected
+          ? `linear-gradient(160deg, ${r.color}28, ${r.color}0e)`
+          : `linear-gradient(160deg, ${r.from}, ${r.to})`,
+        boxShadow: active ? `0 0 20px ${r.glow}` : "none",
+      }}
+    >
+      {/* Rarity strip */}
+      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
+
+      {/* Selection checkmark */}
+      {selected && (
+        <div className="absolute top-2 left-2 w-4 h-4 rounded-full flex items-center justify-center z-20"
+          style={{ background: "#f0c040" }}>
+          <Check className="w-2.5 h-2.5" style={{ color: "#08090d" }} />
+        </div>
+      )}
+
+      {/* Stickers — top right */}
+      {skin.stickers > 0 && (
+        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
+          {Array.from({ length: skin.stickers }).map((_, i) => (
+            <div key={i} className="w-5 h-5 rounded-sm flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5"/>
+                <circle cx="6" cy="6" r="1.5" fill="#c0c4d8"/>
+              </svg>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Illustration */}
+      <div className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
+        style={{ paddingTop: active ? "8px" : "16px", paddingBottom: active ? "8px" : "16px" }}>
+        {skin.statTrak && (
+          <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10"
+            style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}>ST</span>
+        )}
+        <div className="w-full h-full max-w-[160px]">
+          <WeaponSVG weapon={skin.weapon} color={r.color} />
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="mx-3" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
+
+      {/* Info footer */}
+      <div className="px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <div className="min-w-0">
+            <div className="text-[9px] font-mono uppercase tracking-wider leading-none mb-0.5" style={{ color: r.color }}>{skin.weapon}</div>
+            <div className="font-display text-sm font-semibold text-foreground leading-tight truncate">{skin.name}</div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <div className="font-mono text-[9px] text-muted-foreground">{skin.wear}</div>
+            <div className="font-mono text-[9px]" style={{ color: r.color }}>{skin.float.toFixed(4)}</div>
+          </div>
+        </div>
+        <div className="font-mono font-semibold text-sm leading-none" style={{ color: "#f0f2f8" }}>
+          ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </div>
+      </div>
+
+      {/* Action row */}
+      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
+        <div style={{ overflow: "hidden" }}>
+          <div className="px-3 pb-2.5">
+            <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide"
+              style={{ background: selected ? r.color : "#f0c040", color: "#08090d", opacity: active ? 1 : 0, transition: "opacity 200ms ease" }}>
+              {selected ? "DESELECT" : "SELECT"}
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* ─── Mini sort dropdown (inline, for Trade panels) ─────────────────── */
+const TRADE_SORTS = ["Default", "Highest Price", "Lowest Price", "Highest Float", "Lowest Float", "Discount"];
+const SELL_SORTS  = ["Default", "Highest Price", "Lowest Price", "Highest Float", "Lowest Float"];
+
+function MiniSortDropdown({ value, onChange, options = TRADE_SORTS }: { value: string; onChange: (v: string) => void; options?: string[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 px-2 py-1.5 rounded font-mono text-xs transition-colors"
+        style={{
+          background: open ? "rgba(240,192,64,0.1)" : "rgba(255,255,255,0.05)",
+          border: `1px solid ${open ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
+          color: value !== "Default" ? "#f0c040" : "#9da3c0",
+        }}
+        title="Sort"
+      >
+        <SlidersHorizontal className="w-3 h-3" />
+        <ChevronDown className="w-2.5 h-2.5" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 150ms" }} />
+      </button>
+      {open && (
+        <div
+          className="absolute top-full right-0 mt-1 z-50 rounded overflow-hidden"
+          style={{ background: "#10121a", border: "1px solid rgba(255,255,255,0.08)", minWidth: "140px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}
+        >
+          {options.map((s) => (
+            <button
+              key={s}
+              onClick={() => { onChange(s); setOpen(false); }}
+              className="w-full text-left px-3 py-2 font-mono text-xs flex items-center justify-between gap-3 transition-colors"
+              style={{ background: value === s ? "rgba(240,192,64,0.08)" : "transparent", color: value === s ? "#f0c040" : "#9da3c0" }}
+              onMouseEnter={e => (e.currentTarget.style.background = value === s ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.04)")}
+              onMouseLeave={e => (e.currentTarget.style.background = value === s ? "rgba(240,192,64,0.08)" : "transparent")}
+            >
+              {s}
+              {value === s && <Check className="w-3 h-3 flex-shrink-0" style={{ color: "#f0c040" }} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Sell page ──────────────────────────────────────────────────────── */
+const USER_INVENTORY = SKINS.slice(0, 18);
+
+function SellSkinCard({ skin, selected, onToggle, onDetail }: { skin: Skin; selected: boolean; onToggle: () => void; onDetail: () => void }) {
+  const r = RARITY[skin.rarity];
+  const [hovered, setHovered] = useState(false);
+  const active = selected || hovered;
+
+  return (
+    <button
+      onClick={onDetail}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
+      style={{
+        height: "230px",
+        borderColor: selected ? r.color : hovered ? r.color : "rgba(255,255,255,0.07)",
+        background: selected
+          ? `linear-gradient(160deg, ${r.color}28, ${r.color}0e)`
+          : `linear-gradient(160deg, ${r.from}, ${r.to})`,
+        boxShadow: selected ? `0 0 20px ${r.glow}` : hovered ? `0 0 20px ${r.glow}` : "none",
+      }}
+    >
+      {/* Rarity strip */}
+      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
+
+      {/* Selection checkmark */}
+      {selected && (
+        <div className="absolute top-2 left-2 w-4 h-4 rounded-full flex items-center justify-center z-20"
+          style={{ background: "#f0c040" }}>
+          <Check className="w-2.5 h-2.5" style={{ color: "#08090d" }} />
+        </div>
+      )}
+
+      {/* Stickers — top right */}
+      {skin.stickers > 0 && (
+        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
+          {Array.from({ length: skin.stickers }).map((_, i) => (
+            <div key={i} className="w-5 h-5 rounded-sm flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5"/>
+                <circle cx="6" cy="6" r="1.5" fill="#c0c4d8"/>
+              </svg>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Illustration */}
+      <div className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
+        style={{ paddingTop: active ? "8px" : "16px", paddingBottom: active ? "8px" : "16px" }}>
+        {skin.statTrak && (
+          <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10"
+            style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}>ST</span>
+        )}
+        <div className="w-full h-full max-w-[160px]">
+          <WeaponSVG weapon={skin.weapon} color={r.color} />
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="mx-3" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
+
+      {/* Info footer */}
+      <div className="px-3 py-2.5">
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <div className="min-w-0">
+            <div className="text-[9px] font-mono uppercase tracking-wider leading-none mb-0.5" style={{ color: r.color }}>{skin.weapon}</div>
+            <div className="font-display text-sm font-semibold text-foreground leading-tight truncate">{skin.name}</div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <div className="font-mono text-[9px] text-muted-foreground">{skin.wear}</div>
+            <div className="font-mono text-[9px]" style={{ color: r.color }}>{skin.float.toFixed(4)}</div>
+          </div>
+        </div>
+        <div className="font-mono font-semibold text-sm leading-none" style={{ color: "#f0f2f8" }}>
+          ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </div>
+      </div>
+
+      {/* Select overlay — shown on hover */}
+      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
+        <div style={{ overflow: "hidden" }}>
+          <div className="px-3 pb-2.5">
+            <div
+              className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
+              style={{ background: selected ? r.color : "#f0c040", color: "#08090d", opacity: active ? 1 : 0 }}
+              onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            >
+              {selected ? "DESELECT" : "SELECT"}
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+const PLATFORM_FEE = 0.05; // 5%
+
+function SellPage() {
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("Default");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [detailSkin, setDetailSkin] = useState<typeof USER_INVENTORY[0] | null>(null);
+  // per-item listing prices
+  const [prices, setPrices] = useState<Record<number, string>>({});
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    let out = USER_INVENTORY.filter((s) =>
+      !q || s.name.toLowerCase().includes(q) || s.weapon.toLowerCase().includes(q)
+    );
+    if (sort === "Highest Price") out = [...out].sort((a, b) => b.price - a.price);
+    if (sort === "Lowest Price")  out = [...out].sort((a, b) => a.price - b.price);
+    if (sort === "Highest Float") out = [...out].sort((a, b) => b.float - a.float);
+    if (sort === "Lowest Float")  out = [...out].sort((a, b) => a.float - b.float);
+    return out;
+  }, [search, sort]);
+
+  const selectedItems = USER_INVENTORY.filter((s) => selectedIds.includes(s.id));
+
+  const toggle = (id: number, skin: typeof USER_INVENTORY[0]) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      setPrices((p) => ({ ...p, [id]: skin.price.toFixed(2) }));
+      return [...prev, id];
+    });
+  };
+
+  const totalReceive = selectedItems.reduce((sum, s) => {
+    const p = parseFloat(prices[s.id] ?? s.price.toFixed(2));
+    return sum + (isNaN(p) ? 0 : p * (1 - PLATFORM_FEE));
+  }, 0);
+
+  const canList = selectedIds.length > 0;
+
+  return (
+    <>
+    <div className="flex gap-0" style={{ height: "calc(100vh - 56px)", overflow: "hidden" }}>
+
+      {/* ── Left: inventory grid ───────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden pt-6 pb-4 pr-6">
+        {/* Search + count */}
+        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search your inventory…"
+              className="w-full pl-9 pr-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
+            />
+          </div>
+          <MiniSortDropdown value={sort} onChange={setSort} options={SELL_SORTS} />
+          <span className="font-mono text-xs text-muted-foreground flex-shrink-0">
+            <span className="text-foreground font-semibold">{filtered.length}</span> items
+            {selectedIds.length > 0 && <span style={{ color: "#f0c040" }}> · {selectedIds.length} selected</span>}
+          </span>
+        </div>
+
+        {/* Grid — 8 columns */}
+        <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+          <div className="grid gap-3 pb-4" style={{ gridTemplateColumns: "repeat(8, 1fr)" }}>
+            {filtered.map((skin) => {
+              const r = RARITY[skin.rarity];
+              const isSel = selectedIds.includes(skin.id);
+              return (
+                <SellSkinCard key={skin.id} skin={skin} selected={isSel} onToggle={() => toggle(skin.id, skin)} onDetail={() => setDetailSkin(skin)} />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Right: sell panel ─────────────────────────────────────── */}
+      <div className="hidden lg:flex flex-col flex-shrink-0 pt-6 pb-4 overflow-hidden" style={{ width: 300, borderLeft: "1px solid rgba(255,255,255,0.07)" }}>
+        {canList ? (
+          <>
+            {/* Header */}
+            <div className="px-5 mb-3 flex-shrink-0 flex items-center justify-between">
+              <div>
+                <div className="font-display text-sm font-bold text-foreground">Listing</div>
+                <div className="font-mono text-[10px] text-muted-foreground">{selectedIds.length} item{selectedIds.length > 1 ? "s" : ""} selected</div>
+              </div>
+              <button onClick={() => setSelectedIds([])} className="font-mono text-[9px] px-2 py-1 rounded transition-colors"
+                style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}>
+                Clear
+              </button>
+            </div>
+
+            {/* Scrollable item list */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-5" style={{ scrollbarWidth: "none" }}>
+              <div className="flex flex-col gap-2">
+                {selectedItems.map((skin) => {
+                  const r = RARITY[skin.rarity];
+                  const price = prices[skin.id] ?? skin.price.toFixed(2);
+                  const recv = parseFloat(price) * (1 - PLATFORM_FEE);
+                  return (
+                    <div key={skin.id} className="rounded-lg border overflow-hidden flex-shrink-0"
+                      style={{ background: `linear-gradient(135deg, ${r.color}12 0%, rgba(13,15,23,0.6) 100%)`, borderColor: r.color + "30" }}>
+                      <div className="absolute-0 top-0 left-0 right-0 h-0.5 rounded-t" style={{ background: r.color }} />
+
+                      {/* Mini card header */}
+                      <div className="flex items-center gap-2 px-3 pt-2.5 pb-2">
+                        {/* Small weapon preview */}
+                        <div className="w-10 h-8 flex-shrink-0">
+                          <WeaponSVG weapon={skin.weapon} color={r.color} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-mono text-[8px] uppercase tracking-wider truncate" style={{ color: r.color }}>{skin.weapon}</div>
+                          <div className="font-display text-xs font-semibold text-foreground truncate leading-tight">{skin.name}</div>
+                          <div className="font-mono text-[9px] text-muted-foreground">{skin.wear}</div>
+                        </div>
+                        <button onClick={() => toggle(skin.id, skin)} className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition-colors"
+                          style={{ background: "rgba(255,255,255,0.07)" }}>
+                          <X className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      </div>
+
+                      {/* Price inputs */}
+                      <div className="px-3 pb-2.5 flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground mb-1">Listing price</div>
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[10px] text-muted-foreground">$</span>
+                            <input
+                              type="number" min="0" step="0.01" value={price}
+                              onChange={(e) => setPrices((p) => ({ ...p, [skin.id]: e.target.value }))}
+                              className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs font-semibold focus:outline-none"
+                              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#e8eaf0" }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-mono text-[8px] uppercase tracking-wider mb-1" style={{ color: "#4ade80" }}>You receive</div>
+                          <div className="px-2 py-1.5 rounded font-mono text-xs font-semibold"
+                            style={{ background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.15)", color: "#4ade80" }}>
+                            ${isNaN(recv) ? "—" : recv.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Total + CTA */}
+            <div className="px-5 pt-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-mono text-[10px] text-muted-foreground">Total you receive</span>
+                <span className="font-display text-base font-bold" style={{ color: "#4ade80" }}>${totalReceive.toFixed(2)}</span>
+              </div>
+              <button
+                className="w-full py-2.5 rounded-lg font-display font-bold text-sm tracking-wide transition-all duration-200"
+                style={{ background: "#f0c040", color: "#08090d", boxShadow: "0 0 24px rgba(240,192,64,0.25)" }}
+              >
+                LIST {selectedIds.length} ITEM{selectedIds.length > 1 ? "S" : ""} FOR SALE
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 px-6">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <Tag className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="font-display text-sm font-semibold text-foreground">Select items to sell</div>
+            <div className="font-mono text-[11px] text-muted-foreground leading-relaxed">Choose one or more skins from your inventory to set listing prices.</div>
+          </div>
+        )}
+      </div>
+    </div>
+    {detailSkin && (
+      <SkinDetail
+        skin={detailSkin}
+        onClose={() => setDetailSkin(null)}
+        ctaLabel={selectedIds.includes(detailSkin.id) ? "ALREADY IN LIST" : "ADD TO SELL LIST"}
+        showSellInputs
+        onCta={(price) => {
+          if (!selectedIds.includes(detailSkin.id)) {
+            setPrices((p) => ({ ...p, [detailSkin.id]: price }));
+            setSelectedIds((prev) => [...prev, detailSkin.id]);
+          }
+        }}
+      />
+    )}
+    </>
+  );
+}
+
+/* ─── Trade page ─────────────────────────────────────────────────────── */
+function TradePage() {
+  const [mySelected, setMySelected]     = useState<number[]>([]);
+  const [mktSelected, setMktSelected]   = useState<number[]>([]);
+  const [mySearch, setMySearch]         = useState("");
+  const [mktSearch, setMktSearch]       = useState("");
+  const [mktRarity, setMktRarity]         = useState<string[]>([]);
+  const [mktExterior, setMktExterior]     = useState<string[]>([]);
+  const [mktWeapon, setMktWeapon]         = useState<string[]>([]);
+  const [mktPriceMin, setMktPriceMin]     = useState("");
+  const [mktPriceMax, setMktPriceMax]     = useState("");
+  const [mktFloatMin, setMktFloatMin]     = useState(0);
+  const [mktFloatMax, setMktFloatMax]     = useState(1);
+  const [mktStatTrak, setMktStatTrak]     = useState<"yes"|"no"|null>(null);
+  const [mktStickers, setMktStickers]     = useState<"yes"|"no"|null>(null);
+  const [mktCharms, setMktCharms]         = useState<"yes"|"no"|null>(null);
+  const [mktSort, setMktSort]             = useState("Default");
+  const [mySort, setMySort]               = useState("Default");
+
+  const toggleMy  = (id: number) => setMySelected((p)  => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
+  const toggleMkt = (id: number) => setMktSelected((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
+  const toggleMR  = (v: string)  => setMktRarity((p)   => p.includes(v)  ? p.filter((x) => x !== v)  : [...p, v]);
+  const toggleME  = (v: string)  => setMktExterior((p) => p.includes(v)  ? p.filter((x) => x !== v)  : [...p, v]);
+  const toggleMW  = (v: string)  => setMktWeapon((p)   => p.includes(v)  ? p.filter((x) => x !== v)  : [...p, v]);
+
+
+
+  const myFiltered = useMemo(() => {
+    let out = USER_INVENTORY.filter((s) => {
+      const q = mySearch.toLowerCase();
+      return !q || s.name.toLowerCase().includes(q) || s.weapon.toLowerCase().includes(q);
+    });
+    if (mySort === "Highest Price") out = [...out].sort((a, b) => b.price - a.price);
+    if (mySort === "Lowest Price")  out = [...out].sort((a, b) => a.price - b.price);
+    if (mySort === "Highest Float") out = [...out].sort((a, b) => b.float - a.float);
+    if (mySort === "Lowest Float")  out = [...out].sort((a, b) => a.float - b.float);
+    return out;
+  }, [mySearch, mySort]);
+
+  const mktFiltered = useMemo(() => {
+    let out = SKINS.filter((s) => {
+      const q = mktSearch.toLowerCase();
+      if (q && !s.name.toLowerCase().includes(q) && !s.weapon.toLowerCase().includes(q)) return false;
+      if (mktRarity.length > 0   && !mktRarity.includes(RARITY[s.rarity].label)) return false;
+      if (mktExterior.length > 0 && !mktExterior.includes(s.wear)) return false;
+      if (mktWeapon.length > 0   && !mktWeapon.includes(s.weapon)) return false;
+      const pMin = parseFloat(mktPriceMin);
+      const pMax = parseFloat(mktPriceMax);
+      if (!isNaN(pMin) && s.price < pMin) return false;
+      if (!isNaN(pMax) && s.price > pMax) return false;
+      if (s.float < mktFloatMin || s.float > mktFloatMax) return false;
+      if (mktStatTrak === "yes" && !s.statTrak) return false;
+      if (mktStatTrak === "no"  &&  s.statTrak) return false;
+      if (mktStickers === "yes" && s.stickers === 0) return false;
+      if (mktStickers === "no"  && s.stickers  >  0) return false;
+      if (mktCharms === "yes" && !s.charms) return false;
+      if (mktCharms === "no"  &&  s.charms) return false;
+      return true;
+    });
+    if (mktSort === "Highest Price")    out = [...out].sort((a, b) => b.price - a.price);
+    if (mktSort === "Lowest Price")     out = [...out].sort((a, b) => a.price - b.price);
+    if (mktSort === "Highest Float")    out = [...out].sort((a, b) => b.float - a.float);
+    if (mktSort === "Lowest Float")     out = [...out].sort((a, b) => a.float - b.float);
+    if (mktSort === "Discount") out = [...out].sort((a, b) => a.discount - b.discount);
+    return out;
+  }, [mktSearch, mktRarity, mktExterior, mktWeapon, mktPriceMin, mktPriceMax, mktFloatMin, mktFloatMax, mktStatTrak, mktStickers, mktCharms, mktSort]);
+
+  const myItems  = USER_INVENTORY.filter((s) => mySelected.includes(s.id));
+  const mktItems = SKINS.filter((s) => mktSelected.includes(s.id));
+  const myTotal  = myItems.reduce((sum, s)  => sum + s.price, 0);
+  const mktTotal = mktItems.reduce((sum, s) => sum + s.price, 0);
+  const diff     = myTotal - mktTotal;
+  const canTrade = myItems.length > 0 && mktItems.length > 0;
+
+  const inputStyle = {
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    color: "#e8eaf0",
+  };
+
+  return (
+    <div className="flex gap-3" style={{ height: "calc(100vh - 56px)" }}>
+
+      {/* ── LEFT: User inventory ──────────────────────────────────── */}
+      <div
+        className="flex flex-col flex-1 min-w-0 overflow-hidden"
+      >
+        {/* Header */}
+        <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="min-w-0">
+            <div className="font-display text-sm font-bold tracking-wide text-foreground">Your Inventory</div>
+            <div className="font-mono text-[10px] text-muted-foreground">{USER_INVENTORY.length} items{mySelected.length > 0 && <span style={{ color: "#f0c040" }}> · {mySelected.length} selected</span>}</div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {mySelected.length > 0 && mySelected.length < USER_INVENTORY.length && (
+              <button
+                onClick={() => setMySelected([])}
+                className="font-mono text-[9px] px-2 py-1 rounded transition-colors"
+                style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                Clear
+              </button>
+            )}
+            <button
+              onClick={() => setMySelected(mySelected.length === USER_INVENTORY.length ? [] : USER_INVENTORY.map((s) => s.id))}
+              className="font-mono text-[9px] px-2 py-1 rounded transition-all"
+              style={{
+                background: mySelected.length === USER_INVENTORY.length ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)",
+                color: mySelected.length === USER_INVENTORY.length ? "#f0c040" : "#9da3c0",
+                border: `1px solid ${mySelected.length === USER_INVENTORY.length ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
+              }}
+            >
+              {mySelected.length === USER_INVENTORY.length ? "Deselect All" : "Select All"}
+            </button>
+          </div>
+        </div>
+
+        {/* Search + Sort */}
+        <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+            <input
+              value={mySearch}
+              onChange={(e) => setMySearch(e.target.value)}
+              placeholder="Search inventory..."
+              className="w-full pl-7 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none"
+              style={inputStyle}
+            />
+          </div>
+          <MiniSortDropdown value={mySort} onChange={setMySort} />
+        </div>
+
+        {/* Total value */}
+        {mySelected.length > 0 && (
+          <div className="px-3 py-1.5 border-b flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(240,192,64,0.04)" }}>
+            <span className="font-mono text-[10px] text-muted-foreground">Selected value</span>
+            <span className="font-mono text-[10px] font-semibold" style={{ color: "#f0c040" }}>${myTotal.toFixed(2)}</span>
+          </div>
+        )}
+
+        {/* Grid */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-2" style={{ scrollbarWidth: "none" }}>
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+            {myFiltered.map((skin) => (
+              <TradeSkinCard
+                key={skin.id}
+                skin={skin}
+                selected={mySelected.includes(skin.id)}
+                onClick={() => toggleMy(skin.id)}
+                side="left"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── CENTER: Filters + Trade summary ──────────────────────── */}
+      <div
+        className="flex flex-col flex-shrink-0 overflow-hidden"
+        style={{ width: 200, borderLeft: "1px solid rgba(255,255,255,0.07)", borderRight: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        {/* Filters header */}
+        <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="min-w-0">
+            <div className="font-display text-sm font-bold tracking-wide text-foreground">Filters</div>
+            <div className="font-mono text-[10px] text-muted-foreground">Applied to market</div>
+          </div>
+          {(mktRarity.length > 0 || mktExterior.length > 0 || mktWeapon.length > 0 || mktPriceMin || mktPriceMax || mktFloatMin > 0 || mktFloatMax < 1 || mktStatTrak || mktStickers || mktCharms) && (
+            <button
+              onClick={() => { setMktRarity([]); setMktExterior([]); setMktWeapon([]); setMktPriceMin(""); setMktPriceMax(""); setMktFloatMin(0); setMktFloatMax(1); setMktStatTrak(null); setMktStickers(null); setMktCharms(null); }}
+              className="font-mono text-[9px] px-2 py-1 rounded transition-colors flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Filters scroll area */}
+        <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+          {/* Price */}
+          <FilterSection title="Price" defaultOpen={false}>
+            <div className="px-1 pt-1.5 pb-1 space-y-1.5">
+              <div className="relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
+                <input type="number" min="0" value={mktPriceMin} onChange={(e) => setMktPriceMin(e.target.value)} placeholder="MIN"
+                  className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none" style={inputStyle} />
+              </div>
+              <div className="relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
+                <input type="number" min="0" value={mktPriceMax} onChange={(e) => setMktPriceMax(e.target.value)} placeholder="MAX"
+                  className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none" style={inputStyle} />
+              </div>
+            </div>
+          </FilterSection>
+
+          {/* Rarity */}
+          <FilterSection title="Rarity" defaultOpen={false}>
+            <div className="space-y-0.5 pt-1">
+              {Object.entries(RARITY).map(([key, r]) => (
+                <FilterOption key={key} active={mktRarity.includes(r.label)} onClick={() => toggleMR(r.label)} accentColor={r.color}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                    <span className="font-mono text-xs truncate" style={{ color: mktRarity.includes(r.label) ? r.color : "#6b7194" }}>{r.label}</span>
+                  </div>
+                  {mktRarity.includes(r.label) && <Check className="w-2.5 h-2.5 flex-shrink-0" style={{ color: r.color }} />}
+                </FilterOption>
+              ))}
+            </div>
+          </FilterSection>
+
+          {/* Exterior */}
+          <FilterSection title="Exterior" defaultOpen={false}>
+            <div className="space-y-0.5 pt-1">
+              {["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"].map((w) => (
+                <FilterOption key={w} active={mktExterior.includes(w)} onClick={() => toggleME(w)}>
+                  <span className="font-mono text-xs" style={{ color: mktExterior.includes(w) ? "#e8eaf0" : "#6b7194" }}>{w}</span>
+                  {mktExterior.includes(w) && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
+                </FilterOption>
+              ))}
+            </div>
+          </FilterSection>
+
+          {/* Type */}
+          <FilterSection title="Type" defaultOpen={false}>
+            <div className="pt-1 space-y-0.5">
+              {WEAPON_GROUPS.map((group) => (
+                <WeaponGroup
+                  key={group.label}
+                  group={group}
+                  weaponFilter={mktWeapon}
+                  onToggle={toggleMW}
+                />
+              ))}
+            </div>
+          </FilterSection>
+
+          {/* Float */}
+          <FilterSection title="Float" defaultOpen={false}>
+            <div className="pt-3">
+              <DualRangeSlider
+                min={mktFloatMin}
+                max={mktFloatMax}
+                onMinChange={setMktFloatMin}
+                onMaxChange={setMktFloatMax}
+              />
+            </div>
+          </FilterSection>
+
+          {/* Others */}
+          <FilterSection title="Others" defaultOpen={false}>
+            <div className="space-y-1 pt-2">
+              {([
+                { label: "StatTrak™", value: mktStatTrak, set: setMktStatTrak },
+                { label: "Stickers",  value: mktStickers, set: setMktStickers },
+                { label: "Charms",    value: mktCharms,   set: setMktCharms   },
+              ] as { label: string; value: "yes"|"no"|null; set: (v: "yes"|"no"|null) => void }[]).map(({ label, value, set }) => (
+                <div key={label} className="px-2 py-1.5">
+                  <div className="font-mono text-xs mb-1.5" style={{ color: value ? "#e8eaf0" : "#6b7194" }}>{label}</div>
+                  <div className="flex gap-1.5">
+                    {(["yes", "no"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => set(value === opt ? null : opt)}
+                        className="flex-1 py-1 rounded font-mono text-[10px] font-semibold uppercase tracking-wider transition-all duration-150"
+                        style={{
+                          background: value === opt ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.04)",
+                          color: value === opt ? "#f0c040" : "#6b7194",
+                          border: `1px solid ${value === opt ? "rgba(240,192,64,0.35)" : "rgba(255,255,255,0.07)"}`,
+                        }}
+                      >
+                        {opt === "yes" ? "With" : "Without"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </FilterSection>
+
+        </div>
+
+        {/* Trade summary */}
+        <div className="border-t flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          {/* Header */}
+          <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+            <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "#f0c040" }}>Trade Summary</span>
+            {(mySelected.length > 0 || mktSelected.length > 0) && (
+              <button
+                onClick={() => { setMySelected([]); setMktSelected([]); }}
+                className="font-mono text-[9px] flex items-center gap-1 transition-colors text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-2.5 h-2.5" /> Clear
+              </button>
+            )}
+          </div>
+
+          {/* Stacked values */}
+          <div className="px-4 pb-2 flex flex-col gap-2">
+            {/* Offering */}
+            <div className="rounded-lg p-2.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Offering</span>
+                <span className="font-display text-base font-bold leading-none" style={{ color: myItems.length > 0 ? "#f0f2f8" : "#3a3d50" }}>
+                  {myItems.length > 0 ? `$${myTotal.toFixed(2)}` : "—"}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-0.5 min-h-[14px]">
+                {myItems.length === 0
+                  ? <span className="font-mono text-[8px] italic text-muted-foreground">Select from inventory</span>
+                  : myItems.slice(0, 4).map((s) => (
+                      <span key={s.id} className="font-mono text-[8px] px-1 py-px rounded truncate" style={{ background: "rgba(255,255,255,0.05)", color: RARITY[s.rarity].color, maxWidth: "80px" }}>
+                        {s.name}
+                      </span>
+                    ))
+                }
+                {myItems.length > 4 && <span className="font-mono text-[8px] text-muted-foreground">+{myItems.length - 4}</span>}
+              </div>
+            </div>
+
+            {/* Arrow divider */}
+            <div className="flex items-center justify-center">
+              <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+              <div className="mx-2 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <ArrowRight className="w-3 h-3 rotate-90 text-muted-foreground" />
+              </div>
+              <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+            </div>
+
+            {/* Wanting */}
+            <div className="rounded-lg p-2.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Wanting</span>
+                <span className="font-display text-base font-bold leading-none" style={{ color: mktItems.length > 0 ? "#f0f2f8" : "#3a3d50" }}>
+                  {mktItems.length > 0 ? `$${mktTotal.toFixed(2)}` : "—"}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-0.5 min-h-[14px]">
+                {mktItems.length === 0
+                  ? <span className="font-mono text-[8px] italic text-muted-foreground">Select from market</span>
+                  : mktItems.slice(0, 4).map((s) => (
+                      <span key={s.id} className="font-mono text-[8px] px-1 py-px rounded truncate" style={{ background: "rgba(255,255,255,0.05)", color: RARITY[s.rarity].color, maxWidth: "80px" }}>
+                        {s.name}
+                      </span>
+                    ))
+                }
+                {mktItems.length > 4 && <span className="font-mono text-[8px] text-muted-foreground">+{mktItems.length - 4}</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* Diff row */}
+          {canTrade && (
+            <div className="px-4 pb-3">
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-lg"
+                style={{ background: diff >= 0 ? "rgba(74,222,128,0.07)" : "rgba(248,113,113,0.07)", border: `1px solid ${diff >= 0 ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)"}` }}
+              >
+                <span className="font-mono text-[10px] text-muted-foreground">Difference</span>
+                <span className="font-mono text-sm font-bold" style={{ color: diff >= 0 ? "#4ade80" : "#f87171" }}>
+                  {diff >= 0 ? "+" : ""}${diff.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* CTA */}
+          <div className="px-4 pb-4">
+            <button
+              disabled={!canTrade}
+              className="w-full py-3 rounded-lg font-display font-bold text-base tracking-widest transition-all"
+              style={{
+                background: canTrade ? "#f0c040" : "rgba(240,192,64,0.1)",
+                color: canTrade ? "#08090d" : "#4a3e12",
+                cursor: canTrade ? "pointer" : "not-allowed",
+                boxShadow: canTrade ? "0 0 20px rgba(240,192,64,0.25)" : "none",
+              }}
+            >
+              {canTrade ? "SEND TRADE" : "SELECT ITEMS"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── RIGHT: Market ─────────────────────────────────────────── */}
+      <div
+        className="flex flex-col flex-1 min-w-0 overflow-hidden"
+      >
+        {/* Header */}
+        <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="min-w-0">
+            <div className="font-display text-sm font-bold tracking-wide text-foreground">Market</div>
+            <div className="font-mono text-[10px] text-muted-foreground">{mktFiltered.length} listings{mktSelected.length > 0 && <span style={{ color: "#f0c040" }}> · {mktSelected.length} selected</span>}</div>
+          </div>
+          {mktSelected.length > 0 && (
+            <button
+              onClick={() => setMktSelected([])}
+              className="font-mono text-[9px] px-2 py-1 rounded transition-colors flex-shrink-0"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Search + Sort */}
+        <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+            <input
+              value={mktSearch}
+              onChange={(e) => setMktSearch(e.target.value)}
+              placeholder="Search market..."
+              className="w-full pl-7 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none"
+              style={inputStyle}
+            />
+          </div>
+          <MiniSortDropdown value={mktSort} onChange={setMktSort} />
+        </div>
+
+        {/* Selected value */}
+        {mktSelected.length > 0 && (
+          <div className="px-3 py-1.5 border-b flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(240,192,64,0.04)" }}>
+            <span className="font-mono text-[10px] text-muted-foreground">Selected value</span>
+            <span className="font-mono text-[10px] font-semibold" style={{ color: "#f0c040" }}>${mktTotal.toFixed(2)}</span>
+          </div>
+        )}
+
+        {/* Grid */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-2" style={{ scrollbarWidth: "none" }}>
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+            {mktFiltered.map((skin) => (
+              <TradeSkinCard
+                key={skin.id}
+                skin={skin}
+                selected={mktSelected.includes(skin.id)}
+                onClick={() => toggleMkt(skin.id)}
+                side="right"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── (unused legacy modal kept for reference) ─────────────────────── */
+function _NewTradeModal({ onClose }: { onClose: () => void }) {
   const [mySelected, setMySelected] = useState<number[]>([]);
   const [wantSelected, setWantSelected] = useState<number[]>([]);
   const [wantSearch, setWantSearch] = useState("");
@@ -1137,8 +2142,8 @@ function NewTradeModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-/* ─── Trade offer card ───────────────────────────────────────────────── */
-function TradeOfferCard({ offer }: { offer: TradeOffer }) {
+/* ─── (unused legacy component) ─────────────────────────────────────── */
+function _TradeOfferCard({ offer }: { offer: TradeOffer }) {
   const typeColors: Record<string, string> = {
     overpay: "#4ade80",
     even:    "#f0c040",
@@ -1248,163 +2253,6 @@ function TradeOfferCard({ offer }: { offer: TradeOffer }) {
           SEND OFFER
         </button>
       </div>
-    </div>
-  );
-}
-
-/* ─── Trade page ─────────────────────────────────────────────────────── */
-function TradePage() {
-  const [tradeType, setTradeType] = useState<string[]>([]);
-  const [tradeRarity, setTradeRarity] = useState<string[]>([]);
-  const [tradeValueMin, setTradeValueMin] = useState("");
-  const [tradeValueMax, setTradeValueMax] = useState("");
-  const [showNewTrade, setShowNewTrade] = useState(false);
-
-  const toggleTT = (v: string) =>
-    setTradeType((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
-  const toggleTR = (v: string) =>
-    setTradeRarity((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]);
-
-  const filtered = TRADE_OFFERS.filter((offer) => {
-    if (tradeType.length > 0 && !tradeType.includes(offer.type)) return false;
-    if (tradeRarity.length > 0) {
-      const allItems = [...offer.offers, ...offer.wants];
-      if (!allItems.some((i) => tradeRarity.includes(RARITY[i.rarity].label))) return false;
-    }
-    const offerTotal = offer.offers.reduce((s, i) => s + i.price, 0);
-    const wantTotal  = offer.wants.reduce((s, i) => s + i.price, 0);
-    const maxVal     = Math.max(offerTotal, wantTotal);
-    const min = parseFloat(tradeValueMin);
-    const max = parseFloat(tradeValueMax);
-    if (!isNaN(min) && maxVal < min) return false;
-    if (!isNaN(max) && maxVal > max) return false;
-    return true;
-  });
-
-  return (
-    <div className="flex gap-6">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 flex-shrink-0">
-        <div className="flex flex-col gap-4">
-          <FilterSection title="Trade Type" defaultOpen={true}>
-            <div className="space-y-0.5 pt-1">
-              {[
-                { value: "any",      label: "Any" },
-                { value: "overpay",  label: "Overpay" },
-                { value: "even",     label: "Even" },
-                { value: "underpay", label: "Underpay" },
-              ].map(({ value, label }) => {
-                if (value === "any") {
-                  const isAny = tradeType.length === 0;
-                  return (
-                    <FilterOption key={value} active={isAny} onClick={() => setTradeType([])}>
-                      <span className="font-mono text-sm" style={{ color: isAny ? "#e8eaf0" : "#6b7194" }}>{label}</span>
-                      {isAny && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
-                    </FilterOption>
-                  );
-                }
-                const active = tradeType.includes(value);
-                return (
-                  <FilterOption key={value} active={active} onClick={() => toggleTT(value)}>
-                    <span className="font-mono text-sm" style={{ color: active ? "#e8eaf0" : "#6b7194" }}>{label}</span>
-                    {active && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
-                  </FilterOption>
-                );
-              })}
-            </div>
-          </FilterSection>
-
-          <FilterSection title="Rarity" defaultOpen={false}>
-            <div className="space-y-0.5 pt-1">
-              {Object.entries(RARITY).map(([key, r]) => (
-                <FilterOption
-                  key={key}
-                  active={tradeRarity.includes(r.label)}
-                  onClick={() => toggleTR(r.label)}
-                  accentColor={r.color}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
-                    <span className="font-mono text-sm truncate" style={{ color: tradeRarity.includes(r.label) ? r.color : "#6b7194" }}>{r.label}</span>
-                  </div>
-                  {tradeRarity.includes(r.label) && <Check className="w-2.5 h-2.5 flex-shrink-0" style={{ color: r.color }} />}
-                </FilterOption>
-              ))}
-            </div>
-          </FilterSection>
-
-          <FilterSection title="Value Range" defaultOpen={false}>
-            <div className="px-2 pt-2 pb-1">
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Min</div>
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={tradeValueMin}
-                      onChange={(e) => setTradeValueMin(e.target.value)}
-                      placeholder="0"
-                      className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
-                    />
-                  </div>
-                </div>
-                <div className="font-mono text-xs text-muted-foreground mt-4">—</div>
-                <div className="flex-1">
-                  <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground mb-1">Max</div>
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={tradeValueMax}
-                      onChange={(e) => setTradeValueMax(e.target.value)}
-                      placeholder="MAX"
-                      className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </FilterSection>
-        </div>
-      </aside>
-
-      {/* Main */}
-      <div className="flex-1 min-w-0">
-        {/* Top bar */}
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="font-mono text-sm text-muted-foreground">
-            <span className="text-foreground font-semibold">{filtered.length}</span> trade offers
-          </div>
-          <button
-            onClick={() => setShowNewTrade(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded font-display font-bold text-sm tracking-wide transition-opacity hover:opacity-80"
-            style={{ background: "#f0c040", color: "#08090d" }}
-          >
-            <Plus className="w-4 h-4" />
-            NEW TRADE
-          </button>
-        </div>
-
-        {/* Feed */}
-        {filtered.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground font-mono text-sm">
-            No trade offers match your filters.
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {filtered.map((offer) => (
-              <TradeOfferCard key={offer.id} offer={offer} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {showNewTrade && <NewTradeModal onClose={() => setShowNewTrade(false)} />}
     </div>
   );
 }
@@ -1562,14 +2410,17 @@ export default function App() {
         </div>
       </nav>
 
-      <div className="w-full px-4 py-6">
-        {activeNav === "Trade" ? <TradePage /> : (
+      <div className={`w-full px-4 ${activeNav === "Trade" || activeNav === "Sell" ? "py-0" : "py-6"}`}>
+        {activeNav === "Trade" ? <TradePage /> : activeNav === "Sell" ? <SellPage /> : (
         <div className="flex gap-6">
 
           {/* ── Sidebar ─────────────────────────────────────────── */}
           <aside className="hidden lg:flex flex-col w-64 flex-shrink-0" style={{ maxHeight: "calc(100vh - 56px)" }}>
             <div className="flex-1 overflow-y-auto flex flex-col gap-4" style={{ scrollbarWidth: "none" }}>
-            {/* Rarity */}
+            {/* Header */}
+            <div className="pb-1 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              <div className="font-display text-sm font-bold tracking-wide text-foreground">Filters</div>
+            </div>
             {/* Price */}
             <FilterSection title="Price" defaultOpen={false}>
               <div className="px-2 pt-2 pb-1">
@@ -1703,6 +2554,16 @@ export default function App() {
               </div>
             </FilterSection>
 
+            {/* Clear Filters button */}
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setPriceMin(""); setPriceMax(""); setFloatMin(0); setFloatMax(1); setRarity([]); setWeapon([]); setExterior([]); setFilterStatTrak(null); setFilterStickers(null); setFilterCharms(null); setSearch(""); }}
+                className="w-full py-2 rounded font-mono text-xs transition-colors flex items-center justify-center gap-1.5 mt-2"
+                style={{ background: "rgba(255,255,255,0.04)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <X className="w-3 h-3" /> Clear Filters
+              </button>
+            )}
             </div>
 
             {/* Market stats — fixed below filters */}
@@ -1740,14 +2601,6 @@ export default function App() {
                 <div className="font-mono text-sm text-muted-foreground">
                   <span className="text-foreground font-semibold">{filtered.length}</span> listings
                 </div>
-                {hasActiveFilters && (
-                  <button
-                    onClick={() => { setPriceMin(""); setPriceMax(""); setFloatMin(0); setFloatMax(1); setRarity([]); setWeapon([]); setExterior([]); setFilterStatTrak(null); setFilterStickers(null); setFilterCharms(null); setSearch(""); }}
-                    className="font-mono text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                  >
-                    <X className="w-2.5 h-2.5" /> clear
-                  </button>
-                )}
               </div>
               <SortDropdown sort={sort} setSort={setSort} />
             </div>
