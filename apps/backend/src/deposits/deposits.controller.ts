@@ -22,35 +22,35 @@ export class DepositsController {
 
   @Post()
   @ApiOperation({
-    summary: 'Solicita o depósito de itens',
+    summary: 'Requests a deposit of items',
     description:
-      'Registra a intenção e enfileira a oferta de troca. O envio é feito ' +
-      'pelo serviço de bots — esta rota não conversa com a Steam para ' +
-      'criar a oferta.',
+      'Records the intent and queues the trade offer. Sending is done by ' +
+      'the bot service — this route does not talk to Steam to create the ' +
+      'offer.',
   })
-  @ApiResponse({ status: 201, description: 'Depósito enfileirado' })
+  @ApiResponse({ status: 201, description: 'Deposit queued' })
   @ApiResponse({
     status: 400,
-    description: 'Sem trade URL, item indisponível ou fora do inventário',
+    description: 'No trade URL, item unavailable, or not in the inventory',
   })
-  @ApiResponse({ status: 409, description: 'Item já está em outra troca' })
-  @ApiResponse({ status: 503, description: 'Sem Trade Bot disponível' })
+  @ApiResponse({ status: 409, description: 'Item is already in another trade' })
+  @ApiResponse({ status: 503, description: 'No Trade Bot available' })
   async create(
     @CurrentUser() user: User,
     @Body() dto: CreateDepositDto,
     @Req() req: Request,
   ) {
-    const oferta = await this.deposits.requestDeposit(
+    const offer = await this.deposits.requestDeposit(
       user,
       dto.assetIds,
       auditContext(req),
     );
 
     return {
-      id: oferta.id,
-      status: oferta.status,
-      itemCount: oferta.requestedAssetIds.length,
-      createdAt: oferta.createdAt,
+      id: offer.id,
+      status: offer.status,
+      itemCount: offer.requestedAssetIds.length,
+      createdAt: offer.createdAt,
     };
   }
 }

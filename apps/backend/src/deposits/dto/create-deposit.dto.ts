@@ -10,18 +10,18 @@ import {
 export class CreateDepositDto {
   @ApiProperty({
     description:
-      'assetIds dos itens escolhidos, como vêm de GET /api/inventory. ' +
-      'Valem apenas enquanto os itens estiverem no inventário do usuário — ' +
-      'o assetId muda a cada troca na Steam.',
+      'assetIds of the chosen items, as returned by GET /api/inventory. ' +
+      "They are only valid while the items are in the user's inventory — " +
+      'the assetId changes with every trade on Steam.',
     example: ['12345678901', '12345678902'],
     type: [String],
   })
   @IsArray()
   @ArrayMinSize(1)
-  // Teto para não montar uma oferta que a Steam recusaria por tamanho e
-  // para limitar o custo de uma requisição maliciosa.
+  // A ceiling so we never build an offer Steam would refuse for size, and
+  // to bound the cost of a malicious request.
   @ArrayMaxSize(100)
   @IsString({ each: true })
-  @Matches(/^\d+$/, { each: true, message: 'assetId deve conter só dígitos' })
+  @Matches(/^\d+$/, { each: true, message: 'assetId must contain digits only' })
   assetIds!: string[];
 }
