@@ -1,7 +1,7 @@
 /**
- * Saiu do package.json quando o banco de teste isolado entrou: são dois
- * caminhos de arquivo e o motivo de cada um, que num JSON viram uma linha
- * ilegível.
+ * Moved out of package.json when the isolated test database arrived:
+ * these are two file paths plus the reason for each, which in JSON turn
+ * into one unreadable line.
  */
 module.exports = {
   rootDir: 'src',
@@ -13,20 +13,21 @@ module.exports = {
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
 
-  /** Cria o banco de teste e aplica as migrations, uma vez. */
+  /** Creates the test database and applies the migrations, once. */
   globalSetup: '<rootDir>/../test/jest-global-setup.ts',
 
   /**
-   * Redireciona DATABASE_URL e REDIS_URL antes de qualquer módulo do Nest
-   * carregar. Roda por worker, e é onde está a barreira que recusa banco
-   * cujo nome não termine em `_test`.
+   * Redirects DATABASE_URL and REDIS_URL before any Nest module loads.
+   * It runs per worker, and it is where the barrier lives that refuses a
+   * database whose name does not end in `_test`.
    */
   setupFiles: ['<rootDir>/../test/jest-setup-env.ts'],
 
   /**
-   * Ainda em série. O banco separado tirou o risco de estragar dado real,
-   * mas os workers continuam compartilhando o MESMO banco de teste entre
-   * si — paralelizar exige um banco por worker. Ver STATE.md.
+   * Still in series. The separate database removed the risk of damaging
+   * real data, but the workers still share the SAME test database among
+   * themselves — parallelising requires one database per worker. See
+   * STATE.md.
    */
   maxWorkers: 1,
 };
