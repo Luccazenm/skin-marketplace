@@ -2290,7 +2290,12 @@ export default function App() {
   }
   const [sort, setSort]             = useState("Default");
   const [selectedSkin, setSelected] = useState<Skin | null>(null);
-  const [cartCount, setCartCount]   = useState(3);
+  // Both start empty because the backend has neither a cart nor
+  // notifications yet, and inventing a number here would be the screen
+  // asserting something no endpoint can back. They become real reads
+  // when those endpoints exist.
+  const [cartCount] = useState(0);
+  const [notificationCount] = useState(0);
   const [filtersOpen, setFilters]   = useState(false);
   const [activeNav, setActiveNav]   = useState("Market");
   const [language, setLanguage]     = useState("EN");
@@ -2411,14 +2416,24 @@ export default function App() {
                 </span>
               </div>
             )}
+            {/* The bell belongs to an account: an anonymous visitor has
+                nothing to be notified about, so it is not shown at all
+                when signed out. */}
+            {session.user && (
+              <button className="relative text-muted-foreground hover:text-foreground transition-colors">
+                <Bell className="w-5 h-5" />
+                {/* A count only when there is something to count. A badge
+                    showing a number nobody can act on trains the user to
+                    ignore the badge that will matter later. */}
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-mono font-bold flex items-center justify-center" style={{ background: "#e84060", color: "#fff" }}>{notificationCount}</span>
+                )}
+              </button>
+            )}
+            {/* The cart stays visible either way — it is how someone
+                finds what they picked up, signed in or not. Only the
+                count is conditional. */}
             <button className="relative text-muted-foreground hover:text-foreground transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-mono font-bold flex items-center justify-center" style={{ background: "#e84060", color: "#fff" }}>4</span>
-            </button>
-            <button
-              className="relative text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setCartCount((c) => c + 1)}
-            >
               <ShoppingCart className="w-5 h-5" />
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-mono font-bold flex items-center justify-center" style={{ background: "#f0c040", color: "#08090d" }}>{cartCount}</span>
