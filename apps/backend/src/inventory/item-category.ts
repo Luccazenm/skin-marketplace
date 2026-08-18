@@ -54,7 +54,7 @@ const BY_INTERNAL_NAME: Record<string, ItemCategory> = {
  *
  * The second source of uniqueness is the applied items (sticker, patch,
  * charm), today partially modelled in ItemSticker — which only covers
- * weapon stickers. See docs/pendencias.md.
+ * weapon stickers. See docs/open-items.md.
  */
 const WITH_UNIQUE_PATTERN = new Set<ItemCategory>([
   ItemCategory.RIFLE,

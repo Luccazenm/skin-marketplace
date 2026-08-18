@@ -1,27 +1,32 @@
-# Grupo da Steam dos Trade Bots
+# The Trade Bots' Steam group
 
-Grupo fechado reunindo todas as contas de Trade Bot. Serve para o usuário
-conferir que uma conta é realmente nossa antes de mandar um item.
+A closed group gathering every Trade Bot account. It exists so the user
+can confirm an account really is ours before sending an item.
 
-Sempre **Trade Bot** no texto voltado ao usuário, nunca só "bot" — ver
-CLAUDE.md. A URL `nextskins.gg/bots` fica curta de propósito: é endereço
-para digitar, não nome da conta.
+Always **Trade Bot** in user-facing text, never just "bot" — see
+CLAUDE.md. The URL `nextskins.gg/bots` is short on purpose: it is an
+address to type, not an account name.
 
-## Por que grupo fechado não basta sozinho
+> The two description blocks below are the group's published copy, in
+> English and in Portuguese. The Portuguese one is deliberate: it is what
+> Brazilian users read on Steam, not project documentation, and it is not
+> translated.
 
-Fechado impede que o golpista entre no **nosso** grupo. Ele não precisa
-disso: cria um grupo com o mesmo nome e o mesmo avatar, coloca as contas
-falsas dentro, e a vítima abre o perfil falso, vê "NextSkins Official"
-listado e confia. A associação ao grupo é dado real da Steam e não dá
-para forjar — mas o **grupo** dá.
+## Why a closed group is not enough on its own
 
-A defesa é a direção da conferência: **o usuário sai do site para o
-grupo, nunca do grupo para o site.** Por isso o que precisa estar
-publicado em `nextskins.gg/bots` é a URL exata do grupo, e a descrição
-precisa dizer isso logo no começo. Um grupo clonado terá outra URL, e é
-isso que não se falsifica.
+Closed keeps the scammer out of **our** group. They do not need that:
+they create a group with the same name and the same avatar, put the fake
+accounts in it, and the victim opens the fake profile, sees "NextSkins
+Official" listed and trusts it. Group membership is real Steam data and
+cannot be forged — but the **group** can.
 
-## Nome
+The defence is the direction of the check: **the user goes from the site
+to the group, never from the group to the site.** That is why what has to
+be published at `nextskins.gg/bots` is the group's exact URL, and why the
+description has to say so right at the top. A cloned group will have a
+different URL, and that is the part that cannot be faked.
+
+## Name
 
 ```
 NextSkins.gg — Official Trade Bots
@@ -29,24 +34,24 @@ NextSkins.gg — Official Trade Bots
 
 ---
 
-# Versão em uso: site em construção
+# The version in use: site under construction
 
-Trocar pela versão de lançamento **no mesmo dia em que o site subir**.
-Ver a seção seguinte.
+Swap it for the launch version **on the same day the site goes live**.
+See the next section.
 
-**Atualizar a lista de steamID64 a cada Trade Bot criado.** Enquanto
-`nextskins.gg/bots` não existir, essa lista na descrição é a única âncora
-de verificação — o link para a página está lá para depois do lançamento,
-e hoje não responde. Conta criada e não listada é indistinguível de conta
-falsa.
+**Update the steamID64 list every time a Trade Bot is created.** While
+`nextskins.gg/bots` does not exist, that list in the description is the
+only verification anchor — the link to the page is there for after
+launch, and today it does not answer. An account that was created and
+not listed is indistinguishable from a fake one.
 
-## Resumo curto
+## Short summary
 
 ```
 ⚠ Site under construction — we are NOT trading yet. Any NextSkins trade offer or login page right now is a scam. This group is the public record of our official Trade Bot accounts ahead of launch.
 ```
 
-## Descrição — inglês
+## Description — English
 
 ```
 Official Trade Bot group of NextSkins.gg
@@ -103,7 +108,7 @@ Check the item names and the sender's profile against what the site is showing y
 Trades are held for 7 days by Valve's trade lock. That wait is normal and applies to everyone. Nobody can bypass it, and anyone offering to is stealing from you.
 ```
 
-## Descrição — português
+## Description — Portuguese (published copy, not translated)
 
 ```
 Grupo oficial dos Trade Bots do NextSkins.gg
@@ -162,35 +167,37 @@ As trocas ficam presas por 7 dias pelo trade lock da Valve. Essa espera é norma
 
 ---
 
-# Versão de lançamento
+# The launch version
 
-**Aplicar no dia em que o site subir.** Deixar a versão de construção no ar
-depois do lançamento é pior que não ter aviso nenhum: o usuário lê "não
-estamos negociando" bem no momento em que passamos a negociar, e ou
-desiste de uma troca legítima ou aprende a ignorar os avisos do grupo.
+**Apply it the day the site goes live.** Leaving the under-construction
+version up after launch is worse than having no warning at all: the user
+reads "we are not trading" at the exact moment we start trading, and
+either abandons a legitimate trade or learns to ignore the group's
+warnings.
 
-A troca é só remover o bloco `⚠ THE SITE IS NOT LIVE YET` (até o `[hr]`) e
-tirar o "After launch:" do título seguinte. O resto do texto já está
-escrito para depois do lançamento.
+The swap is just removing the `⚠ THE SITE IS NOT LIVE YET` block (up to
+the `[hr]`) and dropping "After launch:" from the heading that follows.
+The rest of the text is already written for after launch.
 
-## Resumo curto
+## Short summary
 
 ```
 Official Trade Bot group of NextSkins.gg. Verify every Trade Bot at nextskins.gg/bots before trading. Our Trade Bots never add you, never message you first, and never ask for your password or Steam Guard code.
 ```
 
-## Pré-requisito
+## Prerequisite
 
-A página `nextskins.gg/bots` **precisa estar no ar antes**, porque a
-descrição manda conferir lá. Link quebrado ali é o pior caso possível:
-quebra exatamente na hora em que o usuário desconfiado foi verificar.
+The `nextskins.gg/bots` page **has to be live first**, because the
+description tells people to check there. A broken link there is the worst
+possible case: it breaks at exactly the moment the suspicious user went
+to verify.
 
 ---
 
-## Pendências relacionadas
+## Related open items
 
-- Guardar a URL do grupo no banco, junto com o campo de URL personalizada
-  já planejado em `Bot`. Sem isso, o link do grupo fica escrito à mão na
-  página e neste documento, e os dois vão divergir.
-- Publicar também o steamID64 do grupo, não só a URL: URL de grupo pode
-  ser trocada pelo dono, o id não.
+- Store the group's URL in the database, alongside the custom-URL field
+  already planned on `Bot`. Without that, the group link is written by
+  hand on the page and in this document, and the two will drift apart.
+- Publish the group's steamID64 as well, not only the URL: a group URL
+  can be changed by its owner, the id cannot.

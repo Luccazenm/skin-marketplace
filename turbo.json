@@ -1,15 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
 
-  // O turbo não repassa variáveis de ambiente que não estejam declaradas
-  // aqui. Localmente isso não aparecia, porque as variáveis vinham do
-  // arquivo .env lido pelo dotenv dentro do processo — mas em CI não há
-  // .env, elas vêm do ambiente, e os testes morriam com "DATABASE_URL não
-  // definida".
+  // turbo does not pass through environment variables that are not
+  // declared here. Locally this never showed up, because the variables
+  // came from the .env file dotenv reads inside the process — but in CI
+  // there is no .env, they come from the environment, and the tests died
+  // with "DATABASE_URL is not set".
   //
-  // Declarar em globalEnv também faz o turbo invalidar o cache quando um
-  // desses valores muda, que é o comportamento certo: build feito
-  // apontando para outro banco não é o mesmo build.
+  // Declaring them in globalEnv also makes turbo invalidate the cache
+  // when one of these values changes, which is the right behaviour: a
+  // build made pointing at another database is not the same build.
   "globalEnv": [
     "NODE_ENV",
     "DATABASE_URL",
@@ -34,9 +34,9 @@
     },
     "lint": {},
     "test": {
-      // Os testes tocam o Postgres, então o resultado não depende só dos
-      // arquivos. Cachear faria o turbo pular uma suíte que passaria a
-      // falhar depois de uma migration.
+      // The tests touch Postgres, so the result does not depend on the
+      // files alone. Caching would make turbo skip a suite that would
+      // start failing after a migration.
       "cache": false
     },
     "typecheck": {}

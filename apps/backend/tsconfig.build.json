@@ -1,8 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  // Só src/ entra no build. Qualquer .ts fora dela (prisma.config.ts,
-  // prisma/seed.ts) empurraria o rootDir para cima e a saída viraria
-  // dist/src/main.js, quebrando o start:prod.
+  // Only src/ goes into the build. Any .ts outside it (prisma.config.ts,
+  // prisma/seed.ts) would push rootDir upwards and the output would
+  // become dist/src/main.js, breaking start:prod.
   "include": ["src/**/*"],
   "exclude": [
     "node_modules",
