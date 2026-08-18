@@ -1,5 +1,28 @@
 {
   "$schema": "https://turbo.build/schema.json",
+
+  // O turbo não repassa variáveis de ambiente que não estejam declaradas
+  // aqui. Localmente isso não aparecia, porque as variáveis vinham do
+  // arquivo .env lido pelo dotenv dentro do processo — mas em CI não há
+  // .env, elas vêm do ambiente, e os testes morriam com "DATABASE_URL não
+  // definida".
+  //
+  // Declarar em globalEnv também faz o turbo invalidar o cache quando um
+  // desses valores muda, que é o comportamento certo: build feito
+  // apontando para outro banco não é o mesmo build.
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "JWT_SECRET",
+    "JWT_EXPIRES_IN_SECONDS",
+    "CORS_ORIGIN",
+    "API_URL",
+    "FRONTEND_URL",
+    "COOKIE_SECURE",
+    "STEAM_API_KEY"
+  ],
+
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
