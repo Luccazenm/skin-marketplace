@@ -1116,14 +1116,6 @@ function TradeSkinCard({
       {/* Rarity strip */}
       <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
 
-      {/* Selection checkmark */}
-      {selected && (
-        <div className="absolute top-2 left-2 w-4 h-4 rounded-full flex items-center justify-center z-20"
-          style={{ background: "#f0c040" }}>
-          <Check className="w-2.5 h-2.5" style={{ color: "#08090d" }} />
-        </div>
-      )}
-
       {/* Stickers — top right */}
       {skin.stickers > 0 && (
         <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
@@ -1171,12 +1163,16 @@ function TradeSkinCard({
         </div>
       </div>
 
-      {/* Action row */}
-      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
+      {/* Action row — opens on hover only, matching the Sell grid. */}
+      <div style={{ display: "grid", gridTemplateRows: hovered ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
         <div style={{ overflow: "hidden" }}>
           <div className="px-3 pb-2.5">
-            <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide"
-              style={{ background: selected ? r.color : "#f0c040", color: "#08090d", opacity: active ? 1 : 0, transition: "opacity 200ms ease" }}>
+            <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
+              style={{
+                background: selected ? "rgba(255,255,255,0.08)" : "#f0c040",
+                color: selected ? "#e8eaf0" : "#08090d",
+                opacity: hovered ? 1 : 0,
+              }}>
               {selected ? "DESELECT" : "SELECT"}
             </div>
           </div>
@@ -1232,12 +1228,6 @@ function TradeInventoryCard({
       }}
     >
       <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
-
-      {selected && (
-        <div className="absolute top-2 left-2 w-4 h-4 rounded-full flex items-center justify-center z-20" style={{ background: "#f0c040" }}>
-          <Check className="w-2.5 h-2.5" style={{ color: "#08090d" }} />
-        </div>
-      )}
 
       {/* One badge per unit, never grouped by name — five copies of one
           sticker can each be scraped differently, and one can be worth
@@ -1324,11 +1314,19 @@ function TradeInventoryCard({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
+      {/* Same behaviour as the Sell grid: the row opens on hover only,
+          not on selection. A selected card already says so through its
+          border and glow, and leaving the button up on every pick turns
+          a grid of twenty choices into a wall of buttons. */}
+      <div style={{ display: "grid", gridTemplateRows: hovered ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
         <div style={{ overflow: "hidden" }}>
           <div className="px-3 pb-2.5">
-            <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide"
-              style={{ background: selected ? r.color : "#f0c040", color: "#08090d", opacity: active ? 1 : 0, transition: "opacity 200ms ease" }}>
+            <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
+              style={{
+                background: selected ? "rgba(255,255,255,0.08)" : "#f0c040",
+                color: selected ? "#e8eaf0" : "#08090d",
+                opacity: hovered ? 1 : 0,
+              }}>
               {selected ? "DESELECT" : "SELECT"}
             </div>
           </div>
@@ -1429,7 +1427,6 @@ function TradeSide({
   totalMuted,
   count,
   align,
-  onClear,
   collapsed,
   onToggleCollapse,
   empty,
@@ -1441,31 +1438,26 @@ function TradeSide({
   count: number;
   /** "left" mirrors the header to the other edge, as the two sides face each other. */
   align: "left" | "right";
-  onClear: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   empty: string;
   children: ReactNode;
 }) {
+  // No Clear here: each column below the bar already has one, and two
+  // buttons doing the same thing within a few hundred pixels only makes
+  // the reader check which is which.
   const header = (
-    <>
-      <button
-        onClick={onToggleCollapse}
-        className="flex items-center gap-1.5 font-display text-xs font-bold tracking-wide flex-shrink-0"
-        style={{ color: "#e8eaf0" }}
-      >
-        <ChevronDown
-          className="w-3 h-3"
-          style={{ transform: collapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 150ms" }}
-        />
-        {title}
-      </button>
-      {count > 0 && (
-        <button onClick={onClear} className="font-mono text-[9px] flex-shrink-0 transition-colors text-muted-foreground hover:text-foreground">
-          Clear
-        </button>
-      )}
-    </>
+    <button
+      onClick={onToggleCollapse}
+      className="flex items-center gap-1.5 font-display text-xs font-bold tracking-wide flex-shrink-0"
+      style={{ color: "#e8eaf0" }}
+    >
+      <ChevronDown
+        className="w-3 h-3"
+        style={{ transform: collapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 150ms" }}
+      />
+      {title}
+    </button>
   );
 
   const totalNode = (
@@ -1483,7 +1475,7 @@ function TradeSide({
   return (
     <div className="flex-1 min-w-0 flex flex-col gap-1.5">
       <div className={`flex items-center gap-2 ${align === "right" ? "flex-row-reverse" : ""}`}>
-        {align === "right" ? <>{header}</> : <>{header}</>}
+        {header}
         <div className={align === "right" ? "mr-auto" : "ml-auto"}>{totalNode}</div>
       </div>
 
@@ -1642,11 +1634,14 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       <div className="flex-shrink-0 border-b flex items-start gap-3 px-3 py-2" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)" }}>
         <TradeSide
           title="Your offer"
-          total={myItems.length > 0 ? `${myItems.length} item${myItems.length === 1 ? "" : "s"}` : "—"}
-          totalMuted={myItems.length === 0}
+          // A summed value, the same slot the other side uses — but it
+          // stays "Not priced" until there is a price source. Every card
+          // beneath it says the same, so the total agrees with its parts
+          // rather than inventing a figure they cannot add up to.
+          total={myItems.length > 0 ? "Not priced" : "—"}
+          totalMuted
           count={myItems.length}
           align="left"
-          onClear={() => setMySelected([])}
           collapsed={cartCollapsed}
           onToggleCollapse={() => setCartCollapsed((c) => !c)}
           empty="Pick from your inventory"
@@ -1706,7 +1701,6 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           totalMuted={mktItems.length === 0}
           count={mktItems.length}
           align="right"
-          onClear={() => setMktSelected([])}
           collapsed={cartCollapsed}
           onToggleCollapse={() => setCartCollapsed((c) => !c)}
           empty="Pick from the market"
@@ -1806,18 +1800,9 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           <MiniSortDropdown value={mySort} onChange={setMySort} />
         </div>
 
-        {/* What is being offered, counted rather than valued.
-            A Steam inventory carries no prices, and there is no price
-            source wired up yet — so a total here would be invented. The
-            mock could show one because its items had made-up prices. */}
-        {mySelected.length > 0 && (
-          <div className="px-3 py-1.5 border-b flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(240,192,64,0.04)" }}>
-            <span className="font-mono text-[10px] text-muted-foreground">Offering</span>
-            <span className="font-mono text-[10px] font-semibold" style={{ color: "#f0c040" }}>
-              {myItems.length} item{myItems.length === 1 ? "" : "s"}
-            </span>
-          </div>
-        )}
+        {/* No running total here any more: the bar at the top of the
+            screen carries it, and repeating it directly underneath was
+            the same number twice within 40px. */}
 
         {/* Grid */}
         <div className="flex-1 min-h-0 overflow-y-auto p-2" style={{ scrollbarWidth: "none" }}>
@@ -1997,7 +1982,12 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
           <div className="min-w-0">
             <div className="font-display text-sm font-bold tracking-wide text-foreground">Market</div>
-            <div className="font-mono text-[10px] text-muted-foreground">{mktFiltered.length} listings{mktSelected.length > 0 && <span style={{ color: "#f0c040" }}> · {mktSelected.length} selected</span>}</div>
+            {/* How many listings exist is not the shopper's business,
+                and it is a number that only ever flatters or embarrasses
+                us. What is selected still matters. */}
+            <div className="font-mono text-[10px] text-muted-foreground">
+              {mktSelected.length > 0 ? <span style={{ color: "#f0c040" }}>{mktSelected.length} selected</span> : " "}
+            </div>
           </div>
           {mktSelected.length > 0 && (
             <button
@@ -2025,13 +2015,8 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           <MiniSortDropdown value={mktSort} onChange={setMktSort} />
         </div>
 
-        {/* Selected value */}
-        {mktSelected.length > 0 && (
-          <div className="px-3 py-1.5 border-b flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(240,192,64,0.04)" }}>
-            <span className="font-mono text-[10px] text-muted-foreground">Selected value</span>
-            <span className="font-mono text-[10px] font-semibold" style={{ color: "#f0c040" }}>${mktTotal.toFixed(2)}</span>
-          </div>
-        )}
+        {/* The running total lives in the bar at the top, for the same
+            reason it was dropped from the inventory column. */}
 
         {/* Grid */}
         <div className="flex-1 min-h-0 overflow-y-auto p-2" style={{ scrollbarWidth: "none" }}>
