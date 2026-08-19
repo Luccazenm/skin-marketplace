@@ -175,7 +175,28 @@ It becomes a **recurring cost** — decide it together with the rest of the
 viability numbers. Choose close to building the storefront, when the
 subscription can be compared against real usage.
 
-### Pricing a skin with stickers: do not automate it
+### Pricing a skin with stickers — settled on 2026-08-19
+
+The rule is in CLAUDE.md under "Suggesting a price": base + stickers +
+charm, with the sticker premium capped at twice the base price. What
+follows is the background that led there, kept because the numbers below
+are what the bands were drawn from.
+
+Two things still want a second measurement before the rule ships:
+
+**The SP% band for paper Katowice 2014.** No guide states one — it is
+neither an ordinary tournament sticker (0.5–1.5%) nor a holo (5–15%).
+The Crown Foil band, 3–8%, was used as the closest analogue. Inside the
+2× cap the choice barely moves the result, which is why it was not worth
+blocking on.
+
+**How scrape behaves below the cap.** The item checked had four
+unscraped stickers, so the cap bound and the scrape table was never
+exercised against real market pricing. An item with cheap or heavily
+scraped stickers would test it — the AK-47 Inheritance in the test
+account carries five GamerLegion stickers between 63% and 97% scraped.
+
+### The old reasoning, for context
 
 The market calls it **SP%** — how much of a sticker's value transfers to
 the weapon once applied:

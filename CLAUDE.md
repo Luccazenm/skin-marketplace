@@ -125,6 +125,55 @@ deposit, delivery, return, withdrawal — requires it. Asking for it
 inside the sell flow would leave a buyer stuck at checkout with no idea
 why.
 
+### Suggesting a price
+
+**The suggestion is `base + stickers + charm`.** No float premium: no
+source reviewed on 19/08 gives a method for it, and a factor invented
+here would be the screen asserting something nobody can check.
+
+```
+suggested = base
+          + min( Σ (sticker × SP% × scrapeRetention × diminishing), 2 × base )
+          + charm value in full
+```
+
+**A charm is added whole, with no SP%.** Charms detach and return to the
+inventory intact and tradable — the only cost is a US$ 0.99 detachment
+pack — so none of their value is lost to the weapon. Stickers are
+destroyed on removal, which is the whole reason they transfer only a
+fraction.
+
+**SP% is far smaller than the market's reputation for it.** Measured
+bands: an ordinary tournament sticker transfers 0.5–1.5%, a modern Major
+holo 0.5–2%, a Crown Foil 3–8%, a Katowice 2014 holo 5–15%. The
+"50%" figure only ever applied to a Katowice holo on a skin people
+actually want.
+
+**Scrape is applied per unit, from the wear we already read.** Retention
+runs roughly 100% intact, 50–75% lightly scraped, 25–50% at half,
+10–25% heavily, near nothing below a fifth remaining.
+
+**Four stickers are worth 50–70% of their SP% each, not four times
+one.** Diminishing returns are real and the market prices them.
+
+**Position is deliberately not used.** It multiplies real SP% by 0.5 to
+2.5, and we cannot know it: `ItemApplication.slot` is the order Steam
+returns, and Valve itself swaps positions between the web inventory and
+the game. This is a known error we cannot remove, and a reason the
+figure is a suggestion.
+
+**The 2× cap is the load-bearing part, not a safety rail.** Checked
+against a real item — an AK-47 Blue Laminate carrying R$ 20,098 of
+Katowice 2014 stickers on a R$ 152 skin — the honest SP% range of 3–8%
+produces suggestions from R$ 453 to R$ 1,276 uncapped. That 3.7× spread
+is useless to a seller. Capped at twice the base it becomes R$ 453 to
+R$ 456, and the effective transfer lands at 1.50% — against the 1.57%
+CS.MONEY was observed to pay for the same item, reached independently.
+
+The cap also carries the economics: nobody pays a R$ 600 premium on a
+R$ 152 rifle, however good the stickers are. Sell the stickers, not the
+gun.
+
 ### The fast flow: buying from the user
 
 **Instant sell is the platform taking inventory, not brokering a sale.**
@@ -414,10 +463,10 @@ is one person.
   request body.
 - **Do not store Steam credentials in the database.** Only
   `credentialRef`.
-- **Do not compute the price of a stickered skin automatically.** SP%
-  ranges from 2% to over 50% depending on position, alignment and
-  demand; no API delivers that with confidence. Show the base price and
-  each sticker's value separately, and let the seller decide.
+- **Do not present a stickered skin's price as anything but a
+  suggestion.** It is computed — see "Suggesting a price" — but the
+  seller sets the number, each sticker's own value stays on screen, and
+  the figure is never called a market price.
 - **Do not use Steam Market prices as a reference.** They are inflated,
   because balance there cannot be withdrawn.
 - **Do not call Steam without going through the cache and the rate
