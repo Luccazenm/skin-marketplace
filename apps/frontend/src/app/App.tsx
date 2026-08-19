@@ -1852,7 +1852,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         </div>
 
         {/* Header */}
-        <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="px-2 py-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="font-display text-sm font-bold tracking-wide text-foreground">Your Inventory</div>
             <div className="font-mono text-[10px] text-muted-foreground">
@@ -1906,8 +1906,15 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           </div>
         </div>
 
-        {/* Search + Sort */}
-        <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        {/* Separates the heading from the search, without meeting the
+            column's own borders — the same inset rule the filters use. */}
+        <div className="mx-2 flex-shrink-0" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+
+        {/* Search + Sort. Padded to px-2, matching the grid's p-2 below,
+            so the field and the sort line up with the edges of the cards
+            rather than sitting 4px inside them. No rule under it: the
+            gap to the first row of cards already separates them. */}
+        <div className="px-2 py-2 flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
             <input
@@ -2177,7 +2184,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         </div>
 
         {/* Header */}
-        <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="px-2 py-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="font-display text-sm font-bold tracking-wide text-foreground">Market</div>
             {/* How many listings exist is not the shopper's business,
@@ -2198,8 +2205,13 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           )}
         </div>
 
+        {/* Same inset rule and same px-2 as the inventory column: the two
+            sides face each other, so anything different between them
+            reads as a mistake. */}
+        <div className="mx-2 flex-shrink-0" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+
         {/* Search + Sort */}
-        <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="px-2 py-2 flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
             <input
