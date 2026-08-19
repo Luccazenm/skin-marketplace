@@ -1329,7 +1329,23 @@ function AppliedBadges({
   hover: ReturnType<typeof useAppliedHover>;
 }) {
   return (
-    <div className="absolute flex flex-col gap-0.5 z-10" style={{ top: 6, [side]: 6 }}>
+    <div
+      className="absolute flex flex-col gap-0.5 z-10"
+      style={{
+        top: 6,
+        [side]: 6,
+        // Kept inside the artwork box, which is shorter on the trade
+        // cart card than on the grid: five stickers at 22px are 118px
+        // and the cart's box is 91, so the bottom of the stack was being
+        // clipped away. Rather than shrink the badges or grow the card,
+        // the column wraps into a second one.
+        maxHeight: "calc(100% - 12px)",
+        // The second column has to grow inward, away from the edge the
+        // stack is anchored to. With a column direction, wrap adds
+        // columns to the right and wrap-reverse to the left.
+        flexWrap: side === "right" ? "wrap-reverse" : "wrap",
+      }}
+    >
       {items.map((a, i) => (
         <div
           key={`${a.slot}-${i}`}
