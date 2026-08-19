@@ -100,8 +100,8 @@ describe('InventoryService', () => {
   beforeEach(async () => {
     await redis.del(
       `inventory:${STEAM_ID}`,
-      'steam:inventory:slot',
-      'steam:inventory:blocked',
+      'steam:inventory:slot:default',
+      'steam:inventory:blocked:default',
     );
     steamMock.fetchInventory.mockReset();
   });
@@ -109,8 +109,8 @@ describe('InventoryService', () => {
   afterAll(async () => {
     await redis.del(
       `inventory:${STEAM_ID}`,
-      'steam:inventory:slot',
-      'steam:inventory:blocked',
+      'steam:inventory:slot:default',
+      'steam:inventory:blocked:default',
     );
     await redis.quit();
     await prisma.$disconnect();
@@ -158,7 +158,7 @@ describe('InventoryService', () => {
 
     // Age the cache and free the slot to force another attempt
     await ageCache(redis, STEAM_ID);
-    await redis.del('steam:inventory:slot');
+    await redis.del('steam:inventory:slot:default');
 
     steamMock.fetchInventory.mockResolvedValue({ status: 'rate_limited' });
 
@@ -170,7 +170,7 @@ describe('InventoryService', () => {
     expect(r.items).toHaveLength(1);
 
     // And it marked the penalty, so the next callers do not even try
-    expect(await redis.exists('steam:inventory:blocked')).toBe(1);
+    expect(await redis.exists('steam:inventory:blocked:default')).toBe(1);
   });
 
   it('refuses when it hits the limit with nothing cached', async () => {
@@ -182,7 +182,7 @@ describe('InventoryService', () => {
   });
 
   it('does not call Steam during the penalty', async () => {
-    await redis.set('steam:inventory:blocked', '1', 'EX', 60);
+    await redis.set('steam:inventory:blocked:default', '1', 'EX', 60);
 
     await service.getInventory(STEAM_ID);
 
@@ -197,7 +197,7 @@ describe('InventoryService', () => {
     await service.getInventory(STEAM_ID);
 
     await ageCache(redis, STEAM_ID);
-    await redis.del('steam:inventory:slot');
+    await redis.del('steam:inventory:slot:default');
 
     steamMock.fetchInventory.mockResolvedValue({
       status: 'error',
@@ -262,7 +262,7 @@ describe('InventoryService', () => {
     await service.getInventory(STEAM_ID);
 
     await ageCache(redis, STEAM_ID);
-    await redis.del('steam:inventory:slot');
+    await redis.del('steam:inventory:slot:default');
 
     steamMock.fetchInventory.mockResolvedValue({ status: 'private' });
 

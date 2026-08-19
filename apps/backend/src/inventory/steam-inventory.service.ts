@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { Dispatcher } from 'undici';
 import { ItemCategory } from '@prisma/client';
 import { extractApplied, withScrape, type AppliedItem } from './applied-items';
 import {
@@ -95,7 +96,15 @@ export class SteamInventoryService {
 
   private readonly logger = new Logger(SteamInventoryService.name);
 
-  async fetchInventory(steamId: string): Promise<InventoryResult> {
+  /**
+   * @param dispatcher which way out to Steam, or null for the machine's
+   *   own address. The caller picks it, because the caller is what holds
+   *   the per-route rate limit.
+   */
+  async fetchInventory(
+    steamId: string,
+    dispatcher: Dispatcher | null = null,
+  ): Promise<InventoryResult> {
     const url =
       `https://steamcommunity.com/inventory/${steamId}` +
       `/${SteamInventoryService.APP_ID}/${SteamInventoryService.CONTEXT_ID}` +
@@ -107,6 +116,10 @@ export class SteamInventoryService {
       response = await fetch(url, {
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(15_000),
+        // Node's fetch takes a dispatcher, which is how the call is
+        // bound to one source address or sent through one proxy. Absent,
+        // it goes out however the machine would normally route it.
+        ...(dispatcher ? { dispatcher } : {}),
       });
     } catch (error) {
       this.logger.warn(`Network failure reading inventory: ${String(error)}`);

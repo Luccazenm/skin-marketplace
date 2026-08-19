@@ -61,8 +61,8 @@ describe('InventoryController', () => {
     // on the order they run in
     await ctx.redis.del(
       `inventory:${STEAM_ID}`,
-      'steam:inventory:slot',
-      'steam:inventory:blocked',
+      'steam:inventory:slot:default',
+      'steam:inventory:blocked:default',
     );
     jest.clearAllMocks();
   });

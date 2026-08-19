@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { parseEgress, type EgressRoute } from './egress';
 import {
   CatalogEnrichmentService,
   type EnrichedInventoryItem,
@@ -55,11 +57,40 @@ type RawInventoryResponse =
 export class InventoryService {
   private readonly logger = new Logger(InventoryService.name);
 
+  /**
+   * The ways out to Steam, read once at boot.
+   *
+   * Steam limits the inventory endpoint per IP, so this list is the
+   * site's inventory capacity: one route is about 900 reads an hour,
+   * ten is ten times that. It is configuration rather than code so that
+   * growing it needs no deploy of anything but an environment variable.
+   */
+  private readonly routes: EgressRoute[];
+  private readonly routeIds: string[];
+
   constructor(
     private readonly steam: SteamInventoryService,
     private readonly cache: InventoryCacheService,
     private readonly catalog: CatalogEnrichmentService,
-  ) {}
+    config: ConfigService,
+  ) {
+    const { routes, skipped } = parseEgress(
+      config.get<string>('STEAM_EGRESS') ?? '',
+    );
+
+    this.routes = routes;
+    this.routeIds = routes.map((r) => r.id);
+
+    for (const entry of skipped) {
+      // Loud, because the operator meant to have that capacity and does
+      // not: a silently dropped address is a limit nobody can explain.
+      this.logger.error(`Ignoring STEAM_EGRESS entry: ${entry}`);
+    }
+
+    this.logger.log(
+      `Steam egress: ${routes.length} route(s) — ${this.routeIds.join(', ')}`,
+    );
+  }
 
   async getInventory(steamId: string): Promise<InventoryResponse> {
     const result = await this.readInventory(steamId);
@@ -85,18 +116,23 @@ export class InventoryService {
       };
     }
 
-    // 2. We are serving a penalty after a 429. Insisting now only renews
-    //    the block, so we serve whatever we have.
-    if (await this.cache.isBlocked()) {
+    // 2. Every route is serving a penalty after a 429. Insisting now
+    //    only renews them, so we serve whatever we have.
+    if (await this.cache.allBlocked(this.routeIds)) {
       return cached ? this.serveStale(cached) : { status: 'rate_limited' };
     }
 
-    // 3. Only one call to Steam at a time, for the whole server.
-    if (!(await this.cache.tryReserveCall())) {
+    // 3. One call at a time per route. With a single route this is the
+    //    same single-file queue as before; with several they run side by
+    //    side, which is the whole point of having them.
+    const routeId = await this.cache.tryReserveCall(this.routeIds);
+
+    if (routeId === null) {
       return cached ? this.serveStale(cached) : { status: 'rate_limited' };
     }
 
-    const result = await this.steam.fetchInventory(steamId);
+    const route = this.routes.find((r) => r.id === routeId)!;
+    const result = await this.steam.fetchInventory(steamId, route.dispatcher);
 
     if (result.status === 'ok') {
       await this.cache.set(steamId, result.items);
@@ -111,7 +147,8 @@ export class InventoryService {
     }
 
     if (result.status === 'rate_limited') {
-      await this.cache.markSteamBlocked();
+      // Only the address that was refused stops. The others carry on.
+      await this.cache.markSteamBlocked(routeId);
       return cached ? this.serveStale(cached) : { status: 'rate_limited' };
     }
 

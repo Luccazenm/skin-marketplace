@@ -61,6 +61,22 @@ export const envSchema = z.object({
    */
   PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(100).default(5),
 
+  /**
+   * Where Steam calls go out from, as a comma-separated list.
+   *
+   * Steam limits the inventory endpoint **per IP**, so capacity is the
+   * number of addresses we can call from, not the speed of the server.
+   * Each entry is either a local source address to bind the socket to
+   * ("203.0.113.7") or a proxy to route through
+   * ("http://user:pass@host:port").
+   *
+   * Empty — the default — means one route: the machine's own address,
+   * chosen by the operating system. That is the current behaviour, and
+   * every other part of the system works the same either way. Filling
+   * this in is how capacity grows, without a code change.
+   */
+  STEAM_EGRESS: z.string().default(''),
+
   // Session cookie over HTTPS only. False only makes sense in local
   // development.
   COOKIE_SECURE: z

@@ -50,6 +50,9 @@ export class InventoryCacheService {
 
   private readonly logger = new Logger(InventoryCacheService.name);
 
+  /** Rotates the starting point so one route does not take every call. */
+  private nextRoute = 0;
+
   constructor(private readonly redis: RedisService) {}
 
   async get(steamId: string): Promise<CacheHit | null> {
@@ -89,41 +92,91 @@ export class InventoryCacheService {
   }
 
   /**
-   * Tries to reserve the right to call Steam right now.
+   * Tries to reserve the right to call Steam right now, on any route
+   * that is free.
    *
-   * This is a GLOBAL limit, not a per-user one: what counts is the
-   * server's IP, and there is only one of it. If two users ask at the
-   * same time, only one gets through — the other is served from the
-   * cache, stale or not.
+   * The limit is **per route**, because Steam's is per IP. One slot per
+   * route, each holding for the minimum interval: with one route this
+   * is the same single-file queue as before, and with ten it is ten
+   * queues running side by side.
    *
-   * Implemented with SET NX: the key is only created if it does not
-   * exist, and it expires on its own. It holds across multiple API
-   * instances, since the state lives in Redis and not in process memory.
+   * Routes are tried in a rotating order rather than always from the
+   * first, so traffic spreads instead of hammering one address while
+   * the rest idle.
+   *
+   * Implemented with SET NX: the key is created only if absent and
+   * expires on its own. It holds across API instances, since the state
+   * is in Redis and not in process memory.
    */
-  async tryReserveCall(): Promise<boolean> {
-    const result = await this.redis.set(
-      'steam:inventory:slot',
-      Date.now().toString(),
-      'PX',
-      InventoryCacheService.MINIMUM_INTERVAL_MS,
-      'NX',
-    );
+  async tryReserveCall(routeIds: string[]): Promise<string | null> {
+    const start = this.nextRoute++ % routeIds.length;
 
-    return result === 'OK';
+    for (let i = 0; i < routeIds.length; i++) {
+      const id = routeIds[(start + i) % routeIds.length];
+
+      if (await this.isBlocked(id)) {
+        continue;
+      }
+
+      const taken = await this.redis.set(
+        InventoryCacheService.slotKey(id),
+        Date.now().toString(),
+        'PX',
+        InventoryCacheService.MINIMUM_INTERVAL_MS,
+        'NX',
+      );
+
+      if (taken === 'OK') {
+        return id;
+      }
+    }
+
+    return null;
   }
 
   /**
-   * After a 429, stop trying for a few minutes — for the whole server,
-   * since Steam's block is on our IP. Insisting during the penalty
-   * renews it, so the only way out is to wait.
+   * After a 429, stop using THAT route for a few minutes.
+   *
+   * Per route, not global: Steam's block is on the address that was
+   * refused, and stopping every other address because one was throttled
+   * would turn a single bad moment into an outage for the whole site.
+   * That is what used to happen when there was one global key.
+   *
+   * Insisting during the penalty renews it, so the only way out is to
+   * wait — for that address.
    */
-  async markSteamBlocked(): Promise<void> {
-    await this.redis.set('steam:inventory:blocked', '1', 'EX', 300);
-    this.logger.error('Inventory blocked for 5 minutes after a 429 from Steam');
+  async markSteamBlocked(routeId: string): Promise<void> {
+    await this.redis.set(
+      InventoryCacheService.blockedKey(routeId),
+      '1',
+      'EX',
+      300,
+    );
+    this.logger.error(
+      `Egress ${routeId} blocked for 5 minutes after a 429 from Steam`,
+    );
   }
 
-  async isBlocked(): Promise<boolean> {
-    return (await this.redis.exists('steam:inventory:blocked')) === 1;
+  async isBlocked(routeId: string): Promise<boolean> {
+    return (
+      (await this.redis.exists(InventoryCacheService.blockedKey(routeId))) === 1
+    );
+  }
+
+  /** True when every route is serving a penalty. */
+  async allBlocked(routeIds: string[]): Promise<boolean> {
+    for (const id of routeIds) {
+      if (!(await this.isBlocked(id))) return false;
+    }
+    return true;
+  }
+
+  private static slotKey(routeId: string): string {
+    return `steam:inventory:slot:${routeId}`;
+  }
+
+  private static blockedKey(routeId: string): string {
+    return `steam:inventory:blocked:${routeId}`;
   }
 
   private key(steamId: string): string {

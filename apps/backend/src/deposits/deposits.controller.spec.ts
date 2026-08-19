@@ -65,7 +65,10 @@ describe('DepositsController', () => {
     });
     botId = bot.id;
 
-    await ctx.redis.del(`inventory:${STEAM_ID}`, 'steam:inventory:slot');
+    await ctx.redis.del(
+      `inventory:${STEAM_ID}`,
+      'steam:inventory:slot:default',
+    );
 
     ctx.steam.inventory.fetchInventory.mockResolvedValue({
       status: 'ok',
