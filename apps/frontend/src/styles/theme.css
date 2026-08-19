@@ -218,6 +218,15 @@
   background: transparent;
 }
 
+/* No arrow buttons. Chrome reserves room for them at both ends of the
+   track even when they are invisible, which starts the thumb below the
+   first card and ends it above the last. */
+.scrollbar-subtle::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* The thumb is inset inside the track rather than filling it, so it
    does not sit flush against the cards. The 2px come off the thumb and
    not off the track: the track's width is the gutter the surrounding

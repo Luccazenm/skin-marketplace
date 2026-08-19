@@ -1935,7 +1935,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             the same number twice within 40px. */}
 
         {/* Grid */}
-        <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-0 py-2 scrollbar-subtle">
+        <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-0 scrollbar-subtle">
           {!signedIn ? (
             <TradeInventoryNotice
               title="Sign in to trade"
@@ -2231,7 +2231,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             reason it was dropped from the inventory column. */}
 
         {/* Grid */}
-        <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-0 py-2 scrollbar-subtle">
+        <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-0 scrollbar-subtle">
           <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
             {mktFiltered.map((skin) => (
               <TradeSkinCard
