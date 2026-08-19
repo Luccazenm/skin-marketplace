@@ -428,10 +428,28 @@ function FilterOption({
 }
 
 /* ─── Collapsible filter section ───────────────────────────────────── */
-function FilterSection({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: ReactNode }) {
+function FilterSection({
+  title,
+  defaultOpen,
+  inset = false,
+  children,
+}: {
+  title: string;
+  defaultOpen: boolean;
+  /**
+   * Pull the rule in from the column's edges.
+   *
+   * In the Market sidebar the column floats with space around it, so a
+   * full-width rule already reads as a separator. Wedged between the two
+   * halves of the trade screen it runs wall to wall and meets the
+   * vertical borders, turning the column into a grid of boxes.
+   */
+  inset?: boolean;
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+    <div className={inset ? "" : "border-b"} style={inset ? undefined : { borderColor: "rgba(255,255,255,0.07)" }}>
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-3 py-2.5 group"
@@ -455,6 +473,7 @@ function FilterSection({ title, defaultOpen, children }: { title: string; defaul
       >
         <div className="pb-3 px-1">{children}</div>
       </div>
+      {inset && <div className="mx-3" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />}
     </div>
   );
 }
@@ -1748,9 +1767,10 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
   // button's height to either side made the main action of the screen
   // jump whenever a list was folded away.
   const COLLAPSED = 46;
-  // The cart card plus its heading and padding. Grew with the card so
-  // the sticker column has room to stay straight.
-  const EXPANDED = 268;
+  // The cart card, its heading, the padding — and the scrollbar. At 268
+  // the section was 10px short of the track, so the bar it was meant to
+  // show got clipped by the section's own overflow.
+  const EXPANDED = 282;
   const offerHeight = offerCollapsed ? COLLAPSED : EXPANDED;
   const receiveHeight = receiveCollapsed ? COLLAPSED : EXPANDED;
 
@@ -1775,7 +1795,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <div
           className="flex-shrink-0 border-b px-3 py-2 overflow-hidden"
-          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: offerHeight }}
+          style={{ borderColor: "rgba(255,255,255,0.07)", height: offerHeight }}
         >
         <TradeSide
           title="Your offer"
@@ -1950,8 +1970,8 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             action of the screen and it should not move because a list
             was folded away. */}
         <div
-          className="flex-shrink-0 border-b flex flex-col items-center gap-2 px-3 pt-2"
-          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: EXPANDED }}
+          className="flex-shrink-0 flex flex-col items-center gap-2 px-3 pt-2"
+          style={{ height: EXPANDED }}
         >
           {/* Disabled, it takes the same neutral as every other inactive
               control on the site. A pale amber block filled most of a
@@ -1975,8 +1995,14 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           <TradeDifference difference={difference} canTrade={canTrade} />
         </div>
 
+        {/* Inset rules throughout this column, never touching the
+            vertical borders on either side of it — a line that meets
+            both walls turns the column into a stack of boxes rather than
+            one panel with sections. */}
+        <div className="mx-3 flex-shrink-0" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+
         {/* Filters header */}
-        <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="px-3 py-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="font-display text-sm font-bold tracking-wide text-foreground">Filters</div>
             <div className="font-mono text-[10px] text-muted-foreground">Applied to market</div>
@@ -1992,10 +2018,12 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           )}
         </div>
 
+        <div className="mx-3 flex-shrink-0" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+
         {/* Filters scroll area */}
         <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
           {/* Price */}
-          <FilterSection title="Price" defaultOpen={false}>
+          <FilterSection title="Price" defaultOpen={false} inset>
             <div className="px-1 pt-1.5 pb-1 space-y-1.5">
               <div className="relative">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">$</span>
@@ -2011,7 +2039,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           </FilterSection>
 
           {/* Rarity */}
-          <FilterSection title="Rarity" defaultOpen={false}>
+          <FilterSection title="Rarity" defaultOpen={false} inset>
             <div className="space-y-0.5 pt-1">
               {Object.entries(RARITY).map(([key, r]) => (
                 <FilterOption key={key} active={mktRarity.includes(r.label)} onClick={() => toggleMR(r.label)} accentColor={r.color}>
@@ -2026,7 +2054,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           </FilterSection>
 
           {/* Exterior */}
-          <FilterSection title="Exterior" defaultOpen={false}>
+          <FilterSection title="Exterior" defaultOpen={false} inset>
             <div className="space-y-0.5 pt-1">
               {["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"].map((w) => (
                 <FilterOption key={w} active={mktExterior.includes(w)} onClick={() => toggleME(w)}>
@@ -2038,7 +2066,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           </FilterSection>
 
           {/* Type */}
-          <FilterSection title="Type" defaultOpen={false}>
+          <FilterSection title="Type" defaultOpen={false} inset>
             <div className="pt-1 space-y-0.5">
               {WEAPON_GROUPS.map((group) => (
                 <WeaponGroup
@@ -2052,7 +2080,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           </FilterSection>
 
           {/* Float */}
-          <FilterSection title="Float" defaultOpen={false}>
+          <FilterSection title="Float" defaultOpen={false} inset>
             <div className="pt-3">
               <DualRangeSlider
                 min={mktFloatMin}
@@ -2064,7 +2092,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           </FilterSection>
 
           {/* Others */}
-          <FilterSection title="Others" defaultOpen={false}>
+          <FilterSection title="Others" defaultOpen={false} inset>
             <div className="space-y-1 pt-2">
               {([
                 { label: "StatTrak™", value: mktStatTrak, set: setMktStatTrak },
@@ -2104,7 +2132,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       >
         <div
           className="flex-shrink-0 border-b px-3 py-2 overflow-hidden"
-          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: receiveHeight }}
+          style={{ borderColor: "rgba(255,255,255,0.07)", height: receiveHeight }}
         >
           <TradeSide
             title="You receive"
