@@ -7,7 +7,7 @@ import {
   type AppliedItem,
   type InventoryItem,
 } from '@/lib/api';
-import { fromCents, toCents } from '@/lib/money';
+import { fromCents, payoutAfterFee, toCents } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
 import { AppliedPopup } from './AppliedPopup';
 import { SellDetail } from './SellDetail';
@@ -289,15 +289,21 @@ export function SellPage({
       {/* The panel only exists while something is selected. Reserving the
           column would leave a permanent empty rectangle beside a full
           grid; letting the grid have the width back costs a reflow when
-          the first item is picked, which is the cheaper of the two. */}
+          the first item is picked, which is the cheaper of the two.
+
+          Wider than it was: each row now carries the picture, the facts
+          that tell two identical-looking skins apart, and both money
+          fields side by side. At the old 320 those two fields would have
+          been about 130px each, which is not enough for "$1,240.00". */}
       {selectedItems.length > 0 && (
-        <div className="hidden lg:flex flex-col flex-shrink-0 pt-6 pb-4 overflow-hidden" style={{ width: 320, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="hidden lg:flex flex-col flex-shrink-0 pt-6 pb-4 overflow-hidden" style={{ width: 380, borderLeft: '1px solid rgba(255,255,255,0.07)' }}>
           <SellPanel
             items={selectedItems}
             prices={prices}
             setPrice={(assetId, price) => setPrices((p) => ({ ...p, [assetId]: price }))}
             onRemove={toggle}
             onClear={() => { setSelected([]); setPrices({}); }}
+            feePercent={feePercent}
             hasTradeUrl={hasTradeUrl}
             canSubmit={canSubmit}
             submitting={submitting}
@@ -529,12 +535,30 @@ function ItemCard({ item, selected, price, onToggle, onOpen }: { item: Inventory
   );
 }
 
+/** One fact about the item, small enough to sit three to a row. */
+function Chip({ text, accent = false }: { text: string; accent?: boolean }) {
+  return (
+    <span
+      className="font-mono text-[9px] font-semibold px-1.5 py-0.5 rounded"
+      style={
+        accent
+          ? { background: 'rgba(240,192,64,0.2)', color: '#f0c040', border: '1px solid rgba(240,192,64,0.3)' }
+          : { background: 'rgba(255,255,255,0.06)', color: '#9da3c0', border: '1px solid rgba(255,255,255,0.08)' }
+      }
+    >
+      {text}
+    </span>
+  );
+}
+
 function SellPanel(props: {
   items: InventoryItem[];
   prices: Record<string, string>;
   setPrice: (assetId: string, price: string) => void;
   onRemove: (assetId: string) => void;
   onClear: () => void;
+  /** Null until /api/config answers — the payout stays blank rather than guessing. */
+  feePercent: number | null;
   hasTradeUrl: boolean;
   canSubmit: boolean;
   submitting: boolean;
@@ -561,38 +585,97 @@ function SellPanel(props: {
             const r = rarityStyle(rarityKeyForItem(item));
             const price = props.prices[item.assetId] ?? '';
 
+            const valid = isValidPrice(price);
+            const payout =
+              valid && props.feePercent !== null
+                ? payoutAfterFee(price, props.feePercent)
+                : null;
+
             return (
               <div key={item.assetId} className="rounded border overflow-hidden" style={{ borderColor: r.color + '40', background: 'rgba(13,15,23,0.6)' }}>
-                <div className="flex items-center gap-2 px-2.5 pt-2 pb-1.5">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-display text-[11px] font-semibold truncate" style={{ color: '#e8eaf0' }}>
-                      {item.catalog?.skinName ?? item.marketHashName}
+                {/* Image beside the facts, not above them: the picture is
+                    how you recognise which of four AK-47s this row is,
+                    and the float and pattern are what make it a different
+                    item from an identical-looking one. */}
+                <div className="flex gap-2.5 p-2.5">
+                  <div
+                    className="w-[84px] h-[64px] rounded flex-shrink-0 flex items-center justify-center overflow-hidden"
+                    style={{ background: `linear-gradient(160deg, ${r.from}, ${r.to})` }}
+                  >
+                    {item.iconUrl ? (
+                      <img src={item.iconUrl} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+                    ) : (
+                      <Package className="w-6 h-6" style={{ color: r.color, opacity: 0.4 }} />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <div className="flex items-start gap-1.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-[9px] truncate" style={{ color: '#6c7290' }}>
+                          {item.catalog?.weapon ?? item.typeLabel ?? ''}
+                          {item.exterior ? ` · ${item.exterior}` : ''}
+                        </div>
+                        <div className="font-display text-xs font-semibold truncate" style={{ color: '#e8eaf0' }}>
+                          {item.catalog?.skinName ?? item.marketHashName}
+                        </div>
+                      </div>
+                      <button onClick={() => props.onRemove(item.assetId)} className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                        <X className="w-3 h-3" style={{ color: '#9da3c0' }} />
+                      </button>
                     </div>
-                    <div className="font-mono text-[9px] truncate" style={{ color: '#6c7290' }}>
-                      {item.catalog?.weapon ?? item.typeLabel ?? ''}
-                      {item.exterior ? ` · ${item.exterior}` : ''}
+
+                    {/* Only what this copy actually has. A case has no
+                        float and no pattern, and printing a dash for each
+                        would fill the row with absences. */}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {isStatTrak(item) && <Chip text="ST" accent />}
+                      {item.float !== null && <Chip text={item.float.toFixed(4)} />}
+                      {item.paintSeed !== null && <Chip text={`#${item.paintSeed}`} />}
                     </div>
                   </div>
-                  <button onClick={() => props.onRemove(item.assetId)} className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }}>
-                    <X className="w-3 h-3" style={{ color: '#9da3c0' }} />
-                  </button>
                 </div>
 
-                <div className="px-2.5 pb-2">
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[10px]" style={{ color: '#6c7290' }}>$</span>
-                    <input
-                      value={price}
-                      onChange={(e) => props.setPrice(item.assetId, e.target.value)}
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs font-semibold focus:outline-none"
+                {/* Both numbers side by side, because the second is the
+                    one the seller actually cares about and reading it
+                    should not need scrolling or arithmetic. */}
+                <div className="grid grid-cols-2 gap-2 px-2.5 pb-2.5">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: '#6c7290' }}>Your price</span>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[10px]" style={{ color: '#6c7290' }}>$</span>
+                      <input
+                        value={price}
+                        onChange={(e) => props.setPrice(item.assetId, e.target.value)}
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs font-semibold focus:outline-none"
+                        style={{
+                          background: 'rgba(255,255,255,0.06)',
+                          border: `1px solid ${price && !valid ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
+                          color: '#e8eaf0',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <span className="font-mono text-[9px] uppercase tracking-wider truncate" style={{ color: '#6c7290' }}>
+                      You receive
+                      {props.feePercent !== null && (
+                        <span style={{ color: '#4a4f68' }}> · {props.feePercent}%</span>
+                      )}
+                    </span>
+                    <div
+                      className="w-full px-2 py-1.5 rounded font-mono text-xs font-semibold truncate"
                       style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        border: `1px solid ${price && !isValidPrice(price) ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
-                        color: '#e8eaf0',
+                        background: 'rgba(74,222,128,0.08)',
+                        border: '1px solid rgba(74,222,128,0.2)',
+                        color: payout ? '#4ade80' : '#4a4f68',
                       }}
-                    />
+                    >
+                      {payout ? `$${payout}` : '—'}
+                    </div>
                   </div>
                 </div>
               </div>
