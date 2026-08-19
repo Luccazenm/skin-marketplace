@@ -218,11 +218,20 @@
   background: transparent;
 }
 
+/* The thumb is inset inside the track rather than filling it, so it
+   does not sit flush against the cards. The 2px come off the thumb and
+   not off the track: the track's width is the gutter the surrounding
+   layout is padded against, and taking it from there would walk every
+   card 2px sideways. A transparent border with background-clip is what
+   lets the painted part be narrower than the box. */
 .scrollbar-subtle::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.16);
+  background-clip: content-box;
+  border: 1px solid transparent;
   border-radius: 4px;
 }
 
 .scrollbar-subtle::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.26);
+  background-clip: content-box;
 }
