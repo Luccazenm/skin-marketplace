@@ -6,7 +6,8 @@ import { MiniSortDropdown, SELL_SORTS } from './MiniSortDropdown';
 import {
   isStatTrak,
   rarityKeyForItem,
-  stickerCount,
+  stickerLabel,
+  stickersOf,
   useInventory,
   type InventoryFailure,
 } from '@/lib/use-inventory';
@@ -263,7 +264,7 @@ function isValidPrice(value: string | undefined): boolean {
  */
 function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; selected: boolean; price: string | undefined; onToggle: () => void }) {
   const r = rarityStyle(rarityKeyForItem(item));
-  const stickers = stickerCount(item);
+  const stickers = stickersOf(item);
   const [hovered, setHovered] = useState(false);
   const active = selected || hovered;
 
@@ -282,18 +283,32 @@ function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; se
     >
       <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
 
-      {stickers > 0 && (
+      {/* The stickers themselves, one badge per unit and never grouped by
+          name: five copies of the same sticker can each be scraped
+          differently, and one can be worth several times another. The
+          name and the scrape are on hover. */}
+      {stickers.length > 0 && (
         <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
-          {Array.from({ length: stickers }).map((_, i) => (
+          {stickers.map((sticker, i) => (
             <div
-              key={i}
-              className="w-5 h-5 rounded-sm flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
+              key={`${sticker.slot}-${i}`}
+              title={stickerLabel(sticker)}
+              className="w-6 h-6 rounded-sm flex items-center justify-center overflow-hidden"
+              style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)' }}
             >
-              <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
-                <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
-              </svg>
+              {sticker.imageUrl ? (
+                <img
+                  src={sticker.imageUrl}
+                  alt=""
+                  className="w-full h-full object-contain"
+                  loading="lazy"
+                />
+              ) : (
+                <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                  <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
+                  <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
+                </svg>
+              )}
             </div>
           ))}
         </div>

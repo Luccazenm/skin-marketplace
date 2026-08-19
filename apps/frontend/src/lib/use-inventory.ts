@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ApiError,
   getInventory,
+  type AppliedItem,
   type InventoryItem,
   type InventoryResponse,
 } from './api';
@@ -165,9 +166,39 @@ export function rarityKeyForItem(item: InventoryItem): string {
   return rarityKey(item.rarity);
 }
 
+/**
+ * The stickers on the item, in the order Steam returned them.
+ *
+ * Charms and patches are filtered out: they are applied items too, but
+ * they are not stickers and do not scrape.
+ *
+ * Every unit is its own entry, never grouped by name — five copies of
+ * the same sticker can each be scraped differently, and one can be worth
+ * several times another.
+ */
+export function stickersOf(item: InventoryItem): AppliedItem[] {
+  return item.applied.filter((a) => a.kind === 'STICKER');
+}
+
 /** How many stickers are on the item — charms and patches are not stickers. */
 export function stickerCount(item: InventoryItem): number {
-  return item.applied.filter((a) => a.kind === 'STICKER').length;
+  return stickersOf(item).length;
+}
+
+/**
+ * What to show on hover: the sticker's name, plus how scraped it is when
+ * that is known.
+ *
+ * `wear` runs 0 to 1 where 0 is untouched, so it reads as a percentage
+ * scraped. Null means the backend could not match the scrape to this
+ * particular copy and refused to guess — saying nothing is right there,
+ * because a wrong scrape moves the price.
+ */
+export function stickerLabel(sticker: AppliedItem): string {
+  if (sticker.wear === null) return sticker.name;
+  if (sticker.wear === 0) return `${sticker.name} — untouched`;
+
+  return `${sticker.name} — ${Math.round(sticker.wear * 100)}% scraped`;
 }
 
 /** StatTrak™ is part of the market name, and it is what Steam calls it. */
