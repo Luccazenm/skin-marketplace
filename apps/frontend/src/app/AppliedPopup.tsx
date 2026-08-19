@@ -10,10 +10,10 @@ import type { AppliedItem } from '@/lib/api';
  * flashes up to five popups in a row — the screen reacting to a movement
  * that was never a question.
  *
- * A second and a half is long enough that only a deliberate pause opens
- * it, and short enough that the pause does not feel like waiting.
+ * A second is long enough that only a deliberate pause opens it, and
+ * short enough that the pause does not feel like waiting.
  */
-const HOVER_DELAY_MS = 1500;
+const HOVER_DELAY_MS = 1000;
 
 interface HoverTarget {
   applied: AppliedItem;
