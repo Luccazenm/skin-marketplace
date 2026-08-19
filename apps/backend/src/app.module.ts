@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ConfigController } from './config/config.controller';
 import { AuthModule } from './auth/auth.module';
 import { validateEnv } from './config/env.validation';
 import { AuditModule } from './audit/audit.module';
@@ -31,7 +32,7 @@ import { UsersModule } from './users/users.module';
     PricingModule,
     CatalogModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, ConfigController],
   providers: [AppService],
 })
 export class AppModule {}

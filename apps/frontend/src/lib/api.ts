@@ -330,3 +330,22 @@ export async function markNotificationsRead(): Promise<number> {
 
   return result.read;
 }
+
+// ---------------------------------------------------------------------
+// Platform config
+// ---------------------------------------------------------------------
+
+/** GET /api/config — public, and not about any one person. */
+export interface PlatformConfig {
+  /** The commission as a percentage: 5 means 5%. */
+  platformFeePercent: number;
+}
+
+/**
+ * Read rather than assumed. The commission decides what a seller is
+ * paid, and a copy kept here would keep quoting the old number the day
+ * it changes.
+ */
+export async function getPlatformConfig(): Promise<PlatformConfig> {
+  return request<PlatformConfig>('/config');
+}

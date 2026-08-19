@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Package, Lock, X } from 'lucide-react';
 import {
   ApiError,
+  getPlatformConfig,
   requestDeposit,
   type AppliedItem,
   type InventoryItem,
 } from '@/lib/api';
 import { rarityStyle } from '@/lib/rarity';
 import { AppliedPopup } from './AppliedPopup';
+import { SellDetail } from './SellDetail';
 import { MiniSortDropdown, SELL_SORTS } from './MiniSortDropdown';
 import {
   appliedLabel,
@@ -45,6 +47,19 @@ export function SellPage({
   const [selected, setSelected] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [detailFor, setDetailFor] = useState<string | null>(null);
+
+  // The commission comes from the backend: it decides what the seller is
+  // paid, and a constant here would keep quoting the old number the day
+  // it changes. Null until it answers, and the payout box says nothing
+  // rather than guessing at 5%.
+  const [feePercent, setFeePercent] = useState<number | null>(null);
+
+  useEffect(() => {
+    getPlatformConfig()
+      .then((c) => setFeePercent(c.platformFeePercent))
+      .catch(() => setFeePercent(null));
+  }, []);
 
   // Only what can actually be deposited is offered for sale. The rest is
   // still counted, and said out loud below, because an item silently
@@ -220,12 +235,30 @@ export function SellPage({
                   selected={selected.includes(item.assetId)}
                   price={prices[item.assetId]}
                   onToggle={() => toggle(item.assetId)}
+                  onOpen={() => setDetailFor(item.assetId)}
                 />
               ))}
             </div>
           </div>
         )}
       </div>
+
+      {detailFor && (() => {
+        const item = sellable.find((i) => i.assetId === detailFor);
+        if (!item) return null;
+
+        return (
+          <SellDetail
+            item={item}
+            price={prices[item.assetId] ?? ''}
+            onPriceChange={(p) => setPrices((prev) => ({ ...prev, [item.assetId]: p }))}
+            feePercent={feePercent}
+            isListed={selected.includes(item.assetId)}
+            onList={() => { toggle(item.assetId); setDetailFor(null); }}
+            onClose={() => setDetailFor(null)}
+          />
+        );
+      })()}
 
       {/* The panel only exists while something is selected. Reserving the
           column would leave a permanent empty rectangle beside a full
@@ -344,7 +377,7 @@ function AppliedStack({
  * seller has typed rather than a market price — there is no market
  * price for an item that is not on sale yet.
  */
-function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; selected: boolean; price: string | undefined; onToggle: () => void }) {
+function ItemCard({ item, selected, price, onToggle, onOpen }: { item: InventoryItem; selected: boolean; price: string | undefined; onToggle: () => void; onOpen: () => void }) {
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
@@ -353,7 +386,7 @@ function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; se
 
   return (
     <button
-      onClick={onToggle}
+      onClick={onOpen}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
@@ -442,8 +475,15 @@ function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; se
       >
         <div style={{ overflow: 'hidden' }}>
           <div className="px-3 pb-2.5">
+            {/* Its own click target, so the two paths do not fight: the
+                card opens the detail, this adds straight to the list.
+                Without it, listing ten items would mean opening and
+                closing ten dialogs. */}
             <div
-              className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
+              role="button"
+              tabIndex={-1}
+              onClick={(e) => { e.stopPropagation(); onToggle(); }}
+              className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200 cursor-pointer"
               style={{
                 background: selected ? 'rgba(255,255,255,0.08)' : '#f0c040',
                 color: selected ? '#e8eaf0' : '#08090d',

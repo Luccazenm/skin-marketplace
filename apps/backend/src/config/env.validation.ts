@@ -47,6 +47,20 @@ export const envSchema = z.object({
     .positive()
     .default(60 * 60 * 24 * 7),
 
+  /**
+   * The platform's commission, as a percentage of the sale price.
+   *
+   * It lives here rather than in the frontend because it is a business
+   * value that decides what a seller is paid. A copy in the browser
+   * would keep quoting the old number the day it changes, and the
+   * screen would be lying about money.
+   *
+   * A percentage rather than a fraction: "5" is what anyone discussing
+   * it says out loud, and "0.05" invites the reader to wonder whether
+   * they are looking at 5% or 0.05%.
+   */
+  PLATFORM_FEE_PERCENT: z.coerce.number().min(0).max(100).default(5),
+
   // Session cookie over HTTPS only. False only makes sense in local
   // development.
   COOKIE_SECURE: z
