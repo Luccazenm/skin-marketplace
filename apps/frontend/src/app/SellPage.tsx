@@ -7,6 +7,7 @@ import {
   type InventoryItem,
 } from '@/lib/api';
 import { rarityStyle } from '@/lib/rarity';
+import { AppliedPopup } from './AppliedPopup';
 import { MiniSortDropdown, SELL_SORTS } from './MiniSortDropdown';
 import {
   appliedLabel,
@@ -284,6 +285,11 @@ function AppliedStack({
   // bottom badge over the card's footer.
   const size = hovered ? 20 : 24;
 
+  // Which badge is being pointed at, and where it is. The rect is read
+  // on enter rather than tracked: the popup is anchored to the badge,
+  // and the badge does not move while the pointer is on it.
+  const [detail, setDetail] = useState<{ applied: AppliedItem; anchor: DOMRect } | null>(null);
+
   return (
     <div
       className="absolute flex flex-col gap-0.5 z-10"
@@ -292,7 +298,11 @@ function AppliedStack({
       {items.map((applied, i) => (
         <div
           key={`${applied.slot}-${i}`}
-          title={appliedLabel(applied)}
+          aria-label={appliedLabel(applied)}
+          onMouseEnter={(e) =>
+            setDetail({ applied, anchor: e.currentTarget.getBoundingClientRect() })
+          }
+          onMouseLeave={() => setDetail(null)}
           className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
           style={{
             width: size,
@@ -316,6 +326,10 @@ function AppliedStack({
           )}
         </div>
       ))}
+
+      {detail && (
+        <AppliedPopup applied={detail.applied} anchor={detail.anchor} />
+      )}
     </div>
   );
 }
