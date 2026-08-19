@@ -181,19 +181,32 @@
 }
 
 /**
- * A scrollbar that belongs to the page.
+ * A scrollbar that belongs to the page, at a width the layout can plan
+ * around.
  *
- * The browser's default draws a bright bar across a dark panel, which is
- * why most scroll areas here hide it. A horizontal row of cards cannot:
- * with nothing on screen there is no sign the row continues past the
- * edge, and horizontal wheel scrolling is not something everyone has.
+ * The gutter is reserved whether or not the bar is showing, so a list
+ * does not jump sideways the moment it grows past the fold. Each scroll
+ * area zeroes the padding on that side, and the bar sits in the margin
+ * that was already there — the content keeps its full width and stays
+ * aligned with the toolbar above it.
  *
- * Both syntaxes are needed — the standard properties for Firefox and
- * recent Chrome, the ::-webkit rules for Safari and older Chrome.
+ * The two syntaxes cannot be mixed: setting `scrollbar-color` or
+ * `scrollbar-width` makes Chrome switch to the standard scrollbar and
+ * ignore the ::-webkit rules, including their width, which is how the
+ * gutter came out at Chrome's default 15px instead of the 8 the layout
+ * compensates for. So the standard properties are kept behind a query
+ * for browsers that have no ::-webkit-scrollbar at all — Firefox — and
+ * everywhere else the pseudo-elements decide.
  */
 .scrollbar-subtle {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  scrollbar-gutter: stable;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .scrollbar-subtle {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  }
 }
 
 .scrollbar-subtle::-webkit-scrollbar {

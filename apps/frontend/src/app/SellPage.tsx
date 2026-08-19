@@ -252,7 +252,10 @@ export function SellPage({
         {filtered.length === 0 ? (
           <Notice title="Nothing to sell here" body={search ? 'No item matches that search.' : 'No item in this inventory can be traded on Steam.'} />
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-subtle">
+          // Pulled 8px into the column's own right padding so the
+          // scrollbar sits there instead of taking width off the grid.
+          // Without it the cards end 8px short of the toolbar above.
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-subtle" style={{ marginRight: -8 }}>
             <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
               {filtered.map((item) => (
                 <ItemCard
@@ -629,7 +632,9 @@ function SellPanel(props: {
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 scrollbar-subtle">
+      {/* pr-3 rather than pr-5: the 8px gutter makes up the difference,
+          so the rows still end 20px from the panel's edge. */}
+      <div className="flex-1 min-h-0 overflow-y-auto pl-5 pr-3 scrollbar-subtle">
         <div className="flex flex-col gap-2">
           {props.items.map((item) => {
             const r = rarityStyle(rarityKeyForItem(item));
