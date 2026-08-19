@@ -124,6 +124,20 @@ describe('DepositsService.requestDeposit', () => {
     await prisma.$disconnect();
   });
 
+  /**
+   * The freshness window is an hour, chosen for a screen that is only
+   * being looked at. This check decides whether a Trade Bot goes and asks
+   * for the items, and an hour is long enough for them to have been
+   * traded away — so it reads Steam rather than accepting the cached copy.
+   */
+  it('checks the inventory against Steam, not against the cache', async () => {
+    inventoryMock.getInventory.mockClear();
+
+    await service.requestDeposit(user, sell('111'));
+
+    expect(inventoryMock.getInventory).toHaveBeenCalledWith(STEAM_ID, true);
+  });
+
   it('queues the offer with the requested assetIds', async () => {
     const offer = await service.requestDeposit(user, sell('111', '222'));
 

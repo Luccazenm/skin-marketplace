@@ -29,16 +29,27 @@ export interface InventoryState {
   failure: InventoryFailure | null;
   /** The backend's own message, already written to tell the user what to do. */
   failureMessage: string | null;
+  /** Re-read, honouring the cache. */
   reload: () => Promise<void>;
+  /**
+   * Ask Steam now, skipping the freshness window — for the person who
+   * just traded and is looking at an inventory that does not show it.
+   */
+  refresh: () => Promise<void>;
+  /** True while a manual refresh is in flight. */
+  refreshing: boolean;
+  /** When the data on screen was read from Steam. */
+  fetchedAt: Date | null;
 }
 
 /**
  * The user's Steam inventory, read live through the backend.
  *
- * Nothing is cached here on purpose: the backend already caches for two
- * minutes and holds a global limiter, because Steam limits that endpoint
- * per IP and the IP is the server's. A second cache in the browser would
- * only add a way for the two to disagree.
+ * Nothing is cached here on purpose: the backend already holds the
+ * freshness window and the rate limiter, because Steam limits that
+ * endpoint per IP and the IP is the server's. A second cache in the
+ * browser would only add a way for the two to disagree — and it is the
+ * backend that knows when the copy was actually read from Steam.
  */
 export function useInventory(enabled: boolean): InventoryState {
   const [data, setData] = useState<InventoryResponse | null>(null);
@@ -46,7 +57,9 @@ export function useInventory(enabled: boolean): InventoryState {
   const [failure, setFailure] = useState<InventoryFailure | null>(null);
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async (force = false) => {
     if (!enabled) {
       setData(null);
       setLoading(false);
@@ -58,7 +71,7 @@ export function useInventory(enabled: boolean): InventoryState {
     setLoading(true);
 
     try {
-      setData(await getInventory());
+      setData(await getInventory(force ? { refresh: true } : {}));
       setFailure(null);
       setFailureMessage(null);
     } catch (error) {
@@ -84,13 +97,25 @@ export function useInventory(enabled: boolean): InventoryState {
     void load();
   }, [load]);
 
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
+
   return {
     data,
     items: data?.items ?? [],
     loading,
     failure,
     failureMessage,
-    reload: load,
+    reload: () => load(),
+    refresh,
+    refreshing,
+    fetchedAt: data ? new Date(data.fetchedAt) : null,
   };
 }
 

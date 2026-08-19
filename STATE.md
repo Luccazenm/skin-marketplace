@@ -619,6 +619,16 @@ scrape.
   the investigation. Decide the destination (a rotated file, Loki, a
   managed service) together with hosting.
 - **`Bot.itemCount` is denormalised** and will drift.
+- **An item already inside an open deposit still shows as sellable.** The
+  backend refuses it — `item_already_in_trade` — but the Sell grid has no
+  way to know, so the only way to find out is to select it and be told
+  no. Not caused by the hour-long freshness window and not fixed by the
+  refresh button either: the item genuinely is still in the user's Steam
+  inventory until they accept the offer, so no re-read removes it. The
+  fix is for the inventory response to mark assetIds tied to an open
+  `TradeOffer` as not depositable, the way it already marks trade-locked
+  ones. Longer windows make it more visible, which is why it is written
+  down here rather than left to be rediscovered.
 - **`STEAM_API_KEY` belongs to a personal account.** In production,
   generate one on an operations account.
 - **Frontend:** React declared as an optional peer, MUI installed and

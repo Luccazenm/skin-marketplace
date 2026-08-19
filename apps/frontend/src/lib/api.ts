@@ -239,10 +239,16 @@ export interface InventoryResponse {
 }
 
 export async function getInventory(
-  options: { depositableOnly?: boolean } = {},
+  options: { depositableOnly?: boolean; refresh?: boolean } = {},
 ): Promise<InventoryResponse> {
-  const query = options.depositableOnly ? '?depositable=true' : '';
-  return request<InventoryResponse>(`/inventory${query}`);
+  const params = new URLSearchParams();
+  if (options.depositableOnly) params.set('depositable', 'true');
+  // Skips the freshness window, not the rate limit. If no egress route
+  // is free the backend serves the cached copy anyway.
+  if (options.refresh) params.set('refresh', 'true');
+
+  const query = params.toString();
+  return request<InventoryResponse>(`/inventory${query ? `?${query}` : ''}`);
 }
 
 // ---------------------------------------------------------------------

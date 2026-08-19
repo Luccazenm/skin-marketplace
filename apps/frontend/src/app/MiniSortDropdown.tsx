@@ -46,9 +46,13 @@ export function MiniSortDropdown({
 
   return (
     <div ref={ref} className="relative flex-shrink-0">
+      {/* The same box as the buttons beside it — gap, padding, radius and
+          border all matched. Two controls sitting side by side at
+          different heights read as a mistake, and here the difference was
+          only that this one had no text to set the line height. */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 px-2 py-1.5 rounded font-mono text-xs transition-colors"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded font-mono text-xs transition-colors"
         style={{
           background: open ? 'rgba(240,192,64,0.1)' : 'rgba(255,255,255,0.05)',
           border: `1px solid ${open ? 'rgba(240,192,64,0.3)' : 'rgba(255,255,255,0.08)'}`,
@@ -56,9 +60,14 @@ export function MiniSortDropdown({
         }}
         title="Sort"
       >
-        <SlidersHorizontal className="w-3 h-3" />
+        <SlidersHorizontal className="w-3 h-3 flex-shrink-0" />
+        {/* Naming the current sort rather than hiding it behind an icon:
+            the order items appear in is not self-evident from looking at
+            them, so without the label the only way to know what is
+            applied is to open the menu. */}
+        {value}
         <ChevronDown
-          className="w-2.5 h-2.5"
+          className="w-2.5 h-2.5 flex-shrink-0"
           style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}
         />
       </button>

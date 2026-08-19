@@ -92,8 +92,17 @@ export class InventoryService {
     );
   }
 
-  async getInventory(steamId: string): Promise<InventoryResponse> {
-    const result = await this.readInventory(steamId);
+  /**
+   * @param force skip the freshness check and go to Steam, if a route is
+   *   free. The rate limit still applies — this bypasses the cache, not
+   *   the limiter, or it would be a way for anyone to spend the site's
+   *   whole Steam budget by holding down a button.
+   */
+  async getInventory(
+    steamId: string,
+    force = false,
+  ): Promise<InventoryResponse> {
+    const result = await this.readInventory(steamId, force);
 
     if (result.status !== 'ok') {
       return result;
@@ -102,11 +111,16 @@ export class InventoryService {
     return { ...result, items: await this.catalog.enrich(result.items) };
   }
 
-  private async readInventory(steamId: string): Promise<RawInventoryResponse> {
+  private async readInventory(
+    steamId: string,
+    force: boolean,
+  ): Promise<RawInventoryResponse> {
     const cached = await this.cache.get(steamId);
 
-    // 1. Current data: never touch Steam.
-    if (cached && !cached.stale) {
+    // 1. Current data: never touch Steam. Unless the user asked, which
+    //    is the case where their inventory changed a moment ago and the
+    //    freshness window is exactly what is in their way.
+    if (cached && !cached.stale && !force) {
       return {
         status: 'ok',
         items: cached.items,

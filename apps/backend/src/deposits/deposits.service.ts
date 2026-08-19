@@ -242,7 +242,15 @@ export class DepositsService {
     assetIds: string[],
     context?: AuditContext,
   ) {
-    const inventory = await this.inventory.getInventory(user.steamId);
+    // Read Steam now rather than accept the cached copy. The freshness
+    // window is an hour, tuned for a screen that is only being looked at;
+    // this is the check that decides whether a Trade Bot goes and asks
+    // for these items, and an hour is long enough for them to have been
+    // traded away in between. The rate limit still applies — if no route
+    // is free this falls back to the cache, which is no worse than the
+    // behaviour it replaces. Deposits are rare next to page loads, so the
+    // extra calls cost nothing against the capacity the window buys.
+    const inventory = await this.inventory.getInventory(user.steamId, true);
 
     if (inventory.status === 'private') {
       await this.recordRefusal(user, 'private_inventory', assetIds, context);

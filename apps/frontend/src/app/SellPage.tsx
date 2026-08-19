@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Package, Lock, X } from 'lucide-react';
+import { Package, Lock, X, RotateCw } from 'lucide-react';
 import {
   ApiError,
   getPlatformConfig,
@@ -204,7 +204,32 @@ export function SellPage({
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#e8eaf0' }}
           />
 
-          <div className="flex justify-end">
+          <div className="flex justify-end items-center gap-2">
+            {/* The freshness window is an hour, which is what lets one
+                address serve hundreds of people rather than dozens. That
+                window is only affordable because this button exists: it
+                is the way out for the person who traded a moment ago and
+                is looking at an inventory that does not show it yet. */}
+            <button
+              onClick={() => void inventory.refresh()}
+              disabled={inventory.refreshing}
+              title={
+                inventory.fetchedAt
+                  ? `Read from Steam at ${inventory.fetchedAt.toLocaleTimeString()}`
+                  : 'Read from Steam again'
+              }
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded font-mono text-xs transition-colors disabled:opacity-40"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: '#9da3c0',
+              }}
+            >
+              <RotateCw
+                className={`w-3 h-3 ${inventory.refreshing ? 'animate-spin' : ''}`}
+              />
+              {inventory.refreshing ? 'Reading…' : 'Refresh'}
+            </button>
             <MiniSortDropdown value={sort} onChange={setSort} options={SELL_SORTS} />
           </div>
         </div>

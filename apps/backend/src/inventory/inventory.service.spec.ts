@@ -252,6 +252,45 @@ describe('InventoryService', () => {
     });
   });
 
+  // A ten-minute freshness window is what makes one address serve 150
+  // people instead of 30. The cost is that someone who just traded sees
+  // stale data, and this is the way out of that.
+  describe('manual refresh', () => {
+    it('goes to Steam even when the cache is fresh', async () => {
+      steamMock.fetchInventory.mockResolvedValue({
+        status: 'ok',
+        items: [fakeItem],
+      });
+
+      await service.getInventory(STEAM_ID);
+      expect(steamMock.fetchInventory).toHaveBeenCalledTimes(1);
+
+      // Without force this would be served from cache, untouched.
+      await redis.del('steam:inventory:slot:default');
+      await service.getInventory(STEAM_ID, true);
+
+      expect(steamMock.fetchInventory).toHaveBeenCalledTimes(2);
+    });
+
+    // It bypasses the cache, not the limiter. Otherwise holding down the
+    // button would spend the whole site's Steam budget.
+    it('still waits its turn in the rate limit', async () => {
+      steamMock.fetchInventory.mockResolvedValue({
+        status: 'ok',
+        items: [fakeItem],
+      });
+
+      await service.getInventory(STEAM_ID);
+      // The slot from that call is still held.
+      const forced = await service.getInventory(STEAM_ID, true);
+
+      expect(steamMock.fetchInventory).toHaveBeenCalledTimes(1);
+      // Served from cache rather than refused: the data is there, it is
+      // just not newer than it was.
+      expect(forced.status).toBe('ok');
+    });
+  });
+
   // Privacy: if the person closed their profile, we cannot keep showing
   // what they decided to hide.
   it('does NOT serve the cache once the inventory turns private', async () => {
@@ -272,12 +311,25 @@ describe('InventoryService', () => {
   });
 });
 
-/** Rewrites the cache entry with an old date, so it turns stale. */
+/**
+ * Rewrites the cache entry with an old date, so it turns stale.
+ *
+ * Aged against the entry's own freshness window rather than a fixed
+ * number of minutes: the window is jittered per entry and has been
+ * lengthened once already, and a hardcoded age silently stops ageing
+ * anything the day it is raised again — leaving these tests passing
+ * while asserting the opposite of what they read as.
+ */
 async function ageCache(redis: RedisService, steamId: string) {
   const raw = await redis.get(`inventory:${steamId}`);
-  const entry = JSON.parse(raw!) as { items: unknown[]; fetchedAt: number };
+  const entry = JSON.parse(raw!) as {
+    items: unknown[];
+    fetchedAt: number;
+    freshFor?: number;
+  };
 
-  entry.fetchedAt = Date.now() - 10 * 60 * 1000; // 10 minutes ago
+  const windowSeconds = entry.freshFor ?? 60 * 60;
+  entry.fetchedAt = Date.now() - (windowSeconds + 60) * 1000;
 
   await redis.set(`inventory:${steamId}`, JSON.stringify(entry), 'EX', 3600);
 }

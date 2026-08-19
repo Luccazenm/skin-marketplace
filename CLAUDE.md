@@ -278,9 +278,25 @@ cache, one user hitting refresh takes everyone's inventory down for
 hours. There is a global limit of 1 call every 4s and a 5-minute penalty
 after a 429.
 
-**Stale data beats an error.** An inventory from ten minutes ago is
-practically identical to the current one; an error screen makes the user
+**Stale data beats an error.** An inventory nobody has traded from is
+identical however old the copy is; an error screen makes the user
 refresh, which makes exactly that problem worse.
+
+**The freshness window is an hour, and a manual refresh is what pays for
+it.** An inventory changes when its owner trades, not on a clock, so a
+window measured in minutes spends calls re-reading data that did not
+change. The cost is that someone who just received a skin does not see
+it — which was a dead end until the refresh button existed, and is one
+click now. `?refresh=true` skips the window but **not** the rate limiter:
+if no egress route is free the cached copy is served anyway, or holding
+down the button would spend the site's whole Steam budget.
+
+**Reading the inventory to show it and reading it to act on it are not
+the same call.** The window is tuned for a screen being looked at. Any
+flow that decides something — a deposit, above all — forces a read, because
+an hour is long enough for an item to have been traded away, and the whole
+point of that check is to stop a Trade Bot asking for something the user
+no longer has.
 
 **Item classification comes from the `Type` tag, by `internal_name`.**
 The localised name changes with the language and would break the

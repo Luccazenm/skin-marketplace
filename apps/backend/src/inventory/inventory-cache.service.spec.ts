@@ -101,3 +101,82 @@ describe('InventoryCacheService rate limiting', () => {
     expect(used.size).toBe(ROUTES.length);
   });
 });
+
+/**
+ * A crowd that arrives together fills every cache at the same instant.
+ * Without jitter it empties at the same instant too, and one burst
+ * becomes a burst repeating on the hour.
+ */
+describe('InventoryCacheService freshness jitter', () => {
+  let cache: InventoryCacheService;
+  let redis: RedisService;
+
+  const STEAM_IDS = Array.from(
+    { length: 40 },
+    (_, i) => `7656119900000${String(200 + i)}`,
+  );
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+      ],
+      providers: [InventoryCacheService, RedisService],
+    }).compile();
+
+    cache = moduleRef.get(InventoryCacheService);
+    redis = moduleRef.get(RedisService);
+  });
+
+  afterAll(async () => {
+    await redis.del(...STEAM_IDS.map((id) => `inventory:${id}`));
+    await redis.quit();
+  });
+
+  it('gives entries written together different expiry points', async () => {
+    for (const id of STEAM_IDS) {
+      await cache.set(id, []);
+    }
+
+    const windows = new Set<number>();
+
+    for (const id of STEAM_IDS) {
+      const raw = await redis.get(`inventory:${id}`);
+      windows.add((JSON.parse(raw!) as { freshFor: number }).freshFor);
+    }
+
+    // Forty entries written in the same moment should not share one
+    // expiry. A handful of collisions is fine; one value is not.
+    expect(windows.size).toBeGreaterThan(10);
+  });
+
+  // The window may be shortened to spread load, never lengthened: nobody
+  // should be shown older data than the policy promises.
+  it('never exceeds the policy window', async () => {
+    for (const id of STEAM_IDS.slice(0, 10)) {
+      await cache.set(id, []);
+      const raw = await redis.get(`inventory:${id}`);
+      const { freshFor } = JSON.parse(raw!) as { freshFor: number };
+
+      expect(freshFor).toBeLessThanOrEqual(3600);
+      expect(freshFor).toBeGreaterThan(3600 - 600);
+    }
+  });
+
+  /**
+   * An entry has to outlive its freshness, or `serveStale` never has
+   * anything to serve and a Steam outage becomes an empty screen — the
+   * exact failure the cache exists to prevent. Asserted through Redis's
+   * own TTL rather than the constant, so raising one window without the
+   * other is caught here instead of during an outage.
+   */
+  it('keeps entries well past the point they go stale', async () => {
+    await cache.set(STEAM_IDS[0], []);
+
+    const ttl = await redis.ttl(`inventory:${STEAM_IDS[0]}`);
+    const raw = await redis.get(`inventory:${STEAM_IDS[0]}`);
+    const { freshFor } = JSON.parse(raw!) as { freshFor: number };
+
+    expect(ttl).toBeGreaterThan(freshFor * 2);
+  });
+});

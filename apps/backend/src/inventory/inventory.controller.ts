@@ -41,7 +41,10 @@ export class InventoryController {
     @CurrentUser() user: User,
     @Query() query: InventoryQueryDto,
   ) {
-    const result = await this.inventory.getInventory(user.steamId);
+    const result = await this.inventory.getInventory(
+      user.steamId,
+      query.refresh === true,
+    );
 
     switch (result.status) {
       case 'ok': {

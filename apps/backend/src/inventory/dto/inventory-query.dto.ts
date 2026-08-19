@@ -25,4 +25,21 @@ export class InventoryQueryDto {
   })
   @IsBoolean()
   depositable?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Skip the freshness window and read from Steam now. For the user ' +
+      'who just traded and is looking at an inventory that does not yet ' +
+      'show it. The rate limit still applies: if no egress route is free ' +
+      'the cached copy is served anyway.',
+    example: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return value as unknown;
+  })
+  @IsBoolean()
+  refresh?: boolean;
 }

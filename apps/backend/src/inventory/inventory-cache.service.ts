@@ -6,6 +6,15 @@ interface CacheEntry {
   items: InventoryItem[];
   /** The moment it came from Steam. */
   fetchedAt: number;
+  /**
+   * How long this particular entry stays fresh, in seconds.
+   *
+   * Stored per entry rather than read from the constant, so the jitter
+   * picked when it was written is the one honoured when it is read —
+   * otherwise every entry would expire on the same boundary again and
+   * the jitter would do nothing.
+   */
+  freshFor?: number;
 }
 
 export interface CacheHit {
@@ -29,17 +38,57 @@ export interface CacheHit {
  *   age > FRESH   -> try to revalidate; if we cannot, serve it stale
  *   no entry      -> we have to call Steam or fail
  *
- * Serving stale data beats refusing: an inventory from ten minutes ago
- * is practically identical to the current one, and the alternative is an
- * empty screen with an error message.
+ * Serving stale data beats refusing: an inventory nobody has traded from
+ * is identical however old the copy is, and the alternative is an empty
+ * screen with an error message.
  */
 @Injectable()
 export class InventoryCacheService {
-  /** Below this, the data counts as current. */
-  private static readonly FRESH_SECONDS = 120;
+  /**
+   * Below this, the data counts as current and Steam is not touched.
+   *
+   * An hour, and the length is a consequence of the refresh button
+   * existing rather than an independent guess. A Steam inventory changes
+   * when its owner trades — a few times a week for an active trader,
+   * never for most people — so a window measured in minutes spends the
+   * one genuinely scarce resource here, calls per IP per hour, re-reading
+   * data that did not change. One address served about 30 people at two
+   * minutes, 150 at ten, and roughly 900 at an hour.
+   *
+   * The cost of a long window is the person who just received a skin and
+   * does not see it. Before the button that was a dead end and the window
+   * had to stay short; now it is one click, so the window is set for the
+   * common case and the button covers the exception.
+   *
+   * This governs display only. Anything that acts on the inventory —
+   * a deposit, above all — passes force and reads Steam directly, because
+   * validating against an hour-old list is not the same as showing one.
+   */
+  private static readonly FRESH_SECONDS = 60 * 60;
 
-  /** How long the data stays around to serve as a fallback. */
-  private static readonly RETENTION_SECONDS = 60 * 60;
+  /**
+   * How much of the freshness window is randomised, per entry.
+   *
+   * Without this, a crowd that arrives together — a stream, a promotion
+   * — fills every cache at the same instant and empties it at the same
+   * instant, turning one burst into a burst repeating on the hour.
+   * Spreading the expiry over ten minutes desynchronises them for free.
+   *
+   * The jitter only ever shortens the window, never extends it: nobody
+   * should be shown older data than the policy promises.
+   */
+  private static readonly FRESH_JITTER_SECONDS = 600;
+
+  /**
+   * How long the data stays around to serve as a fallback.
+   *
+   * Comfortably longer than the freshness window, and that gap is the
+   * point: the stretch between going stale and being evicted is the only
+   * time `serveStale` has anything to serve. Were the two equal, an entry
+   * would vanish at the exact moment it became stale and a Steam outage
+   * would show an empty screen — the failure the cache exists to prevent.
+   */
+  private static readonly RETENTION_SECONDS = 6 * 60 * 60;
 
   /**
    * Minimum interval between two calls to the inventory endpoint, for the
@@ -76,12 +125,21 @@ export class InventoryCacheService {
     return {
       items: entry.items,
       fetchedAt: new Date(entry.fetchedAt),
-      stale: ageSeconds > InventoryCacheService.FRESH_SECONDS,
+      // An entry written before freshFor existed has none. Falling back
+      // to the policy value keeps it ageing normally; without this,
+      // `age > undefined` is false and the entry would read as fresh
+      // until its retention ran out.
+      stale:
+        ageSeconds > (entry.freshFor ?? InventoryCacheService.FRESH_SECONDS),
     };
   }
 
   async set(steamId: string, items: InventoryItem[]): Promise<void> {
-    const entry: CacheEntry = { items, fetchedAt: Date.now() };
+    const entry: CacheEntry = {
+      items,
+      fetchedAt: Date.now(),
+      freshFor: InventoryCacheService.jitteredFreshness(),
+    };
 
     await this.redis.set(
       this.key(steamId),
@@ -177,6 +235,17 @@ export class InventoryCacheService {
 
   private static blockedKey(routeId: string): string {
     return `steam:inventory:blocked:${routeId}`;
+  }
+
+  /**
+   * A freshness window somewhere in the jitter band below the policy
+   * value. Never above it, so the promise the policy makes holds.
+   */
+  private static jitteredFreshness(): number {
+    return (
+      InventoryCacheService.FRESH_SECONDS -
+      Math.floor(Math.random() * InventoryCacheService.FRESH_JITTER_SECONDS)
+    );
   }
 
   private key(steamId: string): string {
