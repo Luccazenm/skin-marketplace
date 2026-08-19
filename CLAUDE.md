@@ -125,6 +125,44 @@ deposit, delivery, return, withdrawal — requires it. Asking for it
 inside the sell flow would leave a buyer stuck at checkout with no idea
 why.
 
+### The fast flow: buying from the user
+
+**Instant sell is the platform taking inventory, not brokering a sale.**
+We pay now, hold the item, and carry the risk of reselling it. The
+discount is the price of that risk, and the 7-day trade lock makes a
+week of it unavoidable on every purchase.
+
+**The offer is anchored on the bid, never on a listing price.** A
+listing is what someone is asking; the bid is what someone will actually
+hand over. Discounting from the ask is how you end up paying more than
+you could liquidate at. Decided 2026-08-19.
+
+**The offer prices the base skin only — stickers, charms and pattern are
+not valued.** Decided 2026-08-19, deliberately: pricing applied items
+automatically is already forbidden here, because SP% runs from 2% to
+over 50% and no API delivers it with confidence.
+
+The consequence has to be stated on screen, in plain words, wherever the
+offer appears. An AK worth thousands for its Katowice stickers gets an
+offer for a clean AK, and someone who accepts without noticing has a
+grievance worth repeating in public — in a market where trust is the
+product. Said out loud, it is an informed choice and there is no
+argument to have later.
+
+**Discount by liquidity, measured by the bid-ask spread**, which is what
+the vendor's cheaper plan provides:
+
+| Spread | Discount on bid |
+|---|---|
+| ≤ 5% | 10% |
+| ≤ 12% | 15% |
+| ≤ 25% | 25% |
+| > 25% | no offer |
+
+Numbers to calibrate against real trading, not to be right first time.
+Refusing is a valid answer and the expected one for illiquid items —
+`buyoutEligible` exists for that.
+
 **An item in custody does not have to be listed.** Deposit and listing
 are separable in both directions: a listing can be cancelled at any
 time, with or without a lock, and the owner can ask for the item back.

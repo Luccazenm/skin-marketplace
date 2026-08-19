@@ -58,6 +58,8 @@ Nothing here can really be tested without a functioning account.
 | Price source (a paid service, a recurring cost) | close to building the storefront |
 | Hosting | under evaluation |
 | A financial reserve proportional to what is in custody | before there is real volume |
+| How much capital to tie up in own stock, for instant sell | before the fast flow ships |
+| The per-item ceiling on an instant-sell offer | with the capital figure |
 
 ---
 
@@ -241,6 +243,24 @@ account, and with them the whole inventory in custody.
 
 Mitigations: automatic domain renewal, 2FA at the email provider, and
 distinct passwords per account.
+
+### The fast flow's two open numbers
+
+The rule for what to offer is settled (see CLAUDE.md): anchored on the
+bid, priced on the base skin, discounted by the bid-ask spread. Two
+numbers in it are business decisions and are not:
+
+**How much capital sits in stock.** Every instant sell spends cash and
+gets an item back that may take weeks to turn over. Without a figure
+there is no way to say whether the feature is viable at launch.
+
+**The ceiling on a single offer.** It bounds the damage from a bad price
+feed: if the vendor returns nonsense one day, the loss is one item
+rather than the account. Worth starting low — the ceiling can go up once
+there is evidence, and cannot come back down without refusing offers
+people already saw.
+
+Both raised on 2026-08-19 and deliberately deferred.
 
 ### Reserve and exposure limit per bot
 
