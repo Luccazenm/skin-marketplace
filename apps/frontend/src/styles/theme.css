@@ -179,3 +179,37 @@
     line-height: 1.5;
   }
 }
+
+/**
+ * A scrollbar that belongs to the page.
+ *
+ * The browser's default draws a bright bar across a dark panel, which is
+ * why most scroll areas here hide it. A horizontal row of cards cannot:
+ * with nothing on screen there is no sign the row continues past the
+ * edge, and horizontal wheel scrolling is not something everyone has.
+ *
+ * Both syntaxes are needed — the standard properties for Firefox and
+ * recent Chrome, the ::-webkit rules for Safari and older Chrome.
+ */
+.scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+.scrollbar-subtle::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.26);
+}

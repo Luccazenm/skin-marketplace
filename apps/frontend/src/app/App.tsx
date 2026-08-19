@@ -1555,11 +1555,13 @@ function TradeSide({
           both rows fill from the middle outwards, so the two sides sit
           either side of the Trade button and read as one comparison
           rather than two lists pushed to opposite walls. */}
-      {/* Scrollbar hidden, as everywhere else on the site: the browser's
-          default drew a bright bar across the bottom of the row. The row
-          still scrolls by wheel and trackpad. */}
+      {/* This row keeps its scrollbar, unlike the vertical grids that
+          hide theirs. A row running past the edge gives no other sign
+          that it does, and sideways wheel scrolling is not something
+          every mouse offers. Themed rather than the browser's default,
+          which drew a bright bar across a dark panel. */}
       {!collapsed && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none", minHeight: 224 }}>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-subtle" style={{ minHeight: 224 }}>
           {count === 0 ? (
             <span className="font-mono text-[10px] italic self-center" style={{ color: "#4a4f68" }}>{empty}</span>
           ) : (
@@ -1951,12 +1953,18 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           className="flex-shrink-0 border-b flex flex-col items-center gap-2 px-3 pt-2"
           style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: EXPANDED }}
         >
+          {/* Disabled, it takes the same neutral as every other inactive
+              control on the site. A pale amber block filled most of a
+              200px column and read as a lighter panel rather than as a
+              button that is off — the colour should arrive when the
+              trade becomes possible, not before. */}
           <button
             disabled={!canTrade}
             className="w-full py-2.5 rounded-lg font-display font-bold text-sm tracking-widest transition-all flex-shrink-0"
             style={{
-              background: canTrade ? "#f0c040" : "rgba(240,192,64,0.1)",
-              color: canTrade ? "#08090d" : "#4a3e12",
+              background: canTrade ? "#f0c040" : "rgba(255,255,255,0.05)",
+              border: canTrade ? "1px solid transparent" : "1px solid rgba(255,255,255,0.08)",
+              color: canTrade ? "#08090d" : "#6c7290",
               cursor: canTrade ? "pointer" : "not-allowed",
               boxShadow: canTrade ? "0 0 20px rgba(240,192,64,0.25)" : "none",
             }}
