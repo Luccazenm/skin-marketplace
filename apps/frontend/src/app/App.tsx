@@ -1295,6 +1295,16 @@ function TradeInventoryCard({
             <span className="flex-shrink-0" style={{ color: r.color }}>{item.float.toFixed(4)}</span>
           )}
         </div>
+
+        {/* The value slot. Empty on purpose for now: a Steam inventory
+            carries no price, PriceSnapshot has no rows and no provider
+            adapter is written yet, so anything printed here would be
+            invented — and this is the number a trade is judged on.
+            The line is here so the card does not move when the price
+            source lands; only this string changes. */}
+        <div className="font-mono font-semibold text-xs leading-none pt-0.5" style={{ color: "#4a4f68" }}>
+          Not priced
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
