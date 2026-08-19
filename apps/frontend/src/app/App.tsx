@@ -1328,24 +1328,11 @@ function AppliedBadges({
   size: number;
   hover: ReturnType<typeof useAppliedHover>;
 }) {
+  // One straight column, always. Every card that shows these gives its
+  // artwork box enough height for five at full size — CS2's maximum — so
+  // the stack never has to wrap or shrink.
   return (
-    <div
-      className="absolute flex flex-col gap-0.5 z-10"
-      style={{
-        top: 6,
-        [side]: 6,
-        // Kept inside the artwork box, which is shorter on the trade
-        // cart card than on the grid: five stickers at 22px are 118px
-        // and the cart's box is 91, so the bottom of the stack was being
-        // clipped away. Rather than shrink the badges or grow the card,
-        // the column wraps into a second one.
-        maxHeight: "calc(100% - 12px)",
-        // The second column has to grow inward, away from the edge the
-        // stack is anchored to. With a column direction, wrap adds
-        // columns to the right and wrap-reverse to the left.
-        flexWrap: side === "right" ? "wrap-reverse" : "wrap",
-      }}
-    >
+    <div className="absolute flex flex-col gap-0.5 z-10" style={{ top: 6, [side]: 6 }}>
       {items.map((a, i) => (
         <div
           key={`${a.slot}-${i}`}
@@ -1430,7 +1417,11 @@ function TradeCartCard({
       className="flex-shrink-0 rounded overflow-hidden border flex flex-col"
       style={{
         width: 131,
-        height: 186,
+        // Tall enough that five stickers at 22px fit the artwork box in
+        // one column: 110 of badge, 8 of gaps and 10 of margin need 128,
+        // and the box is what is left after the text block and the
+        // remove button. At 186 it was 91 and the stack was clipped.
+        height: 224,
         borderColor: "rgba(255,255,255,0.07)",
         background: `linear-gradient(160deg, ${rarity.from}, ${rarity.to})`,
       }}
@@ -1568,7 +1559,7 @@ function TradeSide({
           default drew a bright bar across the bottom of the row. The row
           still scrolls by wheel and trackpad. */}
       {!collapsed && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none", minHeight: 86 }}>
+        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none", minHeight: 224 }}>
           {count === 0 ? (
             <span className="font-mono text-[10px] italic self-center" style={{ color: "#4a4f68" }}>{empty}</span>
           ) : (
@@ -1755,7 +1746,9 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
   // button's height to either side made the main action of the screen
   // jump whenever a list was folded away.
   const COLLAPSED = 46;
-  const EXPANDED = 250;
+  // The cart card plus its heading and padding. Grew with the card so
+  // the sticker column has room to stay straight.
+  const EXPANDED = 268;
   const offerHeight = offerCollapsed ? COLLAPSED : EXPANDED;
   const receiveHeight = receiveCollapsed ? COLLAPSED : EXPANDED;
 
