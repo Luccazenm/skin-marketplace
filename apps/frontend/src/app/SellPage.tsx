@@ -7,6 +7,7 @@ import {
   type AppliedItem,
   type InventoryItem,
 } from '@/lib/api';
+import { fromCents, toCents } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
 import { AppliedPopup } from './AppliedPopup';
 import { SellDetail } from './SellDetail';
@@ -460,8 +461,12 @@ function ItemCard({ item, selected, price, onToggle, onOpen }: { item: Inventory
           </div>
         </div>
         <div className="flex items-center justify-between">
+          {/* Shown through cents rather than as typed, so the column
+              reads as prices: "5" becomes 5.00, "42.5" becomes 42.50,
+              and "0100" becomes 100.00 instead of $0100. The stored
+              value stays exactly what was typed — this is display. */}
           <div className="font-mono font-semibold text-sm leading-none" style={{ color: isValidPrice(price) ? '#f0f2f8' : '#4a4f68' }}>
-            {isValidPrice(price) ? `$${price}` : 'Not priced'}
+            {isValidPrice(price) ? `$${fromCents(toCents(price)!)}` : 'Not priced'}
           </div>
         </div>
       </div>

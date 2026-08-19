@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { X, Package } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
-import type { InventoryItem } from '@/lib/api';
+import type { AppliedItem, InventoryItem } from '@/lib/api';
+import { AppliedPopup } from './AppliedPopup';
 import { payoutAfterFee, toCents } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
 import {
@@ -46,6 +48,8 @@ export function SellDetail({
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
+
+  const [detail, setDetail] = useState<{ applied: AppliedItem; anchor: DOMRect } | null>(null);
 
   const priced = toCents(price) !== null && toCents(price)! > 0;
   const payout =
@@ -108,23 +112,29 @@ export function SellDetail({
                 <div className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: r.color }}>
                   Applied
                 </div>
+                {/* No names here: five copies of one sticker would be
+                    five identical lines of truncated text, and the image
+                    already says which it is. The full name is on hover,
+                    in the same popup the grid card uses. */}
                 <div className="flex flex-wrap gap-2">
                   {[...charms, ...stickers].map((applied, i) => (
                     <div
                       key={`${applied.slot}-${i}`}
+                      onMouseEnter={(e) =>
+                        setDetail({ applied, anchor: e.currentTarget.getBoundingClientRect() })
+                      }
+                      onMouseLeave={() => setDetail(null)}
                       className="flex flex-col items-center gap-1 p-2 rounded"
-                      style={{ background: 'rgba(255,255,255,0.04)', width: 84 }}
+                      style={{ background: 'rgba(255,255,255,0.04)', width: 64 }}
                     >
                       <div className="w-12 h-12 flex items-center justify-center">
                         {applied.imageUrl && (
-                          <img src={applied.imageUrl} alt="" className="max-h-full max-w-full object-contain" />
+                          <img src={applied.imageUrl} alt={applied.name} className="max-h-full max-w-full object-contain" />
                         )}
                       </div>
-                      <div className="font-mono text-[8px] text-center leading-tight truncate w-full" style={{ color: '#9da3c0' }} title={applied.name}>
-                        {applied.name}
-                      </div>
                       {/* Charms do not scrape, and a sticker the backend
-                          could not match a scrape to has none either. */}
+                          could not match a scrape to has none either — so
+                          the line is absent rather than empty. */}
                       {applied.wear !== null && (
                         <div className="font-mono text-[9px] font-semibold" style={{ color: '#f0c040' }}>
                           {applied.wear === 0 ? 'Untouched' : `${Math.round(applied.wear * 100)}%`}
@@ -174,10 +184,30 @@ export function SellDetail({
           >
             {item.float !== null && (
               <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-                <div
-                  className="w-full h-1.5 rounded-full mb-2"
-                  style={{ background: 'linear-gradient(90deg,#4ade80,#f0c040,#f87171,#7f1d1d)' }}
-                />
+                {/* The bar spans 0 to 1, so the marker sits at the float
+                    itself. Clamped only so a value outside that range
+                    cannot push the pointer off the bar — Steam should
+                    never send one, and if it does, a pointer pinned to
+                    the end is a better answer than one in the margin. */}
+                <div className="relative w-full mb-2" style={{ paddingTop: 7 }}>
+                  <div
+                    className="absolute"
+                    style={{
+                      left: `${Math.min(Math.max(item.float, 0), 1) * 100}%`,
+                      top: 0,
+                      transform: 'translateX(-50%)',
+                      width: 0,
+                      height: 0,
+                      borderLeft: '4px solid transparent',
+                      borderRight: '4px solid transparent',
+                      borderTop: '5px solid #e8eaf0',
+                    }}
+                  />
+                  <div
+                    className="w-full h-1.5 rounded-full"
+                    style={{ background: 'linear-gradient(90deg,#4ade80,#f0c040,#f87171,#7f1d1d)' }}
+                  />
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-[11px]" style={{ color: '#6c7290' }}>Float</span>
                   {/* All ten decimals: this is the number that separates
@@ -264,6 +294,8 @@ export function SellDetail({
           </div>
         </div>
       </div>
+
+      {detail && <AppliedPopup applied={detail.applied} anchor={detail.anchor} />}
     </div>
   );
 }
