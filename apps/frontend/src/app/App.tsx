@@ -23,7 +23,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { logout, startSteamLogin, type InventoryItem } from "@/lib/api";
+import { logout, startSteamLogin, type AppliedItem, type InventoryItem } from "@/lib/api";
 import { rarityStyle } from "@/lib/rarity";
 import { AppliedPopup, useAppliedHover } from "./AppliedPopup";
 import {
@@ -1163,15 +1163,15 @@ function TradeSkinCard({
         </div>
       </div>
 
-      {/* Action row — opens on hover only, matching the Sell grid. */}
-      <div style={{ display: "grid", gridTemplateRows: hovered ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
+      {/* Action row — stays open while selected, same as the Sell grid. */}
+      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
         <div style={{ overflow: "hidden" }}>
           <div className="px-3 pb-2.5">
             <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
               style={{
                 background: selected ? "rgba(255,255,255,0.08)" : "#f0c040",
                 color: selected ? "#e8eaf0" : "#08090d",
-                opacity: hovered ? 1 : 0,
+                opacity: active ? 1 : 0,
               }}>
               {selected ? "DESELECT" : "SELECT"}
             </div>
@@ -1314,18 +1314,17 @@ function TradeInventoryCard({
         </div>
       </div>
 
-      {/* Same behaviour as the Sell grid: the row opens on hover only,
-          not on selection. A selected card already says so through its
-          border and glow, and leaving the button up on every pick turns
-          a grid of twenty choices into a wall of buttons. */}
-      <div style={{ display: "grid", gridTemplateRows: hovered ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
+      {/* Stays open while the card is selected, not only on hover: a
+          picked item needs its way back visible without hunting for it,
+          and the border alone does not offer an action. */}
+      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
         <div style={{ overflow: "hidden" }}>
           <div className="px-3 pb-2.5">
             <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
               style={{
                 background: selected ? "rgba(255,255,255,0.08)" : "#f0c040",
                 color: selected ? "#e8eaf0" : "#08090d",
-                opacity: hovered ? 1 : 0,
+                opacity: active ? 1 : 0,
               }}>
               {selected ? "DESELECT" : "SELECT"}
             </div>
@@ -1361,54 +1360,111 @@ const WEAR_SHORT: Record<string, string> = {
  * a way to drop it.
  */
 function TradeCartCard({
-  color,
+  rarity,
+  category,
+  name,
   meta,
   price,
   priceMuted = false,
+  statTrak = false,
+  applied = [],
   lockDays,
   onRemove,
   children,
 }: {
-  color: string;
+  rarity: { color: string; glow: string; from: string; to: string };
+  /** Weapon or item type, the small line above the name. */
+  category: string;
+  name: string;
   /** The line that tells two identical-looking copies apart. */
   meta: string;
   price: string;
   /** True when the figure is a placeholder rather than a number. */
   priceMuted?: boolean;
+  statTrak?: boolean;
+  applied?: AppliedItem[];
   lockDays?: number | null;
   onRemove: () => void;
   children: ReactNode;
 }) {
+  const hover = useAppliedHover();
+
   return (
     <div
       className="flex-shrink-0 rounded overflow-hidden border flex flex-col"
-      style={{ width: 84, background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}
+      style={{
+        width: 131,
+        height: 186,
+        borderColor: "rgba(255,255,255,0.07)",
+        background: `linear-gradient(160deg, ${rarity.from}, ${rarity.to})`,
+      }}
     >
-      <div className="relative h-[52px] flex items-center justify-center px-1.5" style={{ background: `linear-gradient(160deg, ${color}22, transparent)` }}>
+      <div className="absolute-0 h-0.5 flex-shrink-0" style={{ background: rarity.color }} />
+
+      <div className="relative flex-1 flex items-center justify-center px-3 py-2 overflow-hidden min-h-0">
         {/* Valve holds a traded item for 7 days, and the countdown is
             part of what the other side is agreeing to. */}
         {lockDays != null && lockDays > 0 && (
-          <span className="absolute top-0.5 left-0.5 font-mono text-[7px] px-1 rounded flex items-center gap-0.5" style={{ background: "rgba(0,0,0,0.55)", color: "#c0c4d8" }}>
+          <span className="absolute top-1 left-1 font-mono text-[8px] px-1 rounded flex items-center gap-0.5 z-10" style={{ background: "rgba(0,0,0,0.55)", color: "#c0c4d8" }}>
             <Lock className="w-2 h-2" />{lockDays}d
           </span>
         )}
+
+        {statTrak && (
+          <span className="absolute bottom-1 left-1.5 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}>ST</span>
+        )}
+
+        {/* Same badges and the same popup as the grid below: what is in
+            the trade is exactly what you were looking at a moment ago,
+            and the scrape is worth reading here most of all. */}
+        {applied.length > 0 && (
+          <div className="absolute top-1.5 right-1.5 flex flex-col gap-0.5 z-10">
+            {applied.map((a, i) => (
+              <div
+                key={`${a.slot}-${i}`}
+                aria-label={appliedLabel(a)}
+                onMouseEnter={(e) => hover.open(a, e.currentTarget.getBoundingClientRect())}
+                onMouseLeave={hover.close}
+                className="rounded-sm flex items-center justify-center overflow-hidden"
+                style={{ width: 16, height: 16, background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.12)" }}
+              >
+                {a.imageUrl ? (
+                  <img src={a.imageUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
+                ) : (
+                  <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none">
+                    <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
+                    <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
+                  </svg>
+                )}
+              </div>
+            ))}
+            {hover.detail && <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />}
+          </div>
+        )}
+
         {children}
       </div>
 
-      <div className="px-1.5 pb-1 pt-0.5 flex flex-col gap-0.5">
-        <div className="font-mono text-[8px] truncate" style={{ color }}>{meta}</div>
-        <div className="font-mono text-[9px] font-semibold truncate" style={{ color: priceMuted ? "#4a4f68" : "#f0f2f8" }}>
+      <div className="mx-3 flex-shrink-0" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
+
+      <div className="px-2 py-1.5 flex flex-col gap-0.5 min-w-0 flex-shrink-0">
+        <div className="text-[9px] font-mono uppercase tracking-wider leading-none truncate" style={{ color: rarity.color }}>{category}</div>
+        <div className="font-display text-xs font-semibold text-foreground leading-tight truncate">{name}</div>
+        <div className="font-mono text-[9px] truncate" style={{ color: "#6c7290" }}>{meta}</div>
+        <div className="font-mono text-xs font-semibold leading-none pt-0.5 truncate" style={{ color: priceMuted ? "#4a4f68" : "#f0f2f8" }}>
           {price}
         </div>
       </div>
 
+      {/* No select here — being in this row IS the selection. The only
+          action left is taking it back out. */}
       <button
         onClick={onRemove}
-        className="w-full py-1 flex items-center justify-center transition-colors"
+        className="w-full py-1 flex items-center justify-center transition-colors flex-shrink-0"
         style={{ background: "rgba(232,64,96,0.12)", borderTop: "1px solid rgba(232,64,96,0.2)" }}
         aria-label="Remove from trade"
       >
-        <Trash2 className="w-2.5 h-2.5" style={{ color: "#e84060" }} />
+        <Trash2 className="w-3 h-3" style={{ color: "#e84060" }} />
       </button>
     </div>
   );
@@ -1463,9 +1519,17 @@ function TradeSide({
   const totalNode = (
     <div className="flex items-center gap-1.5 flex-shrink-0">
       <span className="font-mono text-xs font-semibold" style={{ color: totalMuted ? "#6c7290" : "#f0f2f8" }}>{total}</span>
+      {/* A circle, so a fixed size rather than padding around the digit:
+          horizontal padding makes "4" a narrow oval and "12" a wide one.
+          Equal width and height keeps it round at any count. */}
       <span
-        className="font-mono text-[9px] px-1.5 rounded-full"
-        style={{ background: count > 0 ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)", color: count > 0 ? "#f0c040" : "#6c7290" }}
+        className="font-mono text-[9px] rounded-full flex items-center justify-center flex-shrink-0"
+        style={{
+          width: 18,
+          height: 18,
+          background: count > 0 ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)",
+          color: count > 0 ? "#f0c040" : "#6c7290",
+        }}
       >
         {count}
       </span>
@@ -1621,17 +1685,22 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
     color: "#e8eaf0",
   };
 
-  return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 56px)" }}>
+  // Both carts and the Trade button share one height so the border
+  // between the columns stays a straight line across all three.
+  const barHeight = cartCollapsed ? 46 : 250;
 
-      {/* ── TOP: the trade itself ─────────────────────────────────────
-          Above the grids rather than beside them. What you have picked
-          is the thing you keep checking while you browse, and in a
-          narrow side column it could only ever be a list of names — here
-          each pick keeps its artwork, its float and its price, which is
-          what you are actually comparing. Collapsible because it costs
-          vertical space that the grids also want. */}
-      <div className="flex-shrink-0 border-b flex items-start gap-3 px-3 py-2" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)" }}>
+  return (
+    <div className="flex" style={{ height: "calc(100vh - 56px)" }}>
+
+      {/* ── LEFT COLUMN: what you offer, then where you pick it ─────
+          The picked items sit above the grid they came from, so each
+          side of the trade is one column top to bottom and the centre
+          divides them the whole height of the screen. */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <div
+          className="flex-shrink-0 border-b px-3 py-2 overflow-hidden"
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: barHeight }}
+        >
         <TradeSide
           title="Your offer"
           // A summed value, the same slot the other side uses — but it
@@ -1651,9 +1720,12 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             return (
               <TradeCartCard
                 key={item.assetId}
-                color={rs.color}
+                rarity={rs}
+                category={item.catalog?.weapon ?? item.typeLabel ?? ""}
+                name={item.catalog?.skinName ?? item.marketHashName}
+                statTrak={isStatTrak(item)}
+                applied={[...charmsOf(item), ...stickersOf(item)]}
                 meta={[
-                  isStatTrak(item) ? "ST" : null,
                   item.exterior ? (WEAR_SHORT[item.exterior] ?? item.exterior) : null,
                   item.float !== null ? item.float.toFixed(4) : null,
                 ].filter(Boolean).join(" / ")}
@@ -1664,72 +1736,14 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                 {item.iconUrl ? (
                   <img src={item.iconUrl} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
                 ) : (
-                  <Package className="w-5 h-5" style={{ color: rs.color, opacity: 0.4 }} />
+                  <Package className="w-7 h-7" style={{ color: rs.color, opacity: 0.4 }} />
                 )}
               </TradeCartCard>
             );
           })}
         </TradeSide>
-
-        {/* The action, between the two sides it acts on. */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-0.5" style={{ width: 168 }}>
-          <button
-            disabled={!canTrade}
-            className="w-full py-2 rounded-lg font-display font-bold text-sm tracking-widest transition-all"
-            style={{
-              background: canTrade ? "#f0c040" : "rgba(240,192,64,0.1)",
-              color: canTrade ? "#08090d" : "#4a3e12",
-              cursor: canTrade ? "pointer" : "not-allowed",
-              boxShadow: canTrade ? "0 0 20px rgba(240,192,64,0.25)" : "none",
-            }}
-          >
-            {canTrade ? "TRADE" : "SELECT ITEMS"}
-          </button>
-
-          {/* Where the difference between the two sides belongs, and
-              cannot be computed: your side has no price source. */}
-          <div className="font-mono text-[9px] text-center leading-tight" style={{ color: "#4a4f68" }}>
-            {canTrade
-              ? "Your side is not valued yet"
-              : "Pick from both sides"}
-          </div>
         </div>
 
-        <TradeSide
-          title="You receive"
-          total={mktItems.length > 0 ? `$${mktTotal.toFixed(2)}` : "—"}
-          totalMuted={mktItems.length === 0}
-          count={mktItems.length}
-          align="right"
-          collapsed={cartCollapsed}
-          onToggleCollapse={() => setCartCollapsed((c) => !c)}
-          empty="Pick from the market"
-        >
-          {mktItems.map((s) => {
-            const rs = RARITY[s.rarity];
-            return (
-              <TradeCartCard
-                key={s.id}
-                color={rs.color}
-                meta={[s.statTrak ? "ST" : null, WEAR_SHORT[s.wear] ?? s.wear, s.float.toFixed(4)].filter(Boolean).join(" / ")}
-                price={`$${s.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                onRemove={() => toggleMkt(s.id)}
-              >
-                <div className="w-full h-full py-1">
-                  <WeaponSVG weapon={s.weapon} color={rs.color} />
-                </div>
-              </TradeCartCard>
-            );
-          })}
-        </TradeSide>
-      </div>
-
-      <div className="flex gap-3 flex-1 min-h-0">
-
-      {/* ── LEFT: User inventory ──────────────────────────────────── */}
-      <div
-        className="flex flex-col flex-1 min-w-0 overflow-hidden"
-      >
         {/* Header */}
         <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
           <div className="min-w-0">
@@ -1846,11 +1860,39 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         </div>
       </div>
 
-      {/* ── CENTER: Filters + Trade summary ──────────────────────── */}
+      {/* ── CENTER: the action, then the filters ─────────────────────
+          Runs the full height so it separates the two sides all the way
+          down rather than only below the fold. The Trade button sits at
+          the top of it, level with both carts and between the two things
+          it acts on. */}
       <div
         className="flex flex-col flex-shrink-0 overflow-hidden"
         style={{ width: 200, borderLeft: "1px solid rgba(255,255,255,0.07)", borderRight: "1px solid rgba(255,255,255,0.07)" }}
       >
+        <div
+          className="flex-shrink-0 border-b flex flex-col items-center justify-center gap-1.5 px-3"
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: barHeight }}
+        >
+          <button
+            disabled={!canTrade}
+            className="w-full py-2.5 rounded-lg font-display font-bold text-sm tracking-widest transition-all"
+            style={{
+              background: canTrade ? "#f0c040" : "rgba(240,192,64,0.1)",
+              color: canTrade ? "#08090d" : "#4a3e12",
+              cursor: canTrade ? "pointer" : "not-allowed",
+              boxShadow: canTrade ? "0 0 20px rgba(240,192,64,0.25)" : "none",
+            }}
+          >
+            {canTrade ? "TRADE" : "SELECT ITEMS"}
+          </button>
+
+          {/* Where the difference between the two sides belongs, and
+              cannot be computed: your side has no price source. */}
+          <div className="font-mono text-[9px] text-center leading-tight" style={{ color: "#4a4f68" }}>
+            {canTrade ? "Your side is not valued yet" : "Pick from both sides"}
+          </div>
+        </div>
+
         {/* Filters header */}
         <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
           <div className="min-w-0">
@@ -1974,10 +2016,46 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
 
       </div>
 
-      {/* ── RIGHT: Market ─────────────────────────────────────────── */}
+      {/* ── RIGHT COLUMN: what you receive, then where you pick it ─── */}
       <div
         className="flex flex-col flex-1 min-w-0 overflow-hidden"
       >
+        <div
+          className="flex-shrink-0 border-b px-3 py-2 overflow-hidden"
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: barHeight }}
+        >
+          <TradeSide
+            title="You receive"
+            total={mktItems.length > 0 ? `$${mktTotal.toFixed(2)}` : "—"}
+            totalMuted={mktItems.length === 0}
+            count={mktItems.length}
+            align="right"
+            collapsed={cartCollapsed}
+            onToggleCollapse={() => setCartCollapsed((c) => !c)}
+            empty="Pick from the market"
+          >
+            {mktItems.map((s) => {
+              const rs = RARITY[s.rarity];
+              return (
+                <TradeCartCard
+                  key={s.id}
+                  rarity={rs}
+                  category={s.weapon}
+                  name={s.name}
+                  statTrak={s.statTrak}
+                  meta={[WEAR_SHORT[s.wear] ?? s.wear, s.float.toFixed(4)].filter(Boolean).join(" / ")}
+                  price={`$${s.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  onRemove={() => toggleMkt(s.id)}
+                >
+                  <div className="w-full h-full max-w-[110px]">
+                    <WeaponSVG weapon={s.weapon} color={rs.color} />
+                  </div>
+                </TradeCartCard>
+              );
+            })}
+          </TradeSide>
+        </div>
+
         {/* Header */}
         <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
           <div className="min-w-0">
@@ -2032,8 +2110,6 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             ))}
           </div>
         </div>
-      </div>
-
       </div>
     </div>
   );
@@ -2621,7 +2697,12 @@ export default function App() {
         <TradeUrlBanner onSaved={() => void session.refresh()} />
       )}
 
-      <div className={`w-full px-4 ${activeNav === "Trade" || activeNav === "Sell" ? "py-0" : "py-6"}`}>
+      {/* Trade runs edge to edge. It is a three-column workspace with its
+          own internal borders, and the wrapper's 16px inset read as empty
+          strips down both sides — the banner above only looks full width
+          because its background is, while its text sits on the same
+          inset. The other screens keep the gutter: they are pages. */}
+      <div className={`w-full ${activeNav === "Trade" ? "px-0" : "px-4"} ${activeNav === "Trade" || activeNav === "Sell" ? "py-0" : "py-6"}`}>
         {activeNav === "Trade" ? <TradePage signedIn={!!session.user} /> : activeNav === "Sell" ? (
           <SellPage
             signedIn={!!session.user}

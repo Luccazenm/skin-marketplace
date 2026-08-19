@@ -502,10 +502,13 @@ function ItemCard({ item, selected, price, onToggle, onOpen }: { item: Inventory
         </div>
       </div>
 
+      {/* Open while selected, not only on hover: a listed item needs its
+          way back visible without hunting for it, and the border alone
+          does not offer an action. */}
       <div
         style={{
           display: 'grid',
-          gridTemplateRows: hovered ? '1fr' : '0fr',
+          gridTemplateRows: active ? '1fr' : '0fr',
           transition: 'grid-template-rows 200ms ease',
         }}
       >
@@ -523,7 +526,7 @@ function ItemCard({ item, selected, price, onToggle, onOpen }: { item: Inventory
               style={{
                 background: selected ? 'rgba(255,255,255,0.08)' : '#f0c040',
                 color: selected ? '#e8eaf0' : '#08090d',
-                opacity: hovered ? 1 : 0,
+                opacity: active ? 1 : 0,
               }}
             >
               {selected ? 'REMOVE' : 'LIST ITEM'}
