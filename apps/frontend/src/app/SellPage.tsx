@@ -771,10 +771,13 @@ function SellPanel(props: {
           </span>
         </div>
 
+        {/* No longer says where to add it: the banner that used to sit at
+            the top of every screen is being moved, and pointing at a
+            place that is not there is worse than not pointing. */}
         {!props.hasTradeUrl && (
           <div className="font-mono text-[10px]" style={{ color: '#f0c040' }}>
-            Add your trade URL at the top of the page first — without it
-            the Trade Bot cannot send you the offer.
+            Your account has no trade URL yet — without it the Trade Bot
+            cannot send you the offer.
           </div>
         )}
 

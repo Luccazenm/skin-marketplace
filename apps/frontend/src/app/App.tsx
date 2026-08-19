@@ -36,7 +36,9 @@ import {
 } from "@/lib/use-inventory";
 import { useSession } from "@/lib/use-session";
 import { SellPage } from "./SellPage";
-import { TradeUrlBanner } from "./TradeUrlBanner";
+// TradeUrlBanner is not rendered right now — it is being moved. Kept
+// out of the imports so an unused symbol does not sit here looking wired
+// up; the component itself is untouched.
 import { NotificationBell } from "./NotificationBell";
 import { MiniSortDropdown } from "./MiniSortDropdown";
 
@@ -1933,7 +1935,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             the same number twice within 40px. */}
 
         {/* Grid */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-2" style={{ scrollbarWidth: "none" }}>
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 scrollbar-subtle">
           {!signedIn ? (
             <TradeInventoryNotice
               title="Sign in to trade"
@@ -2229,7 +2231,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             reason it was dropped from the inventory column. */}
 
         {/* Grid */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-2" style={{ scrollbarWidth: "none" }}>
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 scrollbar-subtle">
           <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
             {mktFiltered.map((skin) => (
               <TradeSkinCard
@@ -2821,13 +2823,14 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Account-level, not part of any one flow: a buyer needs a trade
-          URL as much as a seller, since it is where the bot delivers
-          what they bought. The moment it is needed is the worst moment
-          to discover it is missing. */}
-      {session.user && !session.user.hasTradeUrl && (
-        <TradeUrlBanner onSaved={() => void session.refresh()} />
-      )}
+      {/* The trade-URL prompt used to sit here, above every screen. It is
+          coming back somewhere else, so `TradeUrlBanner` stays in the
+          tree — only its placement was wrong.
+
+          Until it returns there is nowhere to enter a trade URL, and both
+          selling and buying need one: it is where the bot delivers. The
+          backend still refuses a deposit without it, so the flow fails
+          with a message rather than a broken trade. */}
 
       {/* Trade runs edge to edge. It is a three-column workspace with its
           own internal borders, and the wrapper's 16px inset read as empty
