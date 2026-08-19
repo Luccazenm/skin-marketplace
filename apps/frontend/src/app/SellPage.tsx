@@ -283,41 +283,51 @@ function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; se
     >
       <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
 
-      {/* The stickers themselves, one badge per unit and never grouped by
-          name: five copies of the same sticker can each be scraped
-          differently, and one can be worth several times another. The
-          name and the scrape are on hover. */}
-      {stickers.length > 0 && (
-        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
-          {stickers.map((sticker, i) => (
-            <div
-              key={`${sticker.slot}-${i}`}
-              title={stickerLabel(sticker)}
-              className="w-6 h-6 rounded-sm flex items-center justify-center overflow-hidden"
-              style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)' }}
-            >
-              {sticker.imageUrl ? (
-                <img
-                  src={sticker.imageUrl}
-                  alt=""
-                  className="w-full h-full object-contain"
-                  loading="lazy"
-                />
-              ) : (
-                <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                  <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
-                  <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
-                </svg>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
       <div
         className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
         style={{ paddingTop: hovered ? '8px' : '16px', paddingBottom: hovered ? '8px' : '16px' }}
       >
+        {/* Inside the illustration, not the card: this is the box that
+            shrinks when the LIST ITEM button slides up, and a stack of
+            five badges anchored to the card would spill over the name and
+            the price instead of shrinking with everything else.
+
+            One badge per unit, still never grouped by name: five copies
+            of the same sticker can each be scraped differently, and one
+            can be worth several times another. The name and the scrape
+            are on hover. */}
+        {stickers.length > 0 && (
+          <div className="absolute right-1.5 flex flex-col gap-0.5 z-10" style={{ top: 6 }}>
+            {stickers.map((sticker, i) => (
+              <div
+                key={`${sticker.slot}-${i}`}
+                title={stickerLabel(sticker)}
+                className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
+                style={{
+                  width: hovered ? 20 : 24,
+                  height: hovered ? 20 : 24,
+                  background: 'rgba(0,0,0,0.35)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                }}
+              >
+                {sticker.imageUrl ? (
+                  <img
+                    src={sticker.imageUrl}
+                    alt=""
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                  />
+                ) : (
+                  <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                    <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
+                    <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
+                  </svg>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {isStatTrak(item) && (
           <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10" style={{ background: 'rgba(240,192,64,0.2)', color: '#f0c040', border: '1px solid rgba(240,192,64,0.3)' }}>ST</span>
         )}
