@@ -16,9 +16,18 @@ import {
   User,
   Check,
   Tag,
+  RotateCw,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { logout, startSteamLogin } from "@/lib/api";
+import { logout, startSteamLogin, type InventoryItem } from "@/lib/api";
+import { rarityStyle } from "@/lib/rarity";
+import {
+  charmsOf,
+  isStatTrak,
+  rarityKeyForItem,
+  stickersOf,
+  useInventory,
+} from "@/lib/use-inventory";
 import { useSession } from "@/lib/use-session";
 import { SellPage } from "./SellPage";
 import { TradeUrlBanner } from "./TradeUrlBanner";
@@ -1171,21 +1180,158 @@ function TradeSkinCard({
   );
 }
 
-/* ─── Mini sort dropdown (inline, for Trade panels) ─────────────────── */
 /* ─── Trade page ─────────────────────────────────────────────────────── */
 
 /**
- * Still the Figma mock, and deliberately so.
+ * One real inventory item, offered into a trade.
  *
- * Trading needs items already in custody, which needs the bot service,
- * which does not exist yet. Wiring this screen to the API today would
- * mean inventing endpoints to match a design nobody has tested against
- * real trades. It is named MOCK so nobody mistakes it for a live read.
+ * The same card as `TradeSkinCard` above, against a real item instead of
+ * a mock one: the artwork is Steam's own image rather than a drawn
+ * weapon, and there is no price, because a Steam inventory does not
+ * carry one and no price source is wired up yet. The right-hand side of
+ * this screen is still the mock storefront, which is where the prices on
+ * this page come from.
  */
-const MOCK_TRADE_INVENTORY = SKINS.slice(0, 18);
+function TradeInventoryCard({
+  item,
+  selected,
+  onClick,
+}: {
+  item: InventoryItem;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const r = rarityStyle(rarityKeyForItem(item));
+  const applied = [...charmsOf(item), ...stickersOf(item)];
+  const [hovered, setHovered] = useState(false);
+  const active = selected || hovered;
 
-function TradePage() {
-  const [mySelected, setMySelected]     = useState<number[]>([]);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
+      style={{
+        height: "230px",
+        borderColor: active ? r.color : "rgba(255,255,255,0.07)",
+        background: selected
+          ? `linear-gradient(160deg, ${r.color}28, ${r.color}0e)`
+          : `linear-gradient(160deg, ${r.from}, ${r.to})`,
+        boxShadow: active ? `0 0 20px ${r.glow}` : "none",
+      }}
+    >
+      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
+
+      {selected && (
+        <div className="absolute top-2 left-2 w-4 h-4 rounded-full flex items-center justify-center z-20" style={{ background: "#f0c040" }}>
+          <Check className="w-2.5 h-2.5" style={{ color: "#08090d" }} />
+        </div>
+      )}
+
+      {/* One badge per unit, never grouped by name — five copies of one
+          sticker can each be scraped differently. No hover popup here:
+          this card is a checkbox, and the detail belongs on the screen
+          where the item is being priced. */}
+      {applied.length > 0 && (
+        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
+          {applied.map((a, i) => (
+            <div
+              key={`${a.slot}-${i}`}
+              title={a.name}
+              className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
+              style={{
+                width: active ? 18 : 22,
+                height: active ? 18 : 22,
+                background: "rgba(0,0,0,0.35)",
+                border: "1px solid rgba(255,255,255,0.12)",
+              }}
+            >
+              {a.imageUrl ? (
+                <img src={a.imageUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
+              ) : (
+                <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                  <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
+                  <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
+                </svg>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div
+        className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
+        style={{ paddingTop: active ? "8px" : "16px", paddingBottom: active ? "8px" : "16px" }}
+      >
+        {isStatTrak(item) && (
+          <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}>ST</span>
+        )}
+        <div className="w-full h-full max-w-[160px] flex items-center justify-center">
+          {item.iconUrl ? (
+            <img src={item.iconUrl} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+          ) : (
+            <Package className="w-10 h-10" style={{ color: r.color, opacity: 0.4 }} />
+          )}
+        </div>
+      </div>
+
+      <div className="mx-3" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
+
+      {/* Stacked rather than two columns. These cards land around 90px
+          wide in the trade layout, and side by side the fixed-width wear
+          and float took the whole row — the name and the weapon were
+          being squeezed to literally zero and every card read as blank. */}
+      <div className="px-2 py-2 flex flex-col gap-0.5 min-w-0">
+        <div className="text-[9px] font-mono uppercase tracking-wider leading-none truncate" style={{ color: r.color }}>
+          {item.catalog?.weapon ?? item.typeLabel ?? ""}
+        </div>
+        <div className="font-display text-xs font-semibold text-foreground leading-tight truncate">
+          {item.catalog?.skinName ?? item.marketHashName}
+        </div>
+        <div className="flex items-baseline justify-between gap-1 font-mono text-[9px] min-w-0">
+          <span className="truncate" style={{ color: "#6c7290" }}>{item.exterior ?? ""}</span>
+          {item.float !== null && (
+            <span className="flex-shrink-0" style={{ color: r.color }}>{item.float.toFixed(4)}</span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
+        <div style={{ overflow: "hidden" }}>
+          <div className="px-3 pb-2.5">
+            <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide"
+              style={{ background: selected ? r.color : "#f0c040", color: "#08090d", opacity: active ? 1 : 0, transition: "opacity 200ms ease" }}>
+              {selected ? "DESELECT" : "SELECT"}
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/** Why the inventory column is empty, said rather than left blank. */
+function TradeInventoryNotice({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="h-full flex flex-col items-center justify-center gap-1.5 px-6 text-center">
+      <div className="font-display text-xs font-bold" style={{ color: "#e8eaf0" }}>{title}</div>
+      <div className="font-mono text-[10px] leading-relaxed max-w-xs" style={{ color: "#6c7290" }}>{body}</div>
+    </div>
+  );
+}
+
+function TradePage({ signedIn }: { signedIn: boolean }) {
+  // The left side is the user's real Steam inventory, read through the
+  // same hook the Sell screen uses — same cache, same rate limiter, same
+  // refresh. The right side is still the mock storefront, which is what
+  // it stays until the catalog endpoint exists.
+  const inventory = useInventory(signedIn);
+
+  // Selected by assetId, the string Steam gives each item. The mock had
+  // numeric ids; a real inventory has none, and the assetId is what the
+  // deposit and the trade offer are built from.
+  const [mySelected, setMySelected]     = useState<string[]>([]);
   const [mktSelected, setMktSelected]   = useState<number[]>([]);
   const [mySearch, setMySearch]         = useState("");
   const [mktSearch, setMktSearch]       = useState("");
@@ -1202,7 +1348,7 @@ function TradePage() {
   const [mktSort, setMktSort]             = useState("Default");
   const [mySort, setMySort]               = useState("Default");
 
-  const toggleMy  = (id: number) => setMySelected((p)  => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
+  const toggleMy  = (id: string) => setMySelected((p)  => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
   const toggleMkt = (id: number) => setMktSelected((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
   const toggleMR  = (v: string)  => setMktRarity((p)   => p.includes(v)  ? p.filter((x) => x !== v)  : [...p, v]);
   const toggleME  = (v: string)  => setMktExterior((p) => p.includes(v)  ? p.filter((x) => x !== v)  : [...p, v]);
@@ -1210,17 +1356,43 @@ function TradePage() {
 
 
 
+  // Only what can actually leave the account. On the Sell screen the
+  // blocked items are shown and counted, because "where is my knife" is
+  // a question worth answering there; here they would be items you can
+  // click and then cannot trade, which is worse than not offering them.
+  const myTradable = useMemo(
+    () => inventory.items.filter((i) => i.depositable),
+    [inventory.items],
+  );
+
   const myFiltered = useMemo(() => {
-    let out = MOCK_TRADE_INVENTORY.filter((s) => {
-      const q = mySearch.toLowerCase();
-      return !q || s.name.toLowerCase().includes(q) || s.weapon.toLowerCase().includes(q);
+    const q = mySearch.trim().toLowerCase();
+
+    let out = myTradable.filter((i) => {
+      if (!q) return true;
+      return (
+        i.marketHashName.toLowerCase().includes(q) ||
+        (i.catalog?.skinName ?? '').toLowerCase().includes(q) ||
+        (i.catalog?.weapon ?? '').toLowerCase().includes(q)
+      );
     });
-    if (mySort === "Highest Price") out = [...out].sort((a, b) => b.price - a.price);
-    if (mySort === "Lowest Price")  out = [...out].sort((a, b) => a.price - b.price);
-    if (mySort === "Highest Float") out = [...out].sort((a, b) => b.float - a.float);
-    if (mySort === "Lowest Float")  out = [...out].sort((a, b) => a.float - b.float);
+
+    // Price sorts are absent rather than broken: a Steam inventory
+    // carries no price, and there is no price source wired up yet. The
+    // options that remain are the ones the data can answer.
+    const byFloat = (dir: 1 | -1) => (a: InventoryItem, b: InventoryItem) => {
+      // Items without a float sit at the end either way — a case is not
+      // "float 0", and sorting it as if it were puts containers above
+      // every factory-new skin.
+      if (a.float === null) return 1;
+      if (b.float === null) return -1;
+      return (a.float - b.float) * dir;
+    };
+
+    if (mySort === "Highest Float") out = [...out].sort(byFloat(-1));
+    if (mySort === "Lowest Float")  out = [...out].sort(byFloat(1));
     return out;
-  }, [mySearch, mySort]);
+  }, [myTradable, mySearch, mySort]);
 
   const mktFiltered = useMemo(() => {
     let out = SKINS.filter((s) => {
@@ -1250,11 +1422,9 @@ function TradePage() {
     return out;
   }, [mktSearch, mktRarity, mktExterior, mktWeapon, mktPriceMin, mktPriceMax, mktFloatMin, mktFloatMax, mktStatTrak, mktStickers, mktCharms, mktSort]);
 
-  const myItems  = MOCK_TRADE_INVENTORY.filter((s) => mySelected.includes(s.id));
+  const myItems  = myTradable.filter((i) => mySelected.includes(i.assetId));
   const mktItems = SKINS.filter((s) => mktSelected.includes(s.id));
-  const myTotal  = myItems.reduce((sum, s)  => sum + s.price, 0);
   const mktTotal = mktItems.reduce((sum, s) => sum + s.price, 0);
-  const diff     = myTotal - mktTotal;
   const canTrade = myItems.length > 0 && mktItems.length > 0;
 
   const inputStyle = {
@@ -1274,10 +1444,25 @@ function TradePage() {
         <div className="px-3 py-2.5 border-b flex items-center justify-between gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
           <div className="min-w-0">
             <div className="font-display text-sm font-bold tracking-wide text-foreground">Your Inventory</div>
-            <div className="font-mono text-[10px] text-muted-foreground">{MOCK_TRADE_INVENTORY.length} items{mySelected.length > 0 && <span style={{ color: "#f0c040" }}> · {mySelected.length} selected</span>}</div>
+            <div className="font-mono text-[10px] text-muted-foreground">
+              {inventory.loading ? "reading Steam…" : `${myTradable.length} tradable`}
+              {mySelected.length > 0 && <span style={{ color: "#f0c040" }}> · {mySelected.length} selected</span>}
+            </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {mySelected.length > 0 && mySelected.length < MOCK_TRADE_INVENTORY.length && (
+            {/* Same window as the Sell screen, so the same way out for
+                someone who just traded and does not see it yet. */}
+            <button
+              onClick={() => void inventory.refresh()}
+              disabled={inventory.refreshing}
+              title={inventory.fetchedAt ? `Read from Steam at ${inventory.fetchedAt.toLocaleTimeString()}` : "Read from Steam again"}
+              className="font-mono text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1 disabled:opacity-40"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
+            >
+              <RotateCw className={`w-2.5 h-2.5 ${inventory.refreshing ? "animate-spin" : ""}`} />
+              {inventory.refreshing ? "Reading…" : "Refresh"}
+            </button>
+            {mySelected.length > 0 && mySelected.length < myFiltered.length && (
               <button
                 onClick={() => setMySelected([])}
                 className="font-mono text-[9px] px-2 py-1 rounded transition-colors"
@@ -1286,17 +1471,27 @@ function TradePage() {
                 Clear
               </button>
             )}
-            <button
-              onClick={() => setMySelected(mySelected.length === MOCK_TRADE_INVENTORY.length ? [] : MOCK_TRADE_INVENTORY.map((s) => s.id))}
-              className="font-mono text-[9px] px-2 py-1 rounded transition-all"
-              style={{
-                background: mySelected.length === MOCK_TRADE_INVENTORY.length ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)",
-                color: mySelected.length === MOCK_TRADE_INVENTORY.length ? "#f0c040" : "#9da3c0",
-                border: `1px solid ${mySelected.length === MOCK_TRADE_INVENTORY.length ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
-              }}
-            >
-              {mySelected.length === MOCK_TRADE_INVENTORY.length ? "Deselect All" : "Select All"}
-            </button>
+            {/* Select All takes what is on screen, not the whole
+                inventory: with a search active, selecting the 180 items
+                you filtered away is never what the button looked like it
+                would do. */}
+            {(() => {
+              const allShown = myFiltered.length > 0 && myFiltered.every((i) => mySelected.includes(i.assetId));
+              return (
+                <button
+                  onClick={() => setMySelected(allShown ? [] : myFiltered.map((i) => i.assetId))}
+                  disabled={myFiltered.length === 0}
+                  className="font-mono text-[9px] px-2 py-1 rounded transition-all disabled:opacity-40"
+                  style={{
+                    background: allShown ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)",
+                    color: allShown ? "#f0c040" : "#9da3c0",
+                    border: `1px solid ${allShown ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
+                  }}
+                >
+                  {allShown ? "Deselect All" : "Select All"}
+                </button>
+              );
+            })()}
           </div>
         </div>
 
@@ -1315,27 +1510,58 @@ function TradePage() {
           <MiniSortDropdown value={mySort} onChange={setMySort} />
         </div>
 
-        {/* Total value */}
+        {/* What is being offered, counted rather than valued.
+            A Steam inventory carries no prices, and there is no price
+            source wired up yet — so a total here would be invented. The
+            mock could show one because its items had made-up prices. */}
         {mySelected.length > 0 && (
           <div className="px-3 py-1.5 border-b flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(240,192,64,0.04)" }}>
-            <span className="font-mono text-[10px] text-muted-foreground">Selected value</span>
-            <span className="font-mono text-[10px] font-semibold" style={{ color: "#f0c040" }}>${myTotal.toFixed(2)}</span>
+            <span className="font-mono text-[10px] text-muted-foreground">Offering</span>
+            <span className="font-mono text-[10px] font-semibold" style={{ color: "#f0c040" }}>
+              {myItems.length} item{myItems.length === 1 ? "" : "s"}
+            </span>
           </div>
         )}
 
         {/* Grid */}
         <div className="flex-1 min-h-0 overflow-y-auto p-2" style={{ scrollbarWidth: "none" }}>
-          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
-            {myFiltered.map((skin) => (
-              <TradeSkinCard
-                key={skin.id}
-                skin={skin}
-                selected={mySelected.includes(skin.id)}
-                onClick={() => toggleMy(skin.id)}
-                side="left"
-              />
-            ))}
-          </div>
+          {!signedIn ? (
+            <TradeInventoryNotice
+              title="Sign in to trade"
+              body="Your Steam inventory is what you offer, so we need to know whose it is."
+            />
+          ) : inventory.loading ? (
+            <TradeInventoryNotice title="Reading your inventory…" body="This comes from Steam, so it can take a moment." />
+          ) : inventory.failure ? (
+            <TradeInventoryNotice
+              title="Could not read your inventory"
+              body={inventory.failureMessage ?? "Try again in a moment."}
+            />
+          ) : myFiltered.length === 0 ? (
+            <TradeInventoryNotice
+              title={mySearch ? "Nothing matches that search" : "Nothing here can be traded"}
+              body={
+                mySearch
+                  ? "Clear the search to see everything you can offer."
+                  : "Items still under Valve's 7-day trade hold, and anything Steam marks untradable, cannot be offered."
+              }
+            />
+          ) : (
+            // auto-fill rather than a fixed six: the column shares the
+            // screen with the filters and the market, so six put the
+            // cards at 84px — narrower than the wear label they carry.
+            // A minimum width lets the count fall to what actually fits.
+            <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))" }}>
+              {myFiltered.map((item) => (
+                <TradeInventoryCard
+                  key={item.assetId}
+                  item={item}
+                  selected={mySelected.includes(item.assetId)}
+                  onClick={() => toggleMy(item.assetId)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1486,16 +1712,19 @@ function TradePage() {
             <div className="rounded-lg p-2.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Offering</span>
+                {/* Counted, not valued. The items here are real, and a
+                    Steam inventory carries no prices — the figure on the
+                    Wanting side comes from the mock storefront. */}
                 <span className="font-display text-base font-bold leading-none" style={{ color: myItems.length > 0 ? "#f0f2f8" : "#3a3d50" }}>
-                  {myItems.length > 0 ? `$${myTotal.toFixed(2)}` : "—"}
+                  {myItems.length > 0 ? `${myItems.length} item${myItems.length === 1 ? "" : "s"}` : "—"}
                 </span>
               </div>
               <div className="flex flex-wrap gap-0.5 min-h-[14px]">
                 {myItems.length === 0
                   ? <span className="font-mono text-[8px] italic text-muted-foreground">Select from inventory</span>
-                  : myItems.slice(0, 4).map((s) => (
-                      <span key={s.id} className="font-mono text-[8px] px-1 py-px rounded truncate" style={{ background: "rgba(255,255,255,0.05)", color: RARITY[s.rarity].color, maxWidth: "80px" }}>
-                        {s.name}
+                  : myItems.slice(0, 4).map((item) => (
+                      <span key={item.assetId} className="font-mono text-[8px] px-1 py-px rounded truncate" style={{ background: "rgba(255,255,255,0.05)", color: rarityStyle(rarityKeyForItem(item)).color, maxWidth: "80px" }}>
+                        {item.catalog?.skinName ?? item.marketHashName}
                       </span>
                     ))
                 }
@@ -1534,17 +1763,17 @@ function TradePage() {
             </div>
           </div>
 
-          {/* Diff row */}
+          {/* The difference between the two sides used to sit here, and
+              it cannot be computed any more: the offered side is now a
+              real inventory, which has no prices, while the wanted side
+              is still the mock storefront. Subtracting one from the other
+              would be arithmetic on two different kinds of number.
+              It comes back with the price source. */}
           {canTrade && (
             <div className="px-4 pb-3">
-              <div
-                className="flex items-center justify-between px-3 py-2 rounded-lg"
-                style={{ background: diff >= 0 ? "rgba(74,222,128,0.07)" : "rgba(248,113,113,0.07)", border: `1px solid ${diff >= 0 ? "rgba(74,222,128,0.2)" : "rgba(248,113,113,0.2)"}` }}
-              >
-                <span className="font-mono text-[10px] text-muted-foreground">Difference</span>
-                <span className="font-mono text-sm font-bold" style={{ color: diff >= 0 ? "#4ade80" : "#f87171" }}>
-                  {diff >= 0 ? "+" : ""}${diff.toFixed(2)}
-                </span>
+              <div className="px-3 py-2 rounded-lg font-mono text-[10px] leading-relaxed" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "#6c7290" }}>
+                Your side is not valued yet — we have no price source for
+                items in your own inventory.
               </div>
             </div>
           )}
@@ -2213,7 +2442,7 @@ export default function App() {
       )}
 
       <div className={`w-full px-4 ${activeNav === "Trade" || activeNav === "Sell" ? "py-0" : "py-6"}`}>
-        {activeNav === "Trade" ? <TradePage /> : activeNav === "Sell" ? (
+        {activeNav === "Trade" ? <TradePage signedIn={!!session.user} /> : activeNav === "Sell" ? (
           <SellPage
             signedIn={!!session.user}
             hasTradeUrl={session.user?.hasTradeUrl ?? false}
