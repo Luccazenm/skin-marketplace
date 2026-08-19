@@ -1,12 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Package, Lock, X } from 'lucide-react';
-import { ApiError, requestDeposit, type InventoryItem } from '@/lib/api';
+import {
+  ApiError,
+  requestDeposit,
+  type AppliedItem,
+  type InventoryItem,
+} from '@/lib/api';
 import { rarityStyle } from '@/lib/rarity';
 import { MiniSortDropdown, SELL_SORTS } from './MiniSortDropdown';
 import {
+  appliedLabel,
+  charmsOf,
   isStatTrak,
   rarityKeyForItem,
-  stickerLabel,
   stickersOf,
   useInventory,
   type InventoryFailure,
@@ -253,6 +259,68 @@ function isValidPrice(value: string | undefined): boolean {
 }
 
 /**
+ * A column of applied items — stickers on one side, a charm on the
+ * other.
+ *
+ * It lives inside the illustration and scales with it: on hover the
+ * illustration gives up 38px so the action button can slide in, and a
+ * stack that ignored that would spill over the name and the price.
+ *
+ * One badge per unit, never grouped by name: five copies of the same
+ * sticker can each be scraped differently, and one can be worth several
+ * times another.
+ */
+function AppliedStack({
+  items,
+  side,
+  hovered,
+}: {
+  items: AppliedItem[];
+  side: 'left' | 'right';
+  hovered: boolean;
+}) {
+  // 24 at rest, 20 hovered. The hover size is set by the worst case —
+  // five stickers, which is CS2's cap — where anything larger pushes the
+  // bottom badge over the card's footer.
+  const size = hovered ? 20 : 24;
+
+  return (
+    <div
+      className="absolute flex flex-col gap-0.5 z-10"
+      style={{ top: 6, [side]: 6 }}
+    >
+      {items.map((applied, i) => (
+        <div
+          key={`${applied.slot}-${i}`}
+          title={appliedLabel(applied)}
+          className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
+          style={{
+            width: size,
+            height: size,
+            background: 'rgba(0,0,0,0.35)',
+            border: '1px solid rgba(255,255,255,0.12)',
+          }}
+        >
+          {applied.imageUrl ? (
+            <img
+              src={applied.imageUrl}
+              alt=""
+              className="w-full h-full object-contain"
+              loading="lazy"
+            />
+          ) : (
+            <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+              <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
+              <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
+            </svg>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * The same card the storefront uses, with the buy action swapped for
  * listing.
  *
@@ -265,6 +333,7 @@ function isValidPrice(value: string | undefined): boolean {
 function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; selected: boolean; price: string | undefined; onToggle: () => void }) {
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
+  const charms = charmsOf(item);
   const [hovered, setHovered] = useState(false);
   const active = selected || hovered;
 
@@ -297,35 +366,15 @@ function ItemCard({ item, selected, price, onToggle }: { item: InventoryItem; se
             can be worth several times another. The name and the scrape
             are on hover. */}
         {stickers.length > 0 && (
-          <div className="absolute right-1.5 flex flex-col gap-0.5 z-10" style={{ top: 6 }}>
-            {stickers.map((sticker, i) => (
-              <div
-                key={`${sticker.slot}-${i}`}
-                title={stickerLabel(sticker)}
-                className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
-                style={{
-                  width: hovered ? 20 : 24,
-                  height: hovered ? 20 : 24,
-                  background: 'rgba(0,0,0,0.35)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
-              >
-                {sticker.imageUrl ? (
-                  <img
-                    src={sticker.imageUrl}
-                    alt=""
-                    className="w-full h-full object-contain"
-                    loading="lazy"
-                  />
-                ) : (
-                  <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                    <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
-                    <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
-                  </svg>
-                )}
-              </div>
-            ))}
-          </div>
+          <AppliedStack items={stickers} side="right" hovered={hovered} />
+        )}
+
+        {/* The charm goes opposite the stickers so neither has to make
+            room for the other: a weapon can carry five stickers and a
+            charm at once, and that is the card that runs out of space
+            first. */}
+        {charms.length > 0 && (
+          <AppliedStack items={charms} side="left" hovered={hovered} />
         )}
 
         {isStatTrak(item) && (

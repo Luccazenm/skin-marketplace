@@ -186,19 +186,31 @@ export function stickerCount(item: InventoryItem): number {
 }
 
 /**
- * What to show on hover: the sticker's name, plus how scraped it is when
- * that is known.
+ * The charms on the item.
+ *
+ * CS2 allows one per weapon, but this returns a list like the stickers
+ * do: the shape comes from Steam, and a screen that assumes exactly one
+ * would drop the second the day Valve allows it.
+ */
+export function charmsOf(item: InventoryItem): AppliedItem[] {
+  return item.applied.filter((a) => a.kind === 'CHARM');
+}
+
+/**
+ * What to show on hover: the name, plus how scraped it is when that
+ * applies and is known.
  *
  * `wear` runs 0 to 1 where 0 is untouched, so it reads as a percentage
- * scraped. Null means the backend could not match the scrape to this
- * particular copy and refused to guess — saying nothing is right there,
- * because a wrong scrape moves the price.
+ * scraped. Null means either that this kind does not scrape — charms and
+ * patches never do — or that the backend could not match a scrape to
+ * this particular copy and refused to guess. Saying nothing covers both,
+ * and a wrong scrape moves the price.
  */
-export function stickerLabel(sticker: AppliedItem): string {
-  if (sticker.wear === null) return sticker.name;
-  if (sticker.wear === 0) return `${sticker.name} — untouched`;
+export function appliedLabel(applied: AppliedItem): string {
+  if (applied.wear === null) return applied.name;
+  if (applied.wear === 0) return `${applied.name} — untouched`;
 
-  return `${sticker.name} — ${Math.round(sticker.wear * 100)}% scraped`;
+  return `${applied.name} — ${Math.round(applied.wear * 100)}% scraped`;
 }
 
 /** StatTrak™ is part of the market name, and it is what Steam calls it. */
