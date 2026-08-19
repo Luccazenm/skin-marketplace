@@ -1204,7 +1204,8 @@ function TradeInventoryCard({
   onClick: () => void;
 }) {
   const r = rarityStyle(rarityKeyForItem(item));
-  const applied = [...charmsOf(item), ...stickersOf(item)];
+  const charms = charmsOf(item);
+  const stickers = stickersOf(item);
   const [hovered, setHovered] = useState(false);
   const active = selected || hovered;
 
@@ -1229,43 +1230,12 @@ function TradeInventoryCard({
     >
       <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
 
-      {/* One badge per unit, never grouped by name — five copies of one
-          sticker can each be scraped differently, and one can be worth
-          several times another. Same popup and same pause as the Sell
-          screen: the scrape moves the price, so it is worth reading
-          wherever the item is on screen. */}
-      {applied.length > 0 && (
-        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
-          {applied.map((a, i) => (
-            <div
-              key={`${a.slot}-${i}`}
-              aria-label={appliedLabel(a)}
-              onMouseEnter={(e) => hover.open(a, e.currentTarget.getBoundingClientRect())}
-              onMouseLeave={hover.close}
-              className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
-              style={{
-                width: active ? 18 : 22,
-                height: active ? 18 : 22,
-                background: "rgba(0,0,0,0.35)",
-                border: "1px solid rgba(255,255,255,0.12)",
-              }}
-            >
-              {a.imageUrl ? (
-                <img src={a.imageUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
-              ) : (
-                <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                  <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
-                  <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
-                </svg>
-              )}
-            </div>
-          ))}
-
-          {hover.detail && (
-            <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />
-          )}
-        </div>
-      )}
+      {/* Charms left, stickers right — never sharing a corner. Same
+          popup and same pause as the Sell screen: the scrape moves the
+          price, so it is worth reading wherever the item is on screen. */}
+      {charms.length > 0 && <AppliedBadges items={charms} side="left" size={active ? 18 : 22} hover={hover} />}
+      {stickers.length > 0 && <AppliedBadges items={stickers} side="right" size={active ? 18 : 22} hover={hover} />}
+      {hover.detail && <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />}
 
       <div
         className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
@@ -1336,6 +1306,54 @@ function TradeInventoryCard({
 }
 
 /**
+ * A corner stack of applied badges.
+ *
+ * Charms take the left corner and stickers the right, always. A weapon
+ * can carry five stickers and a charm at the same time, so sharing one
+ * column means the charm pushes the stickers down or takes a slot that
+ * was about to be a sticker — and then the same item looks different
+ * depending on what else is on it.
+ *
+ * One badge per unit, never grouped by name: five copies of the same
+ * sticker can each be scraped differently.
+ */
+function AppliedBadges({
+  items,
+  side,
+  size,
+  hover,
+}: {
+  items: AppliedItem[];
+  side: "left" | "right";
+  size: number;
+  hover: ReturnType<typeof useAppliedHover>;
+}) {
+  return (
+    <div className="absolute flex flex-col gap-0.5 z-10" style={{ top: 6, [side]: 6 }}>
+      {items.map((a, i) => (
+        <div
+          key={`${a.slot}-${i}`}
+          aria-label={appliedLabel(a)}
+          onMouseEnter={(e) => hover.open(a, e.currentTarget.getBoundingClientRect())}
+          onMouseLeave={hover.close}
+          className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
+          style={{ width: size, height: size, background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.12)" }}
+        >
+          {a.imageUrl ? (
+            <img src={a.imageUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
+          ) : (
+            <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+              <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
+              <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
+            </svg>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Valve's wear names, shortened to what fits.
  *
  * The cart card is 84px wide and the line has to hold the wear, the
@@ -1367,7 +1385,8 @@ function TradeCartCard({
   price,
   priceMuted = false,
   statTrak = false,
-  applied = [],
+  charms = [],
+  stickers = [],
   lockDays,
   onRemove,
   children,
@@ -1382,7 +1401,8 @@ function TradeCartCard({
   /** True when the figure is a placeholder rather than a number. */
   priceMuted?: boolean;
   statTrak?: boolean;
-  applied?: AppliedItem[];
+  charms?: AppliedItem[];
+  stickers?: AppliedItem[];
   lockDays?: number | null;
   onRemove: () => void;
   children: ReactNode;
@@ -1416,31 +1436,12 @@ function TradeCartCard({
 
         {/* Same badges and the same popup as the grid below: what is in
             the trade is exactly what you were looking at a moment ago,
-            and the scrape is worth reading here most of all. */}
-        {applied.length > 0 && (
-          <div className="absolute top-1.5 right-1.5 flex flex-col gap-0.5 z-10">
-            {applied.map((a, i) => (
-              <div
-                key={`${a.slot}-${i}`}
-                aria-label={appliedLabel(a)}
-                onMouseEnter={(e) => hover.open(a, e.currentTarget.getBoundingClientRect())}
-                onMouseLeave={hover.close}
-                className="rounded-sm flex items-center justify-center overflow-hidden"
-                style={{ width: 16, height: 16, background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.12)" }}
-              >
-                {a.imageUrl ? (
-                  <img src={a.imageUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
-                ) : (
-                  <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none">
-                    <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
-                    <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
-                  </svg>
-                )}
-              </div>
-            ))}
-            {hover.detail && <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />}
-          </div>
-        )}
+            and the scrape is worth reading here most of all. Charms left,
+            stickers right — a weapon can carry five stickers and a charm
+            at once, so neither may take the other's corner. */}
+        {charms.length > 0 && <AppliedBadges items={charms} side="left" size={22} hover={hover} />}
+        {stickers.length > 0 && <AppliedBadges items={stickers} side="right" size={22} hover={hover} />}
+        {hover.detail && <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />}
 
         {children}
       </div>
@@ -1547,8 +1548,11 @@ function TradeSide({
           both rows fill from the middle outwards, so the two sides sit
           either side of the Trade button and read as one comparison
           rather than two lists pushed to opposite walls. */}
+      {/* Scrollbar hidden, as everywhere else on the site: the browser's
+          default drew a bright bar across the bottom of the row. The row
+          still scrolls by wheel and trackpad. */}
       {!collapsed && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "thin", minHeight: 86 }}>
+        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none", minHeight: 86 }}>
           {count === 0 ? (
             <span className="font-mono text-[10px] italic self-center" style={{ color: "#4a4f68" }}>{empty}</span>
           ) : (
@@ -1556,6 +1560,50 @@ function TradeSide({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * What settling the trade costs, or leaves over.
+ *
+ * The sign decides the whole message, not just the colour. Owing the
+ * difference is a payment the user has to make before the trade can
+ * happen; being owed it is money landing in their balance afterwards.
+ * Calling both "difference" and letting a minus sign carry the meaning
+ * is how someone reads a bill as a refund.
+ */
+function TradeDifference({ difference, canTrade }: { difference: number | null; canTrade: boolean }) {
+  if (!canTrade) {
+    return (
+      <div className="font-mono text-[9px] text-center leading-tight" style={{ color: "#4a4f68" }}>
+        Pick from both sides
+      </div>
+    );
+  }
+
+  // Your side is a real Steam inventory with no prices on it. Rather
+  // than treat that as zero — which would quote the whole market total
+  // as the amount to add, as if your items were worthless — it says so.
+  if (difference === null) {
+    return (
+      <div className="font-mono text-[9px] text-center leading-relaxed" style={{ color: "#4a4f68" }}>
+        Your side is not valued yet, so the difference cannot be shown.
+      </div>
+    );
+  }
+
+  const owed = difference < 0;
+  const amount = Math.abs(difference).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return (
+    <div className="w-full flex flex-col items-center gap-0.5">
+      <span className="font-mono text-[9px] uppercase tracking-wider text-center leading-tight" style={{ color: "#6c7290" }}>
+        {owed ? "Amount to add to trade" : "Balance after trade"}
+      </span>
+      <span className="font-display text-base font-bold leading-none" style={{ color: owed ? "#f0c040" : "#4ade80" }}>
+        {owed ? "" : "+"}${amount}
+      </span>
     </div>
   );
 }
@@ -1582,9 +1630,11 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
   // deposit and the trade offer are built from.
   const [mySelected, setMySelected]     = useState<string[]>([]);
   const [mktSelected, setMktSelected]   = useState<number[]>([]);
-  // One flag for both sides: they are meant to be read against each
-  // other, so collapsing one and not the other only makes that harder.
-  const [cartCollapsed, setCartCollapsed] = useState(false);
+  // One flag per side. They are read against each other, but the two
+  // rows are independent lists — collapsing your own inventory to see
+  // more of it should not fold away what you are trading it for.
+  const [offerCollapsed, setOfferCollapsed] = useState(false);
+  const [receiveCollapsed, setReceiveCollapsed] = useState(false);
   const [mySearch, setMySearch]         = useState("");
   const [mktSearch, setMktSearch]       = useState("");
   const [mktRarity, setMktRarity]         = useState<string[]>([]);
@@ -1685,9 +1735,24 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
     color: "#e8eaf0",
   };
 
-  // Both carts and the Trade button share one height so the border
-  // between the columns stays a straight line across all three.
-  const barHeight = cartCollapsed ? 46 : 250;
+  // Each cart sizes to its own state; the centre never moves. Tying the
+  // button's height to either side made the main action of the screen
+  // jump whenever a list was folded away.
+  const COLLAPSED = 46;
+  const EXPANDED = 250;
+  const offerHeight = offerCollapsed ? COLLAPSED : EXPANDED;
+  const receiveHeight = receiveCollapsed ? COLLAPSED : EXPANDED;
+
+  /**
+   * What still has to be settled in cash, once both sides are valued.
+   *
+   * Null while either side has no price. Your side is a real Steam
+   * inventory and carries none, and there is no price source wired up
+   * yet — so the figure exists in code and waits for the data rather
+   * than being faked from the mock storefront on the other side.
+   */
+  const myTotal: number | null = null;
+  const difference = myTotal === null ? null : myTotal - mktTotal;
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 56px)" }}>
@@ -1699,7 +1764,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <div
           className="flex-shrink-0 border-b px-3 py-2 overflow-hidden"
-          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: barHeight }}
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: offerHeight }}
         >
         <TradeSide
           title="Your offer"
@@ -1711,8 +1776,8 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           totalMuted
           count={myItems.length}
           align="left"
-          collapsed={cartCollapsed}
-          onToggleCollapse={() => setCartCollapsed((c) => !c)}
+          collapsed={offerCollapsed}
+          onToggleCollapse={() => setOfferCollapsed((c) => !c)}
           empty="Pick from your inventory"
         >
           {myItems.map((item) => {
@@ -1724,7 +1789,8 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                 category={item.catalog?.weapon ?? item.typeLabel ?? ""}
                 name={item.catalog?.skinName ?? item.marketHashName}
                 statTrak={isStatTrak(item)}
-                applied={[...charmsOf(item), ...stickersOf(item)]}
+                charms={charmsOf(item)}
+                stickers={stickersOf(item)}
                 meta={[
                   item.exterior ? (WEAR_SHORT[item.exterior] ?? item.exterior) : null,
                   item.float !== null ? item.float.toFixed(4) : null,
@@ -1869,13 +1935,16 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         className="flex flex-col flex-shrink-0 overflow-hidden"
         style={{ width: 200, borderLeft: "1px solid rgba(255,255,255,0.07)", borderRight: "1px solid rgba(255,255,255,0.07)" }}
       >
+        {/* Fixed height, never following either cart: this is the main
+            action of the screen and it should not move because a list
+            was folded away. */}
         <div
-          className="flex-shrink-0 border-b flex flex-col items-center justify-center gap-1.5 px-3"
-          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: barHeight }}
+          className="flex-shrink-0 border-b flex flex-col items-center gap-2 px-3 pt-2"
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: EXPANDED }}
         >
           <button
             disabled={!canTrade}
-            className="w-full py-2.5 rounded-lg font-display font-bold text-sm tracking-widest transition-all"
+            className="w-full py-2.5 rounded-lg font-display font-bold text-sm tracking-widest transition-all flex-shrink-0"
             style={{
               background: canTrade ? "#f0c040" : "rgba(240,192,64,0.1)",
               color: canTrade ? "#08090d" : "#4a3e12",
@@ -1886,11 +1955,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             {canTrade ? "TRADE" : "SELECT ITEMS"}
           </button>
 
-          {/* Where the difference between the two sides belongs, and
-              cannot be computed: your side has no price source. */}
-          <div className="font-mono text-[9px] text-center leading-tight" style={{ color: "#4a4f68" }}>
-            {canTrade ? "Your side is not valued yet" : "Pick from both sides"}
-          </div>
+          <TradeDifference difference={difference} canTrade={canTrade} />
         </div>
 
         {/* Filters header */}
@@ -2022,7 +2087,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       >
         <div
           className="flex-shrink-0 border-b px-3 py-2 overflow-hidden"
-          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: barHeight }}
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)", height: receiveHeight }}
         >
           <TradeSide
             title="You receive"
@@ -2030,8 +2095,8 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             totalMuted={mktItems.length === 0}
             count={mktItems.length}
             align="right"
-            collapsed={cartCollapsed}
-            onToggleCollapse={() => setCartCollapsed((c) => !c)}
+            collapsed={receiveCollapsed}
+            onToggleCollapse={() => setReceiveCollapsed((c) => !c)}
             empty="Pick from the market"
           >
             {mktItems.map((s) => {
