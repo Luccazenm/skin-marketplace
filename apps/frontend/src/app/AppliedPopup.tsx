@@ -92,7 +92,7 @@ export function AppliedPopup({
             </span>
             <span
               className="font-mono text-xs font-semibold"
-              style={{ color: applied.wear === 0 ? '#4ade80' : '#f0c040' }}
+              style={{ color: '#f0c040' }}
             >
               {applied.wear === 0 ? 'Untouched' : `${Math.round(applied.wear * 100)}%`}
             </span>
