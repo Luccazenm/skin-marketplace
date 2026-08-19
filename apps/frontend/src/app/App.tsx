@@ -17,6 +17,10 @@ import {
   Check,
   Tag,
   RotateCw,
+  // Not the DOM's Lock: without this import TypeScript resolves the
+  // global and reports it is not a valid component.
+  Lock,
+  Trash2,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { logout, startSteamLogin, type InventoryItem } from "@/lib/api";
@@ -1334,6 +1338,172 @@ function TradeInventoryCard({
   );
 }
 
+/**
+ * Valve's wear names, shortened to what fits.
+ *
+ * The cart card is 84px wide and the line has to hold the wear, the
+ * float and often StatTrak. "Factory New / 0.0395" does not fit and gets
+ * cut mid-word; "FN / 0.0395" does, and these are the abbreviations the
+ * trading community already uses.
+ */
+const WEAR_SHORT: Record<string, string> = {
+  "Factory New": "FN",
+  "Minimal Wear": "MW",
+  "Field-Tested": "FT",
+  "Well-Worn": "WW",
+  "Battle-Scarred": "BS",
+};
+
+/**
+ * One picked item, as it appears in the trade bar at the top.
+ *
+ * Small on purpose — the bar has to hold a dozen of these without
+ * pushing the grids off screen, so it carries only what distinguishes
+ * one copy from another: the artwork, the wear and float, the price, and
+ * a way to drop it.
+ */
+function TradeCartCard({
+  color,
+  meta,
+  price,
+  priceMuted = false,
+  lockDays,
+  onRemove,
+  children,
+}: {
+  color: string;
+  /** The line that tells two identical-looking copies apart. */
+  meta: string;
+  price: string;
+  /** True when the figure is a placeholder rather than a number. */
+  priceMuted?: boolean;
+  lockDays?: number | null;
+  onRemove: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="flex-shrink-0 rounded overflow-hidden border flex flex-col"
+      style={{ width: 84, background: "rgba(255,255,255,0.03)", borderColor: "rgba(255,255,255,0.08)" }}
+    >
+      <div className="relative h-[52px] flex items-center justify-center px-1.5" style={{ background: `linear-gradient(160deg, ${color}22, transparent)` }}>
+        {/* Valve holds a traded item for 7 days, and the countdown is
+            part of what the other side is agreeing to. */}
+        {lockDays != null && lockDays > 0 && (
+          <span className="absolute top-0.5 left-0.5 font-mono text-[7px] px-1 rounded flex items-center gap-0.5" style={{ background: "rgba(0,0,0,0.55)", color: "#c0c4d8" }}>
+            <Lock className="w-2 h-2" />{lockDays}d
+          </span>
+        )}
+        {children}
+      </div>
+
+      <div className="px-1.5 pb-1 pt-0.5 flex flex-col gap-0.5">
+        <div className="font-mono text-[8px] truncate" style={{ color }}>{meta}</div>
+        <div className="font-mono text-[9px] font-semibold truncate" style={{ color: priceMuted ? "#4a4f68" : "#f0f2f8" }}>
+          {price}
+        </div>
+      </div>
+
+      <button
+        onClick={onRemove}
+        className="w-full py-1 flex items-center justify-center transition-colors"
+        style={{ background: "rgba(232,64,96,0.12)", borderTop: "1px solid rgba(232,64,96,0.2)" }}
+        aria-label="Remove from trade"
+      >
+        <Trash2 className="w-2.5 h-2.5" style={{ color: "#e84060" }} />
+      </button>
+    </div>
+  );
+}
+
+/**
+ * One side of the trade bar: a heading, a total, and the picked items.
+ *
+ * Both sides share this shell so they stay symmetrical — the whole point
+ * of the bar is comparing one against the other, and two layouts that
+ * drift apart make that harder than it needs to be.
+ */
+function TradeSide({
+  title,
+  total,
+  totalMuted,
+  count,
+  align,
+  onClear,
+  collapsed,
+  onToggleCollapse,
+  empty,
+  children,
+}: {
+  title: string;
+  total: string;
+  totalMuted: boolean;
+  count: number;
+  /** "left" mirrors the header to the other edge, as the two sides face each other. */
+  align: "left" | "right";
+  onClear: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  empty: string;
+  children: ReactNode;
+}) {
+  const header = (
+    <>
+      <button
+        onClick={onToggleCollapse}
+        className="flex items-center gap-1.5 font-display text-xs font-bold tracking-wide flex-shrink-0"
+        style={{ color: "#e8eaf0" }}
+      >
+        <ChevronDown
+          className="w-3 h-3"
+          style={{ transform: collapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 150ms" }}
+        />
+        {title}
+      </button>
+      {count > 0 && (
+        <button onClick={onClear} className="font-mono text-[9px] flex-shrink-0 transition-colors text-muted-foreground hover:text-foreground">
+          Clear
+        </button>
+      )}
+    </>
+  );
+
+  const totalNode = (
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      <span className="font-mono text-xs font-semibold" style={{ color: totalMuted ? "#6c7290" : "#f0f2f8" }}>{total}</span>
+      <span
+        className="font-mono text-[9px] px-1.5 rounded-full"
+        style={{ background: count > 0 ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)", color: count > 0 ? "#f0c040" : "#6c7290" }}
+      >
+        {count}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+      <div className={`flex items-center gap-2 ${align === "right" ? "flex-row-reverse" : ""}`}>
+        {align === "right" ? <>{header}</> : <>{header}</>}
+        <div className={align === "right" ? "mr-auto" : "ml-auto"}>{totalNode}</div>
+      </div>
+
+      {/* The heading mirrors to the outer edge, but the cards do not:
+          both rows fill from the middle outwards, so the two sides sit
+          either side of the Trade button and read as one comparison
+          rather than two lists pushed to opposite walls. */}
+      {!collapsed && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "thin", minHeight: 86 }}>
+          {count === 0 ? (
+            <span className="font-mono text-[10px] italic self-center" style={{ color: "#4a4f68" }}>{empty}</span>
+          ) : (
+            children
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Why the inventory column is empty, said rather than left blank. */
 function TradeInventoryNotice({ title, body }: { title: string; body: string }) {
   return (
@@ -1356,6 +1526,9 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
   // deposit and the trade offer are built from.
   const [mySelected, setMySelected]     = useState<string[]>([]);
   const [mktSelected, setMktSelected]   = useState<number[]>([]);
+  // One flag for both sides: they are meant to be read against each
+  // other, so collapsing one and not the other only makes that harder.
+  const [cartCollapsed, setCartCollapsed] = useState(false);
   const [mySearch, setMySearch]         = useState("");
   const [mktSearch, setMktSearch]       = useState("");
   const [mktRarity, setMktRarity]         = useState<string[]>([]);
@@ -1457,7 +1630,107 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
   };
 
   return (
-    <div className="flex gap-3" style={{ height: "calc(100vh - 56px)" }}>
+    <div className="flex flex-col" style={{ height: "calc(100vh - 56px)" }}>
+
+      {/* ── TOP: the trade itself ─────────────────────────────────────
+          Above the grids rather than beside them. What you have picked
+          is the thing you keep checking while you browse, and in a
+          narrow side column it could only ever be a list of names — here
+          each pick keeps its artwork, its float and its price, which is
+          what you are actually comparing. Collapsible because it costs
+          vertical space that the grids also want. */}
+      <div className="flex-shrink-0 border-b flex items-start gap-3 px-3 py-2" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.015)" }}>
+        <TradeSide
+          title="Your offer"
+          total={myItems.length > 0 ? `${myItems.length} item${myItems.length === 1 ? "" : "s"}` : "—"}
+          totalMuted={myItems.length === 0}
+          count={myItems.length}
+          align="left"
+          onClear={() => setMySelected([])}
+          collapsed={cartCollapsed}
+          onToggleCollapse={() => setCartCollapsed((c) => !c)}
+          empty="Pick from your inventory"
+        >
+          {myItems.map((item) => {
+            const rs = rarityStyle(rarityKeyForItem(item));
+            return (
+              <TradeCartCard
+                key={item.assetId}
+                color={rs.color}
+                meta={[
+                  isStatTrak(item) ? "ST" : null,
+                  item.exterior ? (WEAR_SHORT[item.exterior] ?? item.exterior) : null,
+                  item.float !== null ? item.float.toFixed(4) : null,
+                ].filter(Boolean).join(" / ")}
+                price="Not priced"
+                priceMuted
+                onRemove={() => toggleMy(item.assetId)}
+              >
+                {item.iconUrl ? (
+                  <img src={item.iconUrl} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+                ) : (
+                  <Package className="w-5 h-5" style={{ color: rs.color, opacity: 0.4 }} />
+                )}
+              </TradeCartCard>
+            );
+          })}
+        </TradeSide>
+
+        {/* The action, between the two sides it acts on. */}
+        <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-0.5" style={{ width: 168 }}>
+          <button
+            disabled={!canTrade}
+            className="w-full py-2 rounded-lg font-display font-bold text-sm tracking-widest transition-all"
+            style={{
+              background: canTrade ? "#f0c040" : "rgba(240,192,64,0.1)",
+              color: canTrade ? "#08090d" : "#4a3e12",
+              cursor: canTrade ? "pointer" : "not-allowed",
+              boxShadow: canTrade ? "0 0 20px rgba(240,192,64,0.25)" : "none",
+            }}
+          >
+            {canTrade ? "TRADE" : "SELECT ITEMS"}
+          </button>
+
+          {/* Where the difference between the two sides belongs, and
+              cannot be computed: your side has no price source. */}
+          <div className="font-mono text-[9px] text-center leading-tight" style={{ color: "#4a4f68" }}>
+            {canTrade
+              ? "Your side is not valued yet"
+              : "Pick from both sides"}
+          </div>
+        </div>
+
+        <TradeSide
+          title="You receive"
+          total={mktItems.length > 0 ? `$${mktTotal.toFixed(2)}` : "—"}
+          totalMuted={mktItems.length === 0}
+          count={mktItems.length}
+          align="right"
+          onClear={() => setMktSelected([])}
+          collapsed={cartCollapsed}
+          onToggleCollapse={() => setCartCollapsed((c) => !c)}
+          empty="Pick from the market"
+        >
+          {mktItems.map((s) => {
+            const rs = RARITY[s.rarity];
+            return (
+              <TradeCartCard
+                key={s.id}
+                color={rs.color}
+                meta={[s.statTrak ? "ST" : null, WEAR_SHORT[s.wear] ?? s.wear, s.float.toFixed(4)].filter(Boolean).join(" / ")}
+                price={`$${s.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                onRemove={() => toggleMkt(s.id)}
+              >
+                <div className="w-full h-full py-1">
+                  <WeaponSVG weapon={s.weapon} color={rs.color} />
+                </div>
+              </TradeCartCard>
+            );
+          })}
+        </TradeSide>
+      </div>
+
+      <div className="flex gap-3 flex-1 min-h-0">
 
       {/* ── LEFT: User inventory ──────────────────────────────────── */}
       <div
@@ -1714,109 +1987,6 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
 
         </div>
 
-        {/* Trade summary */}
-        <div className="border-t flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-          {/* Header */}
-          <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "#f0c040" }}>Trade Summary</span>
-            {(mySelected.length > 0 || mktSelected.length > 0) && (
-              <button
-                onClick={() => { setMySelected([]); setMktSelected([]); }}
-                className="font-mono text-[9px] flex items-center gap-1 transition-colors text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-2.5 h-2.5" /> Clear
-              </button>
-            )}
-          </div>
-
-          {/* Stacked values */}
-          <div className="px-4 pb-2 flex flex-col gap-2">
-            {/* Offering */}
-            <div className="rounded-lg p-2.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Offering</span>
-                {/* Counted, not valued. The items here are real, and a
-                    Steam inventory carries no prices — the figure on the
-                    Wanting side comes from the mock storefront. */}
-                <span className="font-display text-base font-bold leading-none" style={{ color: myItems.length > 0 ? "#f0f2f8" : "#3a3d50" }}>
-                  {myItems.length > 0 ? `${myItems.length} item${myItems.length === 1 ? "" : "s"}` : "—"}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-0.5 min-h-[14px]">
-                {myItems.length === 0
-                  ? <span className="font-mono text-[8px] italic text-muted-foreground">Select from inventory</span>
-                  : myItems.slice(0, 4).map((item) => (
-                      <span key={item.assetId} className="font-mono text-[8px] px-1 py-px rounded truncate" style={{ background: "rgba(255,255,255,0.05)", color: rarityStyle(rarityKeyForItem(item)).color, maxWidth: "80px" }}>
-                        {item.catalog?.skinName ?? item.marketHashName}
-                      </span>
-                    ))
-                }
-                {myItems.length > 4 && <span className="font-mono text-[8px] text-muted-foreground">+{myItems.length - 4}</span>}
-              </div>
-            </div>
-
-            {/* Arrow divider */}
-            <div className="flex items-center justify-center">
-              <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-              <div className="mx-2 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <ArrowRight className="w-3 h-3 rotate-90 text-muted-foreground" />
-              </div>
-              <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-            </div>
-
-            {/* Wanting */}
-            <div className="rounded-lg p-2.5" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Wanting</span>
-                <span className="font-display text-base font-bold leading-none" style={{ color: mktItems.length > 0 ? "#f0f2f8" : "#3a3d50" }}>
-                  {mktItems.length > 0 ? `$${mktTotal.toFixed(2)}` : "—"}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-0.5 min-h-[14px]">
-                {mktItems.length === 0
-                  ? <span className="font-mono text-[8px] italic text-muted-foreground">Select from market</span>
-                  : mktItems.slice(0, 4).map((s) => (
-                      <span key={s.id} className="font-mono text-[8px] px-1 py-px rounded truncate" style={{ background: "rgba(255,255,255,0.05)", color: RARITY[s.rarity].color, maxWidth: "80px" }}>
-                        {s.name}
-                      </span>
-                    ))
-                }
-                {mktItems.length > 4 && <span className="font-mono text-[8px] text-muted-foreground">+{mktItems.length - 4}</span>}
-              </div>
-            </div>
-          </div>
-
-          {/* The difference between the two sides used to sit here, and
-              it cannot be computed any more: the offered side is now a
-              real inventory, which has no prices, while the wanted side
-              is still the mock storefront. Subtracting one from the other
-              would be arithmetic on two different kinds of number.
-              It comes back with the price source. */}
-          {canTrade && (
-            <div className="px-4 pb-3">
-              <div className="px-3 py-2 rounded-lg font-mono text-[10px] leading-relaxed" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", color: "#6c7290" }}>
-                Your side is not valued yet — we have no price source for
-                items in your own inventory.
-              </div>
-            </div>
-          )}
-
-          {/* CTA */}
-          <div className="px-4 pb-4">
-            <button
-              disabled={!canTrade}
-              className="w-full py-3 rounded-lg font-display font-bold text-base tracking-widest transition-all"
-              style={{
-                background: canTrade ? "#f0c040" : "rgba(240,192,64,0.1)",
-                color: canTrade ? "#08090d" : "#4a3e12",
-                cursor: canTrade ? "pointer" : "not-allowed",
-                boxShadow: canTrade ? "0 0 20px rgba(240,192,64,0.25)" : "none",
-              }}
-            >
-              {canTrade ? "SEND TRADE" : "SELECT ITEMS"}
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* ── RIGHT: Market ─────────────────────────────────────────── */}
@@ -1877,6 +2047,8 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             ))}
           </div>
         </div>
+      </div>
+
       </div>
     </div>
   );
