@@ -1376,6 +1376,16 @@ function AppliedBadges({
 }
 
 /**
+ * The wash behind the two carts, lifting them off the grids below.
+ *
+ * On the two sides only. The centre column takes the plain ground: its
+ * box is nearly the full width of a 200px column, so the same wash there
+ * reads as a panel in a different shade rather than as a section of the
+ * one it sits in.
+ */
+const CART_TINT = "rgba(255,255,255,0.015)";
+
+/**
  * Valve's wear names, shortened to what fits.
  *
  * The cart card is 84px wide and the line has to hold the wear, the
@@ -1795,7 +1805,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <div
           className="flex-shrink-0 border-b px-3 py-2 overflow-hidden"
-          style={{ borderColor: "rgba(255,255,255,0.07)", height: offerHeight }}
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: CART_TINT, height: offerHeight }}
         >
         <TradeSide
           title="Your offer"
@@ -2132,7 +2142,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       >
         <div
           className="flex-shrink-0 border-b px-3 py-2 overflow-hidden"
-          style={{ borderColor: "rgba(255,255,255,0.07)", height: receiveHeight }}
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: CART_TINT, height: receiveHeight }}
         >
           <TradeSide
             title="You receive"
