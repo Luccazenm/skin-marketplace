@@ -1,5 +1,69 @@
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AppliedItem } from '@/lib/api';
+
+/**
+ * How long the pointer has to rest on a badge before the popup opens.
+ *
+ * Without a delay the popup fires on the way past. The badges sit in a
+ * column a few pixels apart, so crossing a card to reach the price
+ * flashes up to five popups in a row — the screen reacting to a movement
+ * that was never a question.
+ *
+ * A second and a half is long enough that only a deliberate pause opens
+ * it, and short enough that the pause does not feel like waiting.
+ */
+const HOVER_DELAY_MS = 1500;
+
+interface HoverTarget {
+  applied: AppliedItem;
+  anchor: DOMRect;
+}
+
+/**
+ * Hover state for a row or column of applied badges, opening on a pause
+ * rather than on contact.
+ *
+ * Shared rather than written per stack so the delay is one number: the
+ * badges appear on the grid card, in the sell panel and in the detail
+ * modal, and three copies would drift apart.
+ */
+export function useAppliedHover() {
+  const [detail, setDetail] = useState<HoverTarget | null>(null);
+  const timer = useRef<number | null>(null);
+
+  function cancel() {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }
+
+  // A pointer can leave by the badge unmounting — the sell panel drops
+  // the row when the item is removed — and a timer left running would
+  // then open a popup anchored to something no longer on screen.
+  useEffect(() => cancel, []);
+
+  return {
+    detail,
+    /**
+     * Call from onMouseEnter. The rect is read here, synchronously,
+     * because `currentTarget` is null by the time the timer fires.
+     */
+    open(applied: AppliedItem, anchor: DOMRect) {
+      cancel();
+      timer.current = window.setTimeout(
+        () => setDetail({ applied, anchor }),
+        HOVER_DELAY_MS,
+      );
+    },
+    /** Call from onMouseLeave. Also drops a pause that never completed. */
+    close() {
+      cancel();
+      setDetail(null);
+    },
+  };
+}
 
 /**
  * The detail card shown while hovering a sticker or charm badge.

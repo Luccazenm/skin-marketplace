@@ -9,7 +9,7 @@ import {
 } from '@/lib/api';
 import { fromCents, payoutAfterFee, toCents } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
-import { AppliedPopup } from './AppliedPopup';
+import { AppliedPopup, useAppliedHover } from './AppliedPopup';
 import { SellDetail } from './SellDetail';
 import { MiniSortDropdown, SELL_SORTS } from './MiniSortDropdown';
 import {
@@ -353,7 +353,7 @@ function AppliedStack({
   // Which badge is being pointed at, and where it is. The rect is read
   // on enter rather than tracked: the popup is anchored to the badge,
   // and the badge does not move while the pointer is on it.
-  const [detail, setDetail] = useState<{ applied: AppliedItem; anchor: DOMRect } | null>(null);
+  const hover = useAppliedHover();
 
   return (
     <div
@@ -365,9 +365,9 @@ function AppliedStack({
           key={`${applied.slot}-${i}`}
           aria-label={appliedLabel(applied)}
           onMouseEnter={(e) =>
-            setDetail({ applied, anchor: e.currentTarget.getBoundingClientRect() })
+            hover.open(applied, e.currentTarget.getBoundingClientRect())
           }
-          onMouseLeave={() => setDetail(null)}
+          onMouseLeave={hover.close}
           className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
           style={{
             width: size,
@@ -392,8 +392,8 @@ function AppliedStack({
         </div>
       ))}
 
-      {detail && (
-        <AppliedPopup applied={detail.applied} anchor={detail.anchor} />
+      {hover.detail && (
+        <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />
       )}
     </div>
   );
@@ -535,6 +535,53 @@ function ItemCard({ item, selected, price, onToggle, onOpen }: { item: Inventory
   );
 }
 
+/**
+ * The applied stickers and charms, laid out in a line.
+ *
+ * A row rather than the grid card's column: here there is width and no
+ * artwork to avoid covering, and a column would make the panel row twice
+ * as tall for the sake of five small squares. Same popup on hover, so
+ * the name, value and scrape are one pause away.
+ */
+function AppliedRow({ items }: { items: AppliedItem[] }) {
+  const hover = useAppliedHover();
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {items.map((applied, i) => (
+        <div
+          key={`${applied.slot}-${i}`}
+          aria-label={appliedLabel(applied)}
+          onMouseEnter={(e) =>
+            hover.open(applied, e.currentTarget.getBoundingClientRect())
+          }
+          onMouseLeave={hover.close}
+          className="rounded-sm flex items-center justify-center overflow-hidden flex-shrink-0"
+          style={{
+            width: 18,
+            height: 18,
+            background: 'rgba(0,0,0,0.35)',
+            border: '1px solid rgba(255,255,255,0.12)',
+          }}
+        >
+          {applied.imageUrl ? (
+            <img src={applied.imageUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
+          ) : (
+            <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none">
+              <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5" />
+              <circle cx="6" cy="6" r="1.5" fill="#c0c4d8" />
+            </svg>
+          )}
+        </div>
+      ))}
+
+      {hover.detail && (
+        <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />
+      )}
+    </div>
+  );
+}
+
 /** One fact about the item, small enough to sit three to a row. */
 function Chip({ text, accent = false }: { text: string; accent?: boolean }) {
   return (
@@ -627,12 +674,36 @@ function SellPanel(props: {
 
                     {/* Only what this copy actually has. A case has no
                         float and no pattern, and printing a dash for each
-                        would fill the row with absences. */}
-                    <div className="flex flex-wrap items-center gap-1">
+                        would fill the row with absences.
+
+                        Labelled readouts rather than boxes: a bare
+                        "0.0395" needs a caption to mean anything, and
+                        three bordered chips in a row read as buttons. ST
+                        keeps its box because it is a marker, not a
+                        measurement, and it is the same badge the grid
+                        card uses. */}
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[9px]">
                       {isStatTrak(item) && <Chip text="ST" accent />}
-                      {item.float !== null && <Chip text={item.float.toFixed(4)} />}
-                      {item.paintSeed !== null && <Chip text={`#${item.paintSeed}`} />}
+                      {item.float !== null && (
+                        <span style={{ color: '#6c7290' }}>
+                          Float <span style={{ color: '#c0c4d8' }}>{item.float.toFixed(4)}</span>
+                        </span>
+                      )}
+                      {item.paintSeed !== null && (
+                        <span style={{ color: '#6c7290' }}>
+                          Pattern <span style={{ color: '#c0c4d8' }}>{item.paintSeed}</span>
+                        </span>
+                      )}
                     </div>
+
+                    {/* The applied items belong here for the same reason
+                        the float does: they are most of what separates
+                        this copy from another, and on a stickered rifle
+                        they can be worth more than the gun. Charms first,
+                        matching the detail modal's order. */}
+                    {(charmsOf(item).length > 0 || stickersOf(item).length > 0) && (
+                      <AppliedRow items={[...charmsOf(item), ...stickersOf(item)]} />
+                    )}
                   </div>
                 </div>
 

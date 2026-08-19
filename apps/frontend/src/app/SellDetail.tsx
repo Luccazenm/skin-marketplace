@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, Package } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import type { AppliedItem, InventoryItem } from '@/lib/api';
-import { AppliedPopup } from './AppliedPopup';
+import { AppliedPopup, useAppliedHover } from './AppliedPopup';
 import { payoutAfterFee, toCents } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
 import {
@@ -49,7 +49,7 @@ export function SellDetail({
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
 
-  const [detail, setDetail] = useState<{ applied: AppliedItem; anchor: DOMRect } | null>(null);
+  const hover = useAppliedHover();
 
   const priced = toCents(price) !== null && toCents(price)! > 0;
   const payout =
@@ -121,9 +121,9 @@ export function SellDetail({
                     <div
                       key={`${applied.slot}-${i}`}
                       onMouseEnter={(e) =>
-                        setDetail({ applied, anchor: e.currentTarget.getBoundingClientRect() })
+                        hover.open(applied, e.currentTarget.getBoundingClientRect())
                       }
-                      onMouseLeave={() => setDetail(null)}
+                      onMouseLeave={hover.close}
                       className="flex flex-col items-center gap-1 p-2 rounded"
                       style={{ background: 'rgba(255,255,255,0.04)', width: 64 }}
                     >
@@ -295,7 +295,7 @@ export function SellDetail({
         </div>
       </div>
 
-      {detail && <AppliedPopup applied={detail.applied} anchor={detail.anchor} />}
+      {hover.detail && <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />}
     </div>
   );
 }
