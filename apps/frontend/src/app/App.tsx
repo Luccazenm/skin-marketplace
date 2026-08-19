@@ -2089,17 +2089,12 @@ export default function App() {
             ))}
           </div>
 
-          {/* Search */}
-          <div className="flex-1 max-w-md mx-auto relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search skins, weapons..."
-              className="w-full pl-8 pr-3 py-2 rounded text-sm font-mono placeholder:text-muted-foreground focus:outline-none transition-colors"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
-            />
-          </div>
+          {/* No search here. Each screen searches a different thing —
+              the storefront, your own inventory, a trade's two sides —
+              and a single box in the header would have to guess which,
+              or change meaning as you navigate. Every screen carries its
+              own, worded for what it actually filters. */}
+          <div className="flex-1" />
 
           {/* Right controls */}
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -2400,9 +2395,15 @@ export default function App() {
           {/* ── Main content ────────────────────────────────────── */}
           <div className="flex-1 min-w-0">
 
-            {/* Filter bar */}
-            <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-              <div className="flex items-center gap-2">
+            {/* Filter bar.
+
+                Three columns rather than a flex row, matching Sell: equal
+                outer columns hold the search in the true centre, where a
+                flex row would let it drift by the difference between the
+                two sides and wander as the count went from "8 listings"
+                to "1,240 listings". */}
+            <div className="grid items-center gap-3 mb-4" style={{ gridTemplateColumns: "1fr auto 1fr" }}>
+              <div className="flex items-center gap-2 min-w-0">
                 <button
                   onClick={() => setFilters(!filtersOpen)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded text-xs font-mono border hover:bg-white/5 transition-colors lg:hidden"
@@ -2411,11 +2412,25 @@ export default function App() {
                   <SlidersHorizontal className="w-3 h-3" />
                   Filters
                 </button>
-                <div className="font-mono text-sm text-muted-foreground">
+                <div className="font-mono text-sm text-muted-foreground whitespace-nowrap">
                   <span className="text-foreground font-semibold">{filtered.length}</span> listings
                 </div>
               </div>
-              <SortDropdown sort={sort} setSort={setSort} />
+
+              {/* Moved down from the header, and renamed on the way: up
+                  there it had to cover every screen, so it said "skins,
+                  weapons"; here it searches one thing and can say so. */}
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search the market…"
+                className="w-[26rem] max-w-full px-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
+                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
+              />
+
+              <div className="flex justify-end">
+                <SortDropdown sort={sort} setSort={setSort} />
+              </div>
             </div>
 
             {/* Skin grid */}
