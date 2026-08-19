@@ -21,7 +21,9 @@ import {
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { logout, startSteamLogin, type InventoryItem } from "@/lib/api";
 import { rarityStyle } from "@/lib/rarity";
+import { AppliedPopup, useAppliedHover } from "./AppliedPopup";
 import {
+  appliedLabel,
   charmsOf,
   isStatTrak,
   rarityKeyForItem,
@@ -1206,6 +1208,10 @@ function TradeInventoryCard({
   const [hovered, setHovered] = useState(false);
   const active = selected || hovered;
 
+  // The same hook the Sell screen uses, so the pause before the popup is
+  // one number for the whole site rather than a copy that drifts.
+  const hover = useAppliedHover();
+
   return (
     <button
       onClick={onClick}
@@ -1230,15 +1236,18 @@ function TradeInventoryCard({
       )}
 
       {/* One badge per unit, never grouped by name — five copies of one
-          sticker can each be scraped differently. No hover popup here:
-          this card is a checkbox, and the detail belongs on the screen
-          where the item is being priced. */}
+          sticker can each be scraped differently, and one can be worth
+          several times another. Same popup and same pause as the Sell
+          screen: the scrape moves the price, so it is worth reading
+          wherever the item is on screen. */}
       {applied.length > 0 && (
         <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
           {applied.map((a, i) => (
             <div
               key={`${a.slot}-${i}`}
-              title={a.name}
+              aria-label={appliedLabel(a)}
+              onMouseEnter={(e) => hover.open(a, e.currentTarget.getBoundingClientRect())}
+              onMouseLeave={hover.close}
               className="rounded-sm flex items-center justify-center overflow-hidden transition-all duration-200"
               style={{
                 width: active ? 18 : 22,
@@ -1257,6 +1266,10 @@ function TradeInventoryCard({
               )}
             </div>
           ))}
+
+          {hover.detail && (
+            <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />
+          )}
         </div>
       )}
 
