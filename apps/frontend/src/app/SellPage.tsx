@@ -252,7 +252,7 @@ export function SellPage({
         {filtered.length === 0 ? (
           <Notice title="Nothing to sell here" body={search ? 'No item matches that search.' : 'No item in this inventory can be traded on Steam.'} />
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-subtle">
             <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
               {filtered.map((item) => (
                 <ItemCard
@@ -629,7 +629,7 @@ function SellPanel(props: {
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-5" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 scrollbar-subtle">
         <div className="flex flex-col gap-2">
           {props.items.map((item) => {
             const r = rarityStyle(rarityKeyForItem(item));
