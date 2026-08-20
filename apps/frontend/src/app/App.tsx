@@ -1621,10 +1621,22 @@ function TradeSide({
           that it does, and sideways wheel scrolling is not something
           every mouse offers. Themed rather than the browser's default,
           which drew a bright bar across a dark panel. */}
+      {/* Centred only while empty. With cards in it the row has to start
+          at the edge and scroll; with nothing in it a line pinned to the
+          left of 224px of empty space reads as leftover rather than as an
+          invitation.
+
+          The scrollbar class comes off in that state too. Its reserved
+          gutter is 8px of the row's width, and an empty row has nothing
+          to scroll — leaving it on put the "centred" line 8px left of
+          the actual centre. */}
       {!collapsed && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-subtle" style={{ minHeight: 224 }}>
+        <div
+          className={`flex gap-1.5 overflow-x-auto pb-1 ${count === 0 ? "items-center justify-center" : "scrollbar-subtle"}`}
+          style={{ minHeight: 224 }}
+        >
           {count === 0 ? (
-            <span className="font-mono text-[10px] italic self-center" style={{ color: "#4a4f68" }}>{empty}</span>
+            <span className="font-mono text-sm italic text-center" style={{ color: "#4a4f68" }}>{empty}</span>
           ) : (
             children
           )}
