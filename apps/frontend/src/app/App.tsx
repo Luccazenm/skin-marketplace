@@ -1555,8 +1555,11 @@ function TradeSide({
     </button>
   );
 
+  // Mirrored with the rest of the header: the count sits on the inside,
+  // nearest the Trade button, and the figure on the outside. On the left
+  // that is money-then-count; on the right it is the other way round.
   const totalNode = (
-    <div className="flex items-center gap-1.5 flex-shrink-0">
+    <div className={`flex items-center gap-1.5 flex-shrink-0 ${align === "right" ? "flex-row-reverse" : ""}`}>
       <span className="font-mono text-xs font-semibold" style={{ color: totalMuted ? "#6c7290" : "#f0f2f8" }}>{total}</span>
       {/* A circle, so a fixed size rather than padding around the digit:
           horizontal padding makes "4" a narrow oval and "12" a wide one.
