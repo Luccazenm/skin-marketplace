@@ -1656,36 +1656,52 @@ function TradeSide({
  * is how someone reads a bill as a refund.
  */
 function TradeDifference({ difference, canTrade }: { difference: number | null; canTrade: boolean }) {
-  if (!canTrade) {
-    return (
-      <div className="font-mono text-[9px] text-center leading-tight" style={{ color: "#4a4f68" }}>
-        Pick from both sides
-      </div>
-    );
-  }
+  // Your side is a real Steam inventory with no prices on it. Treating
+  // that as zero would quote the whole market total as the amount to
+  // add, as if your items were worthless, so an unknown stays unknown.
+  const priced = canTrade && difference !== null;
+  const owed = priced && (difference as number) < 0;
 
-  // Your side is a real Steam inventory with no prices on it. Rather
-  // than treat that as zero — which would quote the whole market total
-  // as the amount to add, as if your items were worthless — it says so.
-  if (difference === null) {
-    return (
-      <div className="font-mono text-[9px] text-center leading-relaxed" style={{ color: "#4a4f68" }}>
-        Your side is not valued yet, so the difference cannot be shown.
-      </div>
-    );
-  }
+  // The box is always here, filled or not. It used to be replaced by a
+  // sentence whenever there was no figure, so the area under the button
+  // changed shape three ways depending on state — and the one shape that
+  // matters, the number, was the one you saw least.
+  const label = !priced
+    ? "Difference"
+    : owed
+      ? "Amount to add to trade"
+      : "Balance after trade";
 
-  const owed = difference < 0;
-  const amount = Math.abs(difference).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const value = priced
+    ? `${owed ? "" : "+"}$${Math.abs(difference as number).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : "—";
+
+  // Neutral until there is a real figure. Amber is money you owe, green
+  // is money coming back; neither should be implied by a placeholder.
+  const tone = !priced ? "#4a4f68" : owed ? "#f0c040" : "#4ade80";
 
   return (
-    <div className="w-full flex flex-col items-center gap-0.5">
-      <span className="font-mono text-[9px] uppercase tracking-wider text-center leading-tight" style={{ color: "#6c7290" }}>
-        {owed ? "Amount to add to trade" : "Balance after trade"}
-      </span>
-      <span className="font-display text-base font-bold leading-none" style={{ color: owed ? "#f0c040" : "#4ade80" }}>
-        {owed ? "" : "+"}${amount}
-      </span>
+    <div className="w-full flex flex-col items-center gap-1.5">
+      <div
+        className="w-full rounded-lg px-2 py-2 flex flex-col items-center gap-1"
+        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+      >
+        <span className="font-mono text-[9px] uppercase tracking-wider text-center leading-tight" style={{ color: "#6c7290" }}>
+          {label}
+        </span>
+        <span className="font-display text-base font-bold leading-none" style={{ color: tone }}>
+          {value}
+        </span>
+      </div>
+
+      {/* Why the box is empty, under it rather than instead of it. */}
+      {!priced && (
+        <span className="font-mono text-[9px] text-center leading-relaxed" style={{ color: "#4a4f68" }}>
+          {canTrade
+            ? "Your side is not valued yet"
+            : "Pick from both sides"}
+        </span>
+      )}
     </div>
   );
 }
