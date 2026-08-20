@@ -1563,14 +1563,19 @@ function TradeSide({
   // No Clear here: each column below the bar already has one, and two
   // buttons doing the same thing within a few hundred pixels only makes
   // the reader check which is which.
+  //
+  // text-sm, matching "Your Inventory" and "Market" below. At text-xs
+  // these read smaller than the column headings under them, which put the
+  // hierarchy upside down: this bar is the trade, the grids are only
+  // where you shop for it.
   const header = (
     <button
       onClick={onToggleCollapse}
-      className="flex items-center gap-1.5 font-display text-xs font-bold tracking-wide flex-shrink-0"
+      className="flex items-center gap-1.5 font-display text-sm font-bold tracking-wide flex-shrink-0"
       style={{ color: "#e8eaf0" }}
     >
       <ChevronDown
-        className="w-3 h-3"
+        className="w-3.5 h-3.5"
         style={{ transform: collapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 150ms" }}
       />
       {title}
