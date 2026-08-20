@@ -21,6 +21,9 @@ import {
   // global and reports it is not a valid component.
   Lock,
   Trash2,
+  HelpCircle,
+  LifeBuoy,
+  Bot,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { logout, startSteamLogin, type AppliedItem, type InventoryItem } from "@/lib/api";
@@ -1706,6 +1709,101 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
   );
 }
 
+/**
+ * The screens behind the account menu.
+ *
+ * All five are stubs for now, and each says what will actually live
+ * there rather than "coming soon" — a placeholder that names its contents
+ * is a specification, and it stops the menu entry from being a button
+ * that does nothing.
+ *
+ * "Trade Bots", never "Bots", in anything a user reads: the short word is
+ * the vocabulary of roulette sites and spam accounts, and the full term
+ * is what the Steam group and the bot accounts are already named.
+ */
+const ACCOUNT_SCREENS: Record<
+  string,
+  { label: string; icon: typeof User; title: string; body: string[] }
+> = {
+  Account: {
+    label: "My account",
+    icon: User,
+    title: "My account",
+    body: [
+      "Your balance and the ledger behind it, the Steam account you are signed in with, and the currency prices are shown in.",
+      "This is also where the trade URL will live — it came off the top of every screen and belongs to the account, not to selling. A buyer needs one as much as a seller, since it is where the Trade Bot delivers what they bought.",
+    ],
+  },
+  Items: {
+    label: "Item status",
+    icon: Package,
+    title: "Item status",
+    body: [
+      "Where each of your items is right now: still in your Steam inventory, on its way to a Trade Bot, held in custody, listed for sale, sold and awaiting delivery, or on its way back to you.",
+      "Anything under Valve's 7-day trade hold shows the days remaining, because that is the question this screen exists to answer.",
+    ],
+  },
+  Bots: {
+    label: "Trade Bots",
+    icon: Bot,
+    title: "Our Trade Bots",
+    body: [
+      "Every Trade Bot we operate, with its steamID64, so you can check an offer against this list before accepting it.",
+      "This is the anti-scam page the Steam group already points at. Our Trade Bots never add you, never message you first, and never ask for your password or Steam Guard code.",
+      "It goes live once every bot is registered — a partial list is worse than none, because an account missing from it would look like a fake.",
+    ],
+  },
+  FAQ: {
+    label: "FAQ",
+    icon: HelpCircle,
+    title: "Frequently asked questions",
+    body: [
+      "How selling works and why it is one step for you and two for us, what the 7-day trade hold means for a listing, what the commission is and when it is taken, and how a Trade Bot offer is meant to look.",
+    ],
+  },
+  Support: {
+    label: "Support",
+    icon: LifeBuoy,
+    title: "Support",
+    body: [
+      "Where to write when a trade did not arrive, a balance looks wrong, or an offer seems off.",
+      "Until this screen exists, support@nextskins.gg reaches the same place.",
+    ],
+  },
+};
+
+/** A screen that is not built yet, saying what will be on it. */
+function StubScreen({ screen }: { screen: (typeof ACCOUNT_SCREENS)[string] }) {
+  const Icon = screen.icon;
+
+  return (
+    <div className="max-w-2xl mx-auto py-12 flex flex-col gap-5">
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(240,192,64,0.12)", border: "1px solid rgba(240,192,64,0.25)" }}
+        >
+          <Icon className="w-5 h-5" style={{ color: "#f0c040" }} />
+        </div>
+        <div>
+          <h1 className="font-display text-xl font-bold" style={{ color: "#e8eaf0" }}>{screen.title}</h1>
+          <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "#6c7290" }}>
+            Not built yet
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {screen.body.map((line) => (
+          <p key={line.slice(0, 24)} className="font-mono text-xs leading-relaxed" style={{ color: "#9da3c0" }}>
+            {line}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Why the inventory column is empty, said rather than left blank. */
 function TradeInventoryNotice({ title, body }: { title: string; body: string }) {
   return (
@@ -2859,11 +2957,32 @@ export default function App() {
                           {session.user.steamId}
                         </div>
                       </div>
+                      {/* Yours first, then the one that protects you from
+                          impersonation, then help. Sign out sits apart at
+                          the bottom, behind its own rule — it is the only
+                          entry here that ends something. */}
+                      <div className="py-1">
+                        {Object.entries(ACCOUNT_SCREENS).map(([id, screen]) => {
+                          const Icon = screen.icon;
+                          return (
+                            <button
+                              key={id}
+                              onClick={() => { setActiveNav(id); setUserMenuOpen(false); }}
+                              className="w-full text-left px-3 py-2 font-display text-xs font-semibold tracking-wide transition-colors hover:bg-white/5 flex items-center gap-2.5"
+                              style={{ color: activeNav === id ? "#f0c040" : "#c0c4d8" }}
+                            >
+                              <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                              {screen.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
                       <button
                         onClick={handleSignOut}
                         disabled={signingOut}
-                        className="w-full text-left px-3 py-2 font-display text-xs font-semibold tracking-wide transition-colors hover:bg-white/5 disabled:opacity-50"
-                        style={{ color: "#e84060" }}
+                        className="w-full text-left px-3 py-2 font-display text-xs font-semibold tracking-wide transition-colors hover:bg-white/5 disabled:opacity-50 border-t"
+                        style={{ color: "#e84060", borderColor: "rgba(255,255,255,0.07)" }}
                       >
                         {signingOut ? "SIGNING OUT…" : "SIGN OUT"}
                       </button>
@@ -2899,7 +3018,9 @@ export default function App() {
           because its background is, while its text sits on the same
           inset. The other screens keep the gutter: they are pages. */}
       <div className={`w-full ${activeNav === "Trade" ? "px-0" : "px-4"} ${activeNav === "Trade" || activeNav === "Sell" ? "py-0" : "py-6"}`}>
-        {activeNav === "Trade" ? <TradePage signedIn={!!session.user} /> : activeNav === "Sell" ? (
+        {ACCOUNT_SCREENS[activeNav] ? (
+          <StubScreen screen={ACCOUNT_SCREENS[activeNav]} />
+        ) : activeNav === "Trade" ? <TradePage signedIn={!!session.user} /> : activeNav === "Sell" ? (
           <SellPage
             signedIn={!!session.user}
             hasTradeUrl={session.user?.hasTradeUrl ?? false}
