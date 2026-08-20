@@ -1105,6 +1105,7 @@ const TRADE_OFFERS: TradeOffer[] = [
 ];
 
 /* ─── Trade skin card (compact, selectable) ─────────────────────────── */
+/** A mock storefront skin, mapped onto the same card as the left side. */
 function TradeSkinCard({
   skin,
   selected,
@@ -1113,93 +1114,28 @@ function TradeSkinCard({
   skin: Skin;
   selected: boolean;
   onClick: () => void;
-  side?: "left" | "right";
 }) {
   const r = RARITY[skin.rarity];
-  const [hovered, setHovered] = useState(false);
-  const active = selected || hovered;
 
   return (
-    <button
+    <TradeGridCard
+      rarity={r}
+      category={skin.weapon}
+      name={skin.name}
+      exterior={skin.wear}
+      float={skin.float}
+      price={`$${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+      statTrak={skin.statTrak}
+      // The mock has a count and a flag, not the items. Placeholders keep
+      // the badges in their corners at the right size until this side
+      // becomes real stock.
+      charms={placeholderApplied("CHARM", skin.charms ? 1 : 0)}
+      stickers={placeholderApplied("STICKER", skin.stickers)}
+      selected={selected}
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
-      style={{
-        height: "230px",
-        borderColor: selected ? r.color : hovered ? r.color : "rgba(255,255,255,0.07)",
-        background: selected
-          ? `linear-gradient(160deg, ${r.color}28, ${r.color}0e)`
-          : `linear-gradient(160deg, ${r.from}, ${r.to})`,
-        boxShadow: active ? `0 0 20px ${r.glow}` : "none",
-      }}
     >
-      {/* Rarity strip */}
-      <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: r.color }} />
-
-      {/* Stickers — top right */}
-      {skin.stickers > 0 && (
-        <div className="absolute top-2 right-2 flex flex-col gap-0.5 z-10">
-          {Array.from({ length: skin.stickers }).map((_, i) => (
-            <div key={i} className="w-5 h-5 rounded-sm flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
-              <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                <circle cx="6" cy="6" r="4.5" stroke="#c0c4d8" strokeWidth="1" strokeDasharray="2 1.5"/>
-                <circle cx="6" cy="6" r="1.5" fill="#c0c4d8"/>
-              </svg>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Illustration */}
-      <div className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
-        style={{ paddingTop: active ? "8px" : "16px", paddingBottom: active ? "8px" : "16px" }}>
-        {skin.statTrak && (
-          <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10"
-            style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}>ST</span>
-        )}
-        <div className="w-full h-full max-w-[160px]">
-          <WeaponSVG weapon={skin.weapon} color={r.color} />
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="mx-3" style={{ height: "1px", background: "rgba(255,255,255,0.07)" }} />
-
-      {/* Info footer */}
-      <div className="px-3 py-2.5">
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          <div className="min-w-0">
-            <div className="text-[9px] font-mono uppercase tracking-wider leading-none mb-0.5" style={{ color: r.color }}>{skin.weapon}</div>
-            <div className="font-display text-sm font-semibold text-foreground leading-tight truncate">{skin.name}</div>
-          </div>
-          <div className="text-right flex-shrink-0">
-            <div className="font-mono text-[9px] text-muted-foreground">{skin.wear}</div>
-            <div className="font-mono text-[9px]" style={{ color: r.color }}>{skin.float.toFixed(4)}</div>
-          </div>
-        </div>
-        <div className="font-mono font-semibold text-sm leading-none" style={{ color: "#f0f2f8" }}>
-          ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </div>
-      </div>
-
-      {/* Action row — stays open while selected, same as the Sell grid. */}
-      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
-        <div style={{ overflow: "hidden" }}>
-          <div className="px-3 pb-2.5">
-            <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
-              style={{
-                background: selected ? "rgba(255,255,255,0.08)" : "#f0c040",
-                color: selected ? "#e8eaf0" : "#08090d",
-                opacity: active ? 1 : 0,
-              }}>
-              {selected ? "DESELECT" : "SELECT"}
-            </div>
-          </div>
-        </div>
-      </div>
-    </button>
+      <WeaponSVG weapon={skin.weapon} color={r.color} />
+    </TradeGridCard>
   );
 }
 
@@ -1215,18 +1151,53 @@ function TradeSkinCard({
  * this screen is still the mock storefront, which is where the prices on
  * this page come from.
  */
-function TradeInventoryCard({
-  item,
+/**
+ * One card in either trade grid.
+ *
+ * Both sides of the screen render this — your inventory on the left, the
+ * market on the right — so the two cannot drift apart. They were separate
+ * components and had already diverged: different footer layouts, badges
+ * at different sizes, stickers stacked in the same corner as the charm.
+ *
+ * It takes plain values rather than an item, because the two sides hold
+ * different shapes: the left has real `InventoryItem`s from Steam and the
+ * right still has the mock storefront. When the right side becomes real
+ * stock, only the mapping above it changes.
+ */
+function TradeGridCard({
+  rarity,
+  category,
+  name,
+  exterior,
+  float,
+  price,
+  priceMuted = false,
+  statTrak = false,
+  charms = [],
+  stickers = [],
   selected,
   onClick,
+  children,
 }: {
-  item: InventoryItem;
+  rarity: { color: string; glow: string; from: string; to: string };
+  /** Weapon or item type — the small line above the name. */
+  category: string;
+  name: string;
+  exterior: string | null;
+  float: number | null;
+  /** Already formatted, because the two sides format differently. */
+  price: string;
+  /** True when the figure is a placeholder rather than a number. */
+  priceMuted?: boolean;
+  statTrak?: boolean;
+  charms?: AppliedItem[];
+  stickers?: AppliedItem[];
   selected: boolean;
   onClick: () => void;
+  /** The artwork: a Steam image on one side, a drawn weapon on the other. */
+  children: ReactNode;
 }) {
-  const r = rarityStyle(rarityKeyForItem(item));
-  const charms = charmsOf(item);
-  const stickers = stickersOf(item);
+  const r = rarity;
   const [hovered, setHovered] = useState(false);
   const active = selected || hovered;
 
@@ -1262,15 +1233,11 @@ function TradeInventoryCard({
         className="relative flex-1 flex items-center justify-center px-4 overflow-hidden transition-all duration-200"
         style={{ paddingTop: active ? "8px" : "16px", paddingBottom: active ? "8px" : "16px" }}
       >
-        {isStatTrak(item) && (
+        {statTrak && (
           <span className="absolute bottom-1.5 left-2 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded z-10" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040", border: "1px solid rgba(240,192,64,0.3)" }}>ST</span>
         )}
         <div className="w-full h-full max-w-[160px] flex items-center justify-center">
-          {item.iconUrl ? (
-            <img src={item.iconUrl} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
-          ) : (
-            <Package className="w-10 h-10" style={{ color: r.color, opacity: 0.4 }} />
-          )}
+          {children}
         </div>
       </div>
 
@@ -1282,26 +1249,23 @@ function TradeInventoryCard({
           being squeezed to literally zero and every card read as blank. */}
       <div className="px-2 py-2 flex flex-col gap-0.5 min-w-0">
         <div className="text-[9px] font-mono uppercase tracking-wider leading-none truncate" style={{ color: r.color }}>
-          {item.catalog?.weapon ?? item.typeLabel ?? ""}
+          {category}
         </div>
         <div className="font-display text-xs font-semibold text-foreground leading-tight truncate">
-          {item.catalog?.skinName ?? item.marketHashName}
+          {name}
         </div>
         <div className="flex items-baseline justify-between gap-1 font-mono text-[9px] min-w-0">
-          <span className="truncate" style={{ color: "#6c7290" }}>{item.exterior ?? ""}</span>
-          {item.float !== null && (
-            <span className="flex-shrink-0" style={{ color: r.color }}>{item.float.toFixed(4)}</span>
+          <span className="truncate" style={{ color: "#6c7290" }}>{exterior ?? ""}</span>
+          {float !== null && (
+            <span className="flex-shrink-0" style={{ color: r.color }}>{float.toFixed(4)}</span>
           )}
         </div>
 
-        {/* The value slot. Empty on purpose for now: a Steam inventory
-            carries no price, PriceSnapshot has no rows and no provider
-            adapter is written yet, so anything printed here would be
-            invented — and this is the number a trade is judged on.
-            The line is here so the card does not move when the price
-            source lands; only this string changes. */}
-        <div className="font-mono font-semibold text-xs leading-none pt-0.5" style={{ color: "#4a4f68" }}>
-          Not priced
+        {/* The value line always renders, priced or not, so the card does
+            not change height when a price source lands — only the string
+            does. Muted when it is a placeholder rather than a figure. */}
+        <div className="font-mono font-semibold text-xs leading-none pt-0.5" style={{ color: priceMuted ? "#4a4f68" : "#f0f2f8" }}>
+          {price}
         </div>
       </div>
 
@@ -1324,6 +1288,64 @@ function TradeInventoryCard({
       </div>
     </button>
   );
+}
+
+/** A real Steam inventory item, mapped onto the shared card. */
+function TradeInventoryCard({
+  item,
+  selected,
+  onClick,
+}: {
+  item: InventoryItem;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const r = rarityStyle(rarityKeyForItem(item));
+
+  return (
+    <TradeGridCard
+      rarity={r}
+      category={item.catalog?.weapon ?? item.typeLabel ?? ""}
+      name={item.catalog?.skinName ?? item.marketHashName}
+      exterior={item.exterior}
+      float={item.float}
+      // A Steam inventory carries no price, PriceSnapshot has no rows and
+      // no provider adapter is written yet. Anything printed here would
+      // be invented, on the number a trade is judged by.
+      price="Not priced"
+      priceMuted
+      statTrak={isStatTrak(item)}
+      charms={charmsOf(item)}
+      stickers={stickersOf(item)}
+      selected={selected}
+      onClick={onClick}
+    >
+      {item.iconUrl ? (
+        <img src={item.iconUrl} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+      ) : (
+        <Package className="w-10 h-10" style={{ color: r.color, opacity: 0.4 }} />
+      )}
+    </TradeGridCard>
+  );
+}
+
+/**
+ * Placeholder applied items, so the mock side can fill the same slots.
+ *
+ * The storefront mock carries a sticker count and a charm flag, not the
+ * items themselves. These stand in until it becomes real stock: same
+ * badges, same corners, same sizes — they simply have no artwork yet, and
+ * fall back to the dashed circle the real ones use when Steam has no
+ * image either.
+ */
+function placeholderApplied(kind: AppliedItem["kind"], count: number): AppliedItem[] {
+  return Array.from({ length: count }, (_, i) => ({
+    kind,
+    name: kind === "CHARM" ? "Charm" : "Sticker",
+    imageUrl: null,
+    slot: i,
+    wear: null,
+  }));
 }
 
 /**
@@ -2242,7 +2264,6 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                 skin={skin}
                 selected={mktSelected.includes(skin.id)}
                 onClick={() => toggleMkt(skin.id)}
-                side="right"
               />
             ))}
           </div>
