@@ -71,4 +71,16 @@ explicitly accepted. Attribution is not required, only appreciated.
 **Save this reply as a PDF.** It is the authorisation that supports
 showing a third party's prices in our storefront.
 
-**SteamWebAPI** — awaiting a reply.
+**SteamWebAPI** — awaiting a reply, and now blocking. The Pro+ plan
+(€ 120) was chosen on 2026-08-21 alongside cs2.sh Developer, so the same
+two questions above have to be answered by them in writing before the
+integration is built:
+
+1. May we display the data to end users on a commercial marketplace?
+2. How often is each market updated, and is there a timestamp per price?
+
+A third, specific to them: **does `buyorderprice` cover any market other
+than Steam?** Their documentation only shows Steam buy orders, and their
+BUFF endpoint returns the lowest listing alone. If the answer is Steam
+only, cs2.sh stays the sole source of the bid — which is what the pricing
+model is anchored on.

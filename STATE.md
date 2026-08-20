@@ -581,12 +581,50 @@ Developer, and our own series gives price stability in about 3 months.
 That is US$ 1,500/year of difference before there is any revenue, and
 moving up a plan later is trivial.
 
-**Still open:** whether Developer includes volume alongside the price.
-That is what decides whether Scale pays for itself. Settle it with the
-**free 2-day key** (requested on Discord) before subscribing.
+**Settled on 2026-08-21: cs2.sh Developer (US$ 75) AND SteamWebAPI Pro+
+(€ 120), rather than cs2.sh Scale (US$ 200) alone.** Roughly the same
+monthly cost — slightly more, since € 120 is above US$ 130 today — for
+the same bid plus a Steam toolkit the price-only plan does not have.
 
-SteamWebAPI's reply is still pending. See
-[docs/emails-and-vendors.md](docs/emails-and-vendors.md).
+What the comparison turned on:
+
+1. **The bid is identical in both.** `/v1/prices/latest` is documented as
+   "available on all plans", and the BUFF object in its schema carries
+   `ask`, `ask_volume`, `bid`, `bid_volume` with no field gated to a
+   higher tier. That also answers the volume question left open above —
+   from the documentation, not yet from an observed payload.
+2. **History stopped being an argument for Scale.** It was the strongest
+   one: without it the 30-day chart is empty for a month. But Pro+ returns
+   24h/7d/30d/90d windows on the item itself, so the chart works from day
+   one, sourced from the other vendor.
+3. **Only the liquidity endpoint is genuinely lost**, and the discount
+   table is keyed on the spread, which is `(ask - bid) / bid`.
+4. **SteamWebAPI's bid is Steam's, not BUFF's** — their BUFF endpoint
+   returns the lowest active listing and nothing else. A Steam buy order
+   is placed in funds that cannot be withdrawn, so it is inflated for the
+   same reason the Steam ask is, and anchoring on it would break the rule
+   in CLAUDE.md. **cs2.sh is not replaceable for the bid.**
+
+**Two things before paying:**
+
+- **Confirm the bid on the free 2-day Developer key.** The documentation
+  is explicit, but incomplete documentation happens — SteamWebAPI's own
+  pricing page never says their bid is Steam-only.
+- **Get SteamWebAPI's written permission to display the data.** cs2.sh
+  answered this; SteamWebAPI has not. See
+  [docs/emails-and-vendors.md](docs/emails-and-vendors.md).
+
+**Half of Pro+ is not for us, and that is fine.** Its trade-offer and
+Steam Guard endpoints would mean handing bot credentials to a third
+party, which the vault rule forbids. Its inspect-link decoder is
+redundant — float and stickers already arrive in the inventory read.
+Option B is worth it for what remains, not for the feature list.
+
+**Worth measuring during the trial:** Pro+ advertises 100 inventory reads
+per minute, from their address. One of ours does 900 an hour. That is not
+a reason to move a core read to a third party — they would see users'
+inventories — but if the plan is bought anyway, the number belongs in the
+egress-IP sizing before addresses are reserved.
 
 **The rule when combining sources:** BUFF governs the reference price;
 Western markets appear alongside it, never in an average. An average
