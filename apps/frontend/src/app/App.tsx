@@ -2257,7 +2257,11 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
 
         {/* Grid */}
         <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-0 scrollbar-subtle">
-          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+          {/* The same rule as the inventory grid, not a fixed six. Both
+              columns are 639px, so a fixed count here and auto-fill there
+              put the same card at 97px against 118px — under the 112px
+              the wear label needs, which is why that minimum exists. */}
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(112px, 1fr))" }}>
             {mktFiltered.map((skin) => (
               <TradeSkinCard
                 key={skin.id}
