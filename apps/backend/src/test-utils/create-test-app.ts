@@ -3,7 +3,9 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { User } from '@prisma/client';
 import { setupApp } from '../app-setup';
+import { PriceSource } from '@prisma/client';
 import { AppModule } from '../app.module';
+import { Cs2ShProvider } from '../pricing/cs2sh.provider';
 import { TokenService } from '../auth/token.service';
 import { SteamBanService } from '../auth/steam-ban.service';
 import { SteamOpenIdService } from '../auth/steam-openid.service';
@@ -55,6 +57,20 @@ export async function createTestApp(): Promise<TestApp> {
     inventory: { fetchInventory: jest.fn() },
   };
 
+  // The price source is stubbed for the same reason every Steam service
+  // is: a suite that reaches the network is slow, flaky, and spends a
+  // paid quota on every run. The mapping is covered against a real cs2.sh
+  // payload in cs2sh.provider.spec.ts, which needs no network either —
+  // it reads a recorded response.
+  const prices = {
+    source: PriceSource.CS2SH,
+    configured: true,
+    fetchPrices: jest.fn().mockResolvedValue([]),
+    fetchAll: jest
+      .fn()
+      .mockResolvedValue({ items: {}, collectedAt: new Date() }),
+  };
+
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(SteamOpenIdService)
     .useValue(steam.openId)
@@ -64,6 +80,8 @@ export async function createTestApp(): Promise<TestApp> {
     .useValue(steam.ban)
     .overrideProvider(SteamInventoryService)
     .useValue(steam.inventory)
+    .overrideProvider(Cs2ShProvider)
+    .useValue(prices)
     .compile();
 
   const app = moduleRef.createNestApplication();

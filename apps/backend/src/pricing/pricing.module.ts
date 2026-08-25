@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
 import { Cs2ShProvider } from './cs2sh.provider';
 import { PriceHistoryService } from './price-history.service';
 import { PriceService } from './price.service';
+import { PricingController } from './pricing.controller';
 
 /**
  * Pricing.
@@ -20,7 +22,8 @@ import { PriceService } from './price.service';
  * cannot be built backwards.
  */
 @Module({
-  imports: [PrismaModule, RedisModule],
+  imports: [AuthModule, PrismaModule, RedisModule],
+  controllers: [PricingController],
   providers: [PriceHistoryService, Cs2ShProvider, PriceService],
   exports: [PriceHistoryService, Cs2ShProvider, PriceService],
 })
