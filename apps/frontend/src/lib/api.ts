@@ -403,6 +403,50 @@ export async function getPrices(
   return result.prices;
 }
 
+/** What one applied piece is worth, and what it adds to the weapon. */
+export interface SuggestedPart {
+  marketHashName: string;
+  kind: string;
+  /** What the piece sells for by itself. Null where no market has it. */
+  own: string | null;
+  /** What it adds to this weapon, after transfer, scrape and the cap. */
+  adds: string;
+}
+
+/**
+ * POST /api/prices/suggest — what to ask for one of your own items.
+ *
+ * `base + stickers at their transfer rate + charm in full`, with the
+ * sticker part capped at twice the skin. The parts come back with the
+ * total because the screen shows them: the whole point is that a seller
+ * can see how little of four stickers actually transfers.
+ *
+ * **Never called a market price.** It is a suggestion and the seller
+ * sets the figure.
+ */
+export type Suggestion =
+  | {
+      suggested: string;
+      /** The skin on its own. */
+      base: string;
+      /** What the stickers add, after the cap. */
+      stickers: string;
+      /** What the charms add, always in full. */
+      charms: string;
+      /** The stickers were worth more than twice the skin. */
+      stickerCapped: boolean;
+      applied: SuggestedPart[];
+    }
+  | { suggested: null; reason: 'no_base_price' };
+
+/** Takes only the asset id — the stickers are read from the inventory. */
+export async function getSuggestion(assetId: string): Promise<Suggestion> {
+  return request<Suggestion>('/prices/suggest', {
+    method: 'POST',
+    body: JSON.stringify({ assetId }),
+  });
+}
+
 // ---------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------

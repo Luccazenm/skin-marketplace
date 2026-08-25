@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { InventoryModule } from '../inventory/inventory.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RedisModule } from '../redis/redis.module';
 import { Cs2ShProvider } from './cs2sh.provider';
@@ -22,7 +23,9 @@ import { PricingController } from './pricing.controller';
  * cannot be built backwards.
  */
 @Module({
-  imports: [AuthModule, PrismaModule, RedisModule],
+  // InventoryModule because the price suggestion reads the item from
+  // the caller's own inventory rather than from the request body.
+  imports: [AuthModule, InventoryModule, PrismaModule, RedisModule],
   controllers: [PricingController],
   providers: [PriceHistoryService, Cs2ShProvider, PriceService],
   exports: [PriceHistoryService, Cs2ShProvider, PriceService],

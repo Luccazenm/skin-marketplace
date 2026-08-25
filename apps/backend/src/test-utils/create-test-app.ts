@@ -39,6 +39,12 @@ export interface TestApp {
     ban: { fetchBanStatus: jest.Mock };
     inventory: { fetchInventory: jest.Mock };
   };
+  /**
+   * The stubbed price source. Tests that care what an item is worth set
+   * `fetchPrices` here; everything else gets an empty answer, which is a
+   * state the screens have to survive anyway.
+   */
+  prices: { fetchPrices: jest.Mock; fetchAll: jest.Mock };
   /** Authentication header for a user. */
   authFor: (user: User) => Record<string, string>;
   close: () => Promise<void>;
@@ -99,6 +105,7 @@ export async function createTestApp(): Promise<TestApp> {
     redis,
     tokens,
     steam,
+    prices,
     authFor: (user) => ({
       Authorization: `Bearer ${tokens.sign({ sub: user.id, steamId: user.steamId })}`,
     }),

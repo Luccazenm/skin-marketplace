@@ -4,7 +4,7 @@ import type { InventoryItem, ItemPrice } from '@/lib/api';
 import { AppliedPopup, useAppliedHover } from './AppliedPopup';
 import { payoutAfterFee, toCents, usd } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
-import { usePrices } from '@/lib/use-prices';
+import { useSuggestion } from '@/lib/use-suggestion';
 import {
   charmsOf,
   isStatTrak,
@@ -57,12 +57,23 @@ export function SellDetail({
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
 
-  // Each applied piece priced as what it is: an item of its own, with
-  // its own market. Asked for here rather than by the grid, because a
-  // grid of two hundred weapons carries a thousand stickers and nobody
-  // is looking at them until they open one.
   const applied = [...charms, ...stickers];
-  const appliedMarket = usePrices(applied.map((a) => a.marketHashName));
+
+  // The suggestion is computed by the backend, from the item in the
+  // inventory rather than from anything on this screen: the transfer
+  // rates, the scrape and the cap are money rules, and money rules in a
+  // browser are rules a browser can argue with. Asked for here rather
+  // than by the grid — it is one request per opened item, not one per
+  // card in a grid of two hundred.
+  const { suggestion } = useSuggestion(item.assetId);
+
+  const breakdown =
+    suggestion && suggestion.suggested !== null ? suggestion : null;
+
+  /** What each piece adds, keyed by name, for the labels on the images. */
+  const parts = new Map(
+    (breakdown?.applied ?? []).map((a) => [a.marketHashName, a]),
+  );
 
   /**
    * The applied pieces are worth at least as much as the skin they are
@@ -73,12 +84,10 @@ export function SellDetail({
    * prices the skin alone: on an ordinary item that is a footnote, and
    * on this one it is the whole story.
    */
-  const appliedTotal = applied.reduce(
-    (sum, a) => sum + (appliedMarket.prices[a.marketHashName]?.ask ?? 0),
-    0,
-  );
-
-  const appliedDominates = market !== undefined && appliedTotal >= market.ask;
+  const appliedDominates =
+    breakdown !== null &&
+    breakdown.applied.reduce((sum, a) => sum + Number(a.own ?? 0), 0) >=
+      Number(breakdown.base);
 
   const hover = useAppliedHover();
 
@@ -149,7 +158,7 @@ export function SellDetail({
                     in the same popup the grid card uses. */}
                 <div className="flex flex-wrap gap-2">
                   {applied.map((piece, i) => {
-                    const own = appliedMarket.prices[piece.marketHashName];
+                    const part = parts.get(piece.marketHashName);
 
                     return (
                       <div
@@ -180,10 +189,21 @@ export function SellDetail({
                             worthless rather than as unlisted. */}
                         <div
                           className="font-mono text-[11px] font-semibold"
-                          style={{ color: own ? '#e8eaf0' : '#4a4f68' }}
+                          style={{ color: part?.own ? '#e8eaf0' : '#4a4f68' }}
                         >
-                          {own ? usd(own.ask) : '—'}
+                          {part?.own ? usd(Number(part.own)) : '—'}
                         </div>
+
+                        {/* And what it actually adds to this weapon,
+                            underneath, in green — the two numbers side by
+                            side are the whole argument. A $3,422 Titan
+                            adding $60 says more than any sentence about
+                            transfer rates could. */}
+                        {part && (
+                          <div className="font-mono text-[11px] font-semibold" style={{ color: '#4ade80' }}>
+                            +{usd(Number(part.adds))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -277,11 +297,43 @@ export function SellDetail({
                 <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>Recommended</span>
                 <span
                   className="font-mono text-base font-semibold"
-                  style={{ color: market ? '#e8eaf0' : '#4a4f68' }}
+                  style={{ color: breakdown ? '#e8eaf0' : '#4a4f68' }}
                 >
-                  {market ? usd(market.ask) : '—'}
+                  {breakdown ? usd(Number(breakdown.suggested)) : '—'}
                 </span>
               </div>
+
+              {/* What the number is made of. The whole reason it is
+                  itemised: a seller looking at four Katowice stickers
+                  needs to see that the rifle is $30 of the total and the
+                  stickers are $61, not $5,821 — and a single figure says
+                  none of that. */}
+              {breakdown && (applied.length > 0 || breakdown.stickerCapped) && (
+                <div className="flex flex-col gap-1 mb-3">
+                  <Part label="Skin" value={usd(Number(breakdown.base))} />
+                  {Number(breakdown.stickers) > 0 && (
+                    <Part
+                      label={breakdown.stickerCapped ? 'Stickers (capped)' : 'Stickers'}
+                      value={`+${usd(Number(breakdown.stickers))}`}
+                      capped={breakdown.stickerCapped}
+                    />
+                  )}
+                  {Number(breakdown.charms) > 0 && (
+                    <Part label="Charm" value={`+${usd(Number(breakdown.charms))}`} />
+                  )}
+
+                  {/* Said once, where the cap is, rather than as a
+                      standing disclaimer: the cap is the surprising part
+                      and it only binds on the items where it matters. */}
+                  {breakdown.stickerCapped && (
+                    <div className="font-mono text-[11px] leading-relaxed mt-1" style={{ color: '#6c7290' }}>
+                      Stickers add at most twice the skin. Nobody pays a
+                      four-figure premium on a rifle — sell the stickers,
+                      not the gun.
+                    </div>
+                  )}
+                </div>
+              )}
 
               {market ? (
                 <InstantSell
@@ -432,6 +484,31 @@ function InstantSell({
         </div>
       )}
     </>
+  );
+}
+
+/** One line of the suggestion's arithmetic. */
+function Part({
+  label,
+  value,
+  capped,
+}: {
+  label: string;
+  value: string;
+  capped?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="font-mono text-[12px]" style={{ color: '#6c7290' }}>
+        {label}
+      </span>
+      <span
+        className="font-mono text-[12px] font-semibold"
+        style={{ color: capped ? '#f0c040' : '#9da3c0' }}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 
