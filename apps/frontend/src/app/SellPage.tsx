@@ -297,6 +297,7 @@ export function SellPage({
           <SellDetail
             item={item}
             price={prices[item.assetId] ?? ''}
+            market={market.prices[item.marketHashName]}
             onPriceChange={(p) => setPrices((prev) => ({ ...prev, [item.assetId]: p }))}
             feePercent={feePercent}
             isListed={selected.includes(item.assetId)}
@@ -382,7 +383,7 @@ function AppliedStack({
     >
       {items.map((applied, i) => (
         <div
-          key={`${applied.slot}-${i}`}
+          key={`${applied.position}-${i}`}
           aria-label={appliedLabel(applied)}
           onMouseEnter={(e) =>
             hover.open(applied, e.currentTarget.getBoundingClientRect())
@@ -589,7 +590,7 @@ function AppliedRow({ items }: { items: AppliedItem[] }) {
     <div className="flex flex-wrap items-center gap-1">
       {items.map((applied, i) => (
         <div
-          key={`${applied.slot}-${i}`}
+          key={`${applied.position}-${i}`}
           aria-label={appliedLabel(applied)}
           onMouseEnter={(e) =>
             hover.open(applied, e.currentTarget.getBoundingClientRect())

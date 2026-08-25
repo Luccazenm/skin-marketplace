@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { X, Package } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
-import type { AppliedItem, InventoryItem } from '@/lib/api';
+import { X, Package } from 'lucide-react';
+import type { InventoryItem, ItemPrice } from '@/lib/api';
 import { AppliedPopup, useAppliedHover } from './AppliedPopup';
-import { payoutAfterFee, toCents } from '@/lib/money';
+import { payoutAfterFee, toCents, usd } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
+import { usePrices } from '@/lib/use-prices';
 import {
   charmsOf,
   isStatTrak,
@@ -30,6 +30,7 @@ import {
 export function SellDetail({
   item,
   price,
+  market,
   onPriceChange,
   feePercent,
   isListed,
@@ -38,6 +39,8 @@ export function SellDetail({
 }: {
   item: InventoryItem;
   price: string;
+  /** The market's price for the skin itself. Absent when it has none. */
+  market: ItemPrice | undefined;
   onPriceChange: (price: string) => void;
   /** From GET /api/config, never assumed. */
   feePercent: number | null;
@@ -48,6 +51,34 @@ export function SellDetail({
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
+
+  // Each applied piece priced as what it is: an item of its own, with
+  // its own market. Asked for here rather than by the grid, because a
+  // grid of two hundred weapons carries a thousand stickers and nobody
+  // is looking at them until they open one.
+  const applied = [...charms, ...stickers];
+  const appliedMarket = usePrices(applied.map((a) => a.marketHashName));
+
+  const appliedTotal = applied.reduce(
+    (sum, a) => sum + (appliedMarket.prices[a.marketHashName]?.ask ?? 0),
+    0,
+  );
+
+  /**
+   * The stickers are worth at least as much as the skin they are on.
+   *
+   * Not a valuation — it is the question of which half of the item the
+   * recommendation describes. The number below prices the skin alone, so
+   * on an AK-47 Blue Laminate carrying $5,821 of Katowice stickers it
+   * reads $30.80, and a button that fills that in with one click is a
+   * way to lose thousands by accident. Above this line the suggestion
+   * stops being offered and says why.
+   *
+   * The real answer is the capped `base + stickers + charm` suggestion,
+   * which needs a transfer rate per sticker and is not written yet.
+   * Until it is, refusing to suggest beats suggesting the wrong half.
+   */
+  const appliedDominates = market !== undefined && appliedTotal >= market.ask;
 
   const hover = useAppliedHover();
 
@@ -107,45 +138,86 @@ export function SellDetail({
               )}
             </div>
 
-            {(stickers.length > 0 || charms.length > 0) && (
+            {applied.length > 0 && (
               <div className="px-5 pb-5">
-                <div className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: r.color }}>
-                  Applied
+                <div className="flex items-baseline justify-between mb-2">
+                  <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: r.color }}>
+                    Applied
+                  </span>
+                  {/* The sum of what these pieces sell for on their own.
+                      Said in those words on the line below, because the
+                      number is meaningless without them: it is not what
+                      the weapon is worth, and on a Katowice rifle it can
+                      be twenty times the skin. */}
+                  {appliedTotal > 0 && (
+                    <span className="font-mono text-[10px]" style={{ color: '#9da3c0' }}>
+                      {usd(appliedTotal)} on their own
+                    </span>
+                  )}
                 </div>
                 {/* No names here: five copies of one sticker would be
                     five identical lines of truncated text, and the image
                     already says which it is. The full name is on hover,
                     in the same popup the grid card uses. */}
                 <div className="flex flex-wrap gap-2">
-                  {[...charms, ...stickers].map((applied, i) => (
-                    <div
-                      key={`${applied.slot}-${i}`}
-                      onMouseEnter={(e) =>
-                        hover.open(applied, e.currentTarget.getBoundingClientRect())
-                      }
-                      onMouseLeave={hover.close}
-                      className="flex flex-col items-center gap-1 p-2 rounded"
-                      style={{ background: 'rgba(255,255,255,0.04)', width: 64 }}
-                    >
-                      <div className="w-12 h-12 flex items-center justify-center">
-                        {applied.imageUrl && (
-                          <img src={applied.imageUrl} alt={applied.name} className="max-h-full max-w-full object-contain" />
-                        )}
-                      </div>
-                      {/* Charms do not scrape, and a sticker the backend
-                          could not match a scrape to has none either — so
-                          the line is absent rather than empty. */}
-                      {applied.wear !== null && (
-                        <div className="font-mono text-[9px] font-semibold" style={{ color: '#f0c040' }}>
-                          {applied.wear === 0 ? 'Untouched' : `${Math.round(applied.wear * 100)}%`}
+                  {applied.map((piece, i) => {
+                    const own = appliedMarket.prices[piece.marketHashName];
+
+                    return (
+                      <div
+                        key={`${piece.position}-${i}`}
+                        onMouseEnter={(e) =>
+                          hover.open(piece, e.currentTarget.getBoundingClientRect())
+                        }
+                        onMouseLeave={hover.close}
+                        className="flex flex-col items-center gap-1 p-2 rounded"
+                        style={{ background: 'rgba(255,255,255,0.04)', width: 72 }}
+                      >
+                        <div className="w-12 h-12 flex items-center justify-center">
+                          {piece.imageUrl && (
+                            <img src={piece.imageUrl} alt={piece.name} className="max-h-full max-w-full object-contain" />
+                          )}
                         </div>
-                      )}
-                      {/* The slot the value will occupy. Empty until a
-                          price source is subscribed — a sticker's worth
-                          is most of what a stickered weapon is worth. */}
-                      <div className="font-mono text-[9px]" style={{ color: '#4a4f68' }}>—</div>
+                        {/* Charms do not scrape, and a sticker the backend
+                            could not match a scrape to has none either — so
+                            the line is absent rather than empty. */}
+                        {piece.wear !== null && (
+                          <div className="font-mono text-[9px] font-semibold" style={{ color: '#f0c040' }}>
+                            {piece.wear === 0 ? 'Untouched' : `${Math.round(piece.wear * 100)}%`}
+                          </div>
+                        )}
+                        {/* What this piece sells for by itself. A dash
+                            where no market carries it — plenty of old
+                            stickers have none, and a zero would read as
+                            worthless rather than as unlisted. */}
+                        <div
+                          className="font-mono text-[9px] font-semibold"
+                          style={{ color: own ? '#e8eaf0' : '#4a4f68' }}
+                        >
+                          {own ? usd(own.ask) : '—'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* The sentence that stops someone reading the total
+                    above as their rifle's price. Both halves are true and
+                    they point opposite ways, which is exactly why both
+                    are here: a sticker mostly dies on the gun, a charm
+                    comes off whole. */}
+                <div className="font-mono text-[10px] leading-relaxed mt-2" style={{ color: '#6c7290' }}>
+                  {stickers.length > 0 && (
+                    <div>
+                      Stickers are destroyed when removed, so only a small
+                      part of that reaches what the weapon sells for.
                     </div>
-                  ))}
+                  )}
+                  {charms.length > 0 && (
+                    <div>
+                      A charm comes off intact and can be sold on its own.
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -157,10 +229,12 @@ export function SellDetail({
               <div className="font-mono text-[9px] uppercase tracking-wider mb-3" style={{ color: '#6c7290' }}>
                 30-day price history
               </div>
-              {/* The frame, with nothing in it. Kept so the shape of the
-                  screen is settled before the data arrives, and left
-                  visibly empty so nobody mistakes a placeholder line for
-                  a real series. */}
+              {/* The frame, with nothing in it yet. Every price read on
+                  this screen is being stored, so the series is being
+                  built from today forward — but nobody can build one
+                  backwards, and drawing a line through four hours of
+                  readings and calling it 30 days would be a lie with a
+                  chart around it. */}
               <div className="relative" style={{ height: 140 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={[]}>
@@ -171,7 +245,7 @@ export function SellDetail({
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="font-mono text-[10px]" style={{ color: '#4a4f68' }}>
-                    No price history yet
+                    Building the series — not enough days yet
                   </span>
                 </div>
               </div>
@@ -227,18 +301,94 @@ export function SellDetail({
                   from the float, which is not what a pattern is — this
                   one comes from Steam. */}
               {item.paintSeed !== null && <Row label="Pattern" value={String(item.paintSeed)} />}
-              <Row label="Volume" value="—" muted />
+              {/* Listings standing on the market, not sales — depth, not
+                  turnover. Forty thousand of a case says it will always
+                  sell; twenty-five of a knife says the next price is
+                  whatever the next buyer feels like. */}
+              <Row
+                label="Listings"
+                value={
+                  market?.askVolume != null
+                    ? market.askVolume.toLocaleString('en-US')
+                    : '—'
+                }
+                muted={market?.askVolume == null}
+              />
+              {/* What someone is offering to pay right now, against what
+                  someone is asking. The gap between the two is how fast
+                  the item moves, and it is the number a seller wants
+                  before deciding what to charge. */}
+              <Row
+                label="Highest bid"
+                value={market?.bid != null ? usd(market.bid) : '—'}
+                muted={market?.bid == null}
+              />
             </div>
 
             <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
               <div className="flex items-center justify-between mb-1">
                 <span className="font-mono text-[11px]" style={{ color: '#6c7290' }}>Recommended</span>
-                <span className="font-mono text-sm" style={{ color: '#4a4f68' }}>—</span>
+                <span
+                  className="font-mono text-sm font-semibold"
+                  style={{ color: market ? '#e8eaf0' : '#4a4f68' }}
+                >
+                  {market ? usd(market.ask) : '—'}
+                </span>
               </div>
-              <div className="font-mono text-[10px] leading-relaxed" style={{ color: '#4a4f68' }}>
-                Waiting on a market price source. Until then this is yours
-                to decide.
-              </div>
+
+              {market ? (
+                <>
+                  {appliedDominates ? (
+                    /* Loud, and where the button was: this is the one
+                       place on the screen someone can lose a lot of
+                       money in a single click, and a grey footnote under
+                       a bright number is not a warning. */
+                    <div
+                      className="rounded px-2.5 py-2 font-mono text-[10px] leading-relaxed"
+                      style={{
+                        background: 'rgba(232,64,96,0.08)',
+                        border: '1px solid rgba(232,64,96,0.25)',
+                        color: '#f0a0b0',
+                      }}
+                    >
+                      What is on this is worth more than the skin itself —
+                      {' '}{usd(appliedTotal)} against {usd(market.ask)}. We
+                      do not price applied stickers yet, so there is no
+                      suggestion here worth taking. Set this one yourself.
+                    </div>
+                  ) : (
+                    /* Offered, never applied for you. The seller sets the
+                       number on this screen — a price that filled itself
+                       in is one nobody chose. */
+                    <button
+                      onClick={() => onPriceChange(market.ask.toFixed(2))}
+                      className="w-full py-1.5 rounded font-mono text-[10px] uppercase tracking-wider transition-colors"
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: '#9da3c0',
+                      }}
+                    >
+                      Use this price
+                    </button>
+                  )}
+
+                  {/* Where it came from and how old it is. A price with
+                      neither is an assertion, and the first question from
+                      anyone who disagrees with one is which market. */}
+                  <div className="font-mono text-[10px] leading-relaxed mt-2" style={{ color: '#4a4f68' }}>
+                    Lowest listing on {market.market}, {freshness(market.quotedAt)}.
+                    {stickers.length > 0 && !appliedDominates && (
+                      <> This is the skin alone — the stickers on it are not counted.</>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="font-mono text-[10px] leading-relaxed" style={{ color: '#4a4f68' }}>
+                  No market carries this one, so there is nothing to
+                  compare against. The price is yours to decide.
+                </div>
+              )}
             </div>
 
             <div className="px-5 py-4 flex flex-col gap-3">
@@ -298,6 +448,30 @@ export function SellDetail({
       {hover.detail && <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />}
     </div>
   );
+}
+
+/**
+ * How long ago the market was measured, in words.
+ *
+ * Deliberately vague past the first hour: the difference between three
+ * and four minutes decides whether a price is worth acting on, the
+ * difference between nine and ten hours does not.
+ */
+function freshness(quotedAt: string): string {
+  const seconds = Math.max(
+    0,
+    Math.round((Date.now() - new Date(quotedAt).getTime()) / 1000),
+  );
+
+  if (seconds < 90) return 'measured just now';
+
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `measured ${minutes} min ago`;
+
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `measured ${hours}h ago`;
+
+  return `measured ${Math.round(hours / 24)}d ago`;
 }
 
 function Row({ label, value, color, muted }: { label: string; value: string; color?: string; muted?: boolean }) {

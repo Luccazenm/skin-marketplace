@@ -6,6 +6,8 @@ import { PriceService } from './price.service';
 
 /** One item's worth, as the screens receive it. */
 interface PriceResponse {
+  /** Which market answered — BUFF163 unless it did not carry the item. */
+  market: string;
   /** Lowest listing on the market that answered, in USD. */
   ask: number;
   /** Highest buy order, or null where nobody is bidding. */
@@ -56,6 +58,7 @@ export class PricingController {
 
     for (const [name, p] of found) {
       prices[name] = {
+        market: p.market,
         ask: p.ask,
         bid: p.bid,
         spread: p.spread,

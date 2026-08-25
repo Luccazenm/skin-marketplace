@@ -24,6 +24,24 @@ export function fromCents(cents: number): string {
 }
 
 /**
+ * A market price for display: `3422.32` -> `$3,422.32`.
+ *
+ * Takes a number rather than a string, because this is the one kind of
+ * money that arrives as one: a quote read from a market, never added to
+ * anything and never sent back. Anything the user types or we pay out
+ * stays in cents and goes through the functions above.
+ *
+ * The separators are what makes a four-figure sticker readable — `$3422`
+ * and `$342` are one glance apart otherwise.
+ */
+export function usd(value: number): string {
+  return `$${value.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/**
  * What the seller keeps after the platform's commission.
  *
  * Rounded half-up on the fee, so the cent that cannot be split goes to

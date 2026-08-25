@@ -4,6 +4,16 @@ export type AppliedKind = 'STICKER' | 'PATCH' | 'CHARM';
 export interface AppliedItem {
   kind: AppliedKind;
   name: string;
+  /**
+   * The same piece as it is listed on the market, on its own: a Titan
+   * applied to a rifle is `Sticker | Titan | Katowice 2014` in every
+   * price list there is.
+   *
+   * Built here rather than in the browser. The rule is a Steam fact —
+   * the kind is the first segment of the name — and a screen guessing at
+   * it would ask for prices under names nothing recognises.
+   */
+  marketHashName: string;
   imageUrl: string | null;
   /** Slot, in the order Steam returns them. Starts at 0. */
   position: number;
@@ -124,9 +134,15 @@ export function extractApplied(
         continue;
       }
 
+      const name = decodeEntities(title.slice(separator + 1).trim());
+
       applied.push({
         kind,
-        name: decodeEntities(title.slice(separator + 1).trim()),
+        name,
+        // From the kind, not from the prefix we just read: the prefix is
+        // whatever Steam wrote in the title, and the market name has to
+        // be one of exactly three words.
+        marketHashName: `${KIND_TO_MARKET_PREFIX[kind]} | ${name}`,
         imageUrl: src,
         position: applied.filter((a) => a.kind === kind).length,
         // Filled in later from asset_accessories — see withScrape
@@ -148,6 +164,17 @@ const PREFIX_TO_KIND: Record<string, AppliedKind> = {
   Sticker: 'STICKER',
   Patch: 'PATCH',
   Charm: 'CHARM',
+};
+
+/**
+ * How the market names each kind. The same three words as above, but
+ * kept apart on purpose: that map reads whatever Steam sends, this one
+ * writes what the price lists expect, and they are only equal today.
+ */
+const KIND_TO_MARKET_PREFIX: Record<AppliedKind, string> = {
+  STICKER: 'Sticker',
+  PATCH: 'Patch',
+  CHARM: 'Charm',
 };
 
 const IMG_TAG = /<img\b[^>]*>/g;

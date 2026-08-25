@@ -188,8 +188,15 @@ export async function logout(): Promise<void> {
 export interface AppliedItem {
   kind: 'STICKER' | 'PATCH' | 'CHARM';
   name: string;
+  /**
+   * The same piece as it is listed on its own — `Sticker | Titan |
+   * Katowice 2014` — so its price can be asked for. Built by the
+   * backend; the browser never assembles a market name.
+   */
+  marketHashName: string;
   imageUrl: string | null;
-  slot: number;
+  /** Slot, in the order Steam returns them. Starts at 0. */
+  position: number;
   /**
    * Sticker scrape, 0 = untouched. Null when it could not be determined
    * — the backend refuses to guess, because a wrong scrape moves the
@@ -349,6 +356,12 @@ export async function requestDeposit(
 
 /** What one item is worth, from the market that answered. */
 export interface ItemPrice {
+  /**
+   * Which market the number came from — "BUFF163" unless it did not
+   * carry the item. Shown wherever the price is, because a price with no
+   * source is an assertion.
+   */
+  market: string;
   /** Lowest listing, in USD. What the item sells for. */
   ask: number;
   /** Highest buy order, or null where nobody is bidding. */

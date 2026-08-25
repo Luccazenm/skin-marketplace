@@ -101,6 +101,51 @@ describe('extractApplied', () => {
     expect(r).toHaveLength(0);
   });
 
+  /**
+   * The name each piece is listed under on its own, which is what the
+   * price lists are keyed by. Checked against live data on 2026-08-25:
+   * 24 of the 25 applied pieces in a real inventory came back priced
+   * under exactly these names, the 25th being one BUFF does not carry.
+   */
+  it('builds the market name each piece is sold under', () => {
+    const r = extractApplied([
+      { name: 'sticker_info', value: REAL_STICKER_INFO },
+      { name: 'keychain_info', value: REAL_KEYCHAIN_INFO },
+    ]);
+
+    expect(r.map((a) => a.marketHashName)).toEqual([
+      'Sticker | Hello AK-47 (Gold)',
+      'Sticker | Clan-Mystik | Katowice 2014',
+      'Sticker | Team Dignitas | Katowice 2014',
+      'Sticker | Titan | Katowice 2014',
+      "Charm | Lil' Crass",
+    ]);
+  });
+
+  it('names a patch as a patch, not as a sticker', () => {
+    const html =
+      '<div id="patch_info"><center>' +
+      '<img src="https://cdn/patch1.png" title="Patch: Guerrilla Warfare">' +
+      '</center></div>';
+
+    expect(
+      extractApplied([{ name: 'patch_info', value: html }])[0].marketHashName,
+    ).toBe('Patch | Guerrilla Warfare');
+  });
+
+  // The decoded name, not the raw one: "Sticker | Fnatic &amp; Co" is
+  // not a name any market has ever heard of.
+  it('builds the market name from the decoded name', () => {
+    const html =
+      '<div id="sticker_info">' +
+      '<img src="https://cdn/x.png" title="Sticker: Fnatic &amp; Co (Foil)">' +
+      '</div>';
+
+    expect(
+      extractApplied([{ name: 'sticker_info', value: html }])[0].marketHashName,
+    ).toBe('Sticker | Fnatic & Co (Foil)');
+  });
+
   it('returns an empty list without throwing when there are no descriptions', () => {
     expect(extractApplied(undefined)).toEqual([]);
     expect(extractApplied([])).toEqual([]);
@@ -112,6 +157,7 @@ describe('withScrape', () => {
   const applied = (kind: AppliedItem['kind'], position = 0): AppliedItem => ({
     kind,
     name: `${kind} ${position}`,
+    marketHashName: `${kind} | ${position}`,
     imageUrl: null,
     position,
     wear: null,

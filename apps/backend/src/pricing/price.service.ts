@@ -8,6 +8,12 @@ import type { RawQuote } from './price-provider';
 /** What a screen needs to know about one item's worth. */
 export interface ItemPrice {
   marketHashName: string;
+  /**
+   * Which market answered. Carried all the way to the screen: a price
+   * with no source is an assertion, and the first thing anyone disputing
+   * one asks is where it came from.
+   */
+  market: PriceMarket;
   /** Lowest listing on the reference market, in USD. */
   ask: number;
   /** Highest buy order, or null where nobody is bidding. */
@@ -154,13 +160,10 @@ export class PriceService {
         return;
       }
 
-      try {
-        const parsed = JSON.parse(hit) as ItemPrice;
-        into.set(name, { ...parsed, quotedAt: new Date(parsed.quotedAt) });
-      } catch {
-        // Old or corrupted shape: treat as a miss rather than serving it.
-        missing.push(name);
-      }
+      const parsed = parseCached(hit);
+
+      if (parsed) into.set(name, parsed);
+      else missing.push(name);
     });
 
     return missing;
@@ -178,6 +181,53 @@ export class PriceService {
   private static key(marketHashName: string): string {
     return `price:${marketHashName}`;
   }
+}
+
+/**
+ * Reads one cached price, or nothing.
+ *
+ * **The fields are checked, not assumed.** A cache outlives a deploy:
+ * the entries written by the previous version are still there when the
+ * new one starts reading, and one that has since grown a field would
+ * otherwise be served with that field undefined — which reached a screen
+ * on 2026-08-25 as "Lowest listing on ,". Treating an unrecognised shape
+ * as a miss costs one call and makes a schema change safe to ship.
+ */
+export function parseCached(raw: string): ItemPrice | null {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) return null;
+
+  // Read as unknown fields rather than as an ItemPrice: what came out of
+  // Redis is whatever some past version of this file wrote, and calling
+  // it an ItemPrice before checking is exactly the assumption that put
+  // an empty market name on screen.
+  const p = parsed as Record<keyof ItemPrice, unknown>;
+
+  if (
+    typeof p.marketHashName !== 'string' ||
+    typeof p.market !== 'string' ||
+    typeof p.ask !== 'number' ||
+    typeof p.quotedAt !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    marketHashName: p.marketHashName,
+    market: p.market as ItemPrice['market'],
+    ask: p.ask,
+    bid: typeof p.bid === 'number' ? p.bid : null,
+    spread: typeof p.spread === 'number' ? p.spread : null,
+    askVolume: typeof p.askVolume === 'number' ? p.askVolume : null,
+    quotedAt: new Date(p.quotedAt),
+  };
 }
 
 /**
@@ -220,6 +270,7 @@ export function pickPrices(
 
     prices.set(name, {
       marketHashName: name,
+      market: chosen.market,
       ask: chosen.ask,
       bid,
       // Guarded against a zero bid, which would divide by nothing. A bid

@@ -1,7 +1,7 @@
 import { PriceMarket } from '@prisma/client';
 import fixture from './cs2sh.fixture.json';
 import { toQuotes, type MarketSources } from './cs2sh.provider';
-import { pickPrices } from './price.service';
+import { parseCached, pickPrices } from './price.service';
 
 /**
  * Choosing which market answers, against the real payload.
@@ -135,7 +135,9 @@ describe('pickPrices', () => {
   it('drops a market quoting zero rather than showing a free skin', () => {
     const quotes = toQuotes(
       'Zero | Ask',
-      { buff: { ask: 0, bid: 0, ask_volume: 950, updated_at: at.toISOString() } },
+      {
+        buff: { ask: 0, bid: 0, ask_volume: 950, updated_at: at.toISOString() },
+      },
       at,
     );
 
@@ -154,10 +156,12 @@ describe('pickPrices', () => {
       at,
     );
 
-    expect(pickPrices(quotes, preferred).get('Zero | Then Real')).toMatchObject({
-      ask: 12.5,
-      bid: 12,
-    });
+    expect(pickPrices(quotes, preferred).get('Zero | Then Real')).toMatchObject(
+      {
+        ask: 12.5,
+        bid: 12,
+      },
+    );
   });
 
   it('reads a five-figure item without losing cents', () => {
@@ -168,5 +172,76 @@ describe('pickPrices', () => {
     // ~3.6%: wide next to a Redline, which is what an $11,000 item looks
     // like when few people are holding buy orders open.
     expect(price.spread).toBeGreaterThan(0.03);
+  });
+});
+
+/**
+ * Reading a cached price back.
+ *
+ * The cache outlives a deploy: whatever the previous version wrote is
+ * still in Redis when the new one starts reading. Everything here is
+ * about that seam.
+ */
+describe('parseCached', () => {
+  const complete = JSON.stringify({
+    marketHashName: 'AK-47 | Redline (Field-Tested)',
+    market: 'BUFF163',
+    ask: 27.68,
+    bid: 27.53,
+    spread: 0.00545,
+    askVolume: 1204,
+    quotedAt: '2026-08-25T17:26:14.000Z',
+  });
+
+  it('reads back what was written, with the date as a date', () => {
+    const price = parseCached(complete)!;
+
+    expect(price).toMatchObject({ market: 'BUFF163', ask: 27.68, bid: 27.53 });
+    expect(price.quotedAt).toBeInstanceOf(Date);
+    expect(price.quotedAt.toISOString()).toBe('2026-08-25T17:26:14.000Z');
+  });
+
+  /**
+   * The one that got through on 2026-08-25: an entry written before
+   * `market` existed was read back as an ItemPrice with the field
+   * undefined, and the modal printed "Lowest listing on ,". A miss costs
+   * one call; this cost a wrong sentence on a price.
+   */
+  it('refuses an entry from before a field existed', () => {
+    const old = JSON.stringify({
+      marketHashName: 'AK-47 | Redline (Field-Tested)',
+      ask: 27.68,
+      bid: 27.53,
+      spread: 0.00545,
+      askVolume: 1204,
+      quotedAt: '2026-08-25T17:26:14.000Z',
+    });
+
+    expect(parseCached(old)).toBeNull();
+  });
+
+  it('refuses anything that is not a price', () => {
+    expect(parseCached('not json')).toBeNull();
+    expect(parseCached('null')).toBeNull();
+    expect(parseCached('"a string"')).toBeNull();
+    expect(parseCached('[]')).toBeNull();
+  });
+
+  // A bid is genuinely optional — plenty of items have none — so a
+  // missing one is null rather than a reason to refuse the whole entry.
+  it('keeps an entry whose bid is absent', () => {
+    const noBid = JSON.stringify({
+      marketHashName: 'AK-47 | Jet Set (Factory New)',
+      market: 'BUFF163',
+      ask: 1175.49,
+      quotedAt: '2026-08-25T17:26:14.000Z',
+    });
+
+    expect(parseCached(noBid)).toMatchObject({
+      ask: 1175.49,
+      bid: null,
+      spread: null,
+      askVolume: null,
+    });
   });
 });

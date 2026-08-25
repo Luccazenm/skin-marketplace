@@ -1346,8 +1346,11 @@ function placeholderApplied(kind: AppliedItem["kind"], count: number): AppliedIt
   return Array.from({ length: count }, (_, i) => ({
     kind,
     name: kind === "CHARM" ? "Charm" : "Sticker",
+    // Deliberately not a real market name: these are placeholders, and
+    // one that resolved would put a price on a piece nobody owns.
+    marketHashName: "",
     imageUrl: null,
-    slot: i,
+    position: i,
     wear: null,
   }));
 }
@@ -1382,7 +1385,7 @@ function AppliedBadges({
     <div className="absolute flex flex-col gap-0.5 z-10" style={{ top: 6, [side]: 6 }}>
       {items.map((a, i) => (
         <div
-          key={`${a.slot}-${i}`}
+          key={`${a.position}-${i}`}
           aria-label={appliedLabel(a)}
           onMouseEnter={(e) => hover.open(a, e.currentTarget.getBoundingClientRect())}
           onMouseLeave={hover.close}
