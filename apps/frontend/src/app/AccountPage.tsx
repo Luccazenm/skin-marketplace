@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { Check, ExternalLink, User as UserIcon } from 'lucide-react';
-import { ApiError, setConsent, setEmail, setTradeUrl, type CurrentUser } from '@/lib/api';
+import {
+  ApiError,
+  setConsent,
+  setEmail,
+  setTradeUrl,
+  type CurrentUser,
+} from '@/lib/api';
 
 /**
  * The account screen: who you are, and what we hold about you.
@@ -9,6 +15,10 @@ import { ApiError, setConsent, setEmail, setTradeUrl, type CurrentUser } from '@
  * display. **General information** is what you can change — and every
  * field there is either something the Trade Bot needs to work, or
  * something you have to be able to withdraw.
+ *
+ * The fields carry no explanatory line. A label and a value read faster
+ * than a label, a paragraph and a value, and the two that genuinely need
+ * explaining — the consent switches — keep theirs.
  */
 export function AccountPage({
   user,
@@ -31,36 +41,43 @@ export function AccountPage({
 function Profile({ user }: { user: CurrentUser }) {
   return (
     <section className="flex flex-col gap-4">
-      <SectionHead title="Profile" note="From Steam. Changed there, not here." />
+      <SectionHead title="Profile" />
 
       <div
         className="rounded-lg border p-5 flex items-center gap-5"
-        style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.07)' }}
+        style={{
+          background: 'rgba(255,255,255,0.02)',
+          borderColor: 'rgba(255,255,255,0.07)',
+        }}
       >
         <div
           className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
         >
           {user.avatarUrl ? (
-            <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+            <img
+              src={user.avatarUrl}
+              alt=""
+              className="w-full h-full object-cover"
+            />
           ) : (
             <UserIcon className="w-8 h-8" style={{ color: '#6c7290' }} />
           )}
         </div>
 
         <div className="flex flex-col gap-1.5 min-w-0">
-          <div className="font-display text-xl font-bold truncate" style={{ color: '#e8eaf0' }}>
+          <div
+            className="font-display text-2xl font-bold truncate"
+            style={{ color: '#e8eaf0' }}
+          >
             {user.username}
           </div>
 
-          <div className="font-mono text-[11px] flex flex-col gap-0.5" style={{ color: '#6c7290' }}>
-            <span>Member since {formatDate(user.createdAt)}</span>
-            {/* Valve's date, not ours. An account made in 2011 that
-                first appeared here yesterday is worth telling apart from
-                one made yesterday. */}
-            {user.steamCreatedAt && (
-              <span>Steam account since {formatDate(user.steamCreatedAt)}</span>
-            )}
+          <div className="font-mono text-xs" style={{ color: '#6c7290' }}>
+            Member since {formatDate(user.createdAt)}
           </div>
 
           {user.profileUrl && (
@@ -68,10 +85,10 @@ function Profile({ user }: { user: CurrentUser }) {
               href={user.profileUrl}
               target="_blank"
               rel="noreferrer"
-              className="font-mono text-[11px] inline-flex items-center gap-1 mt-0.5 hover:underline w-fit"
+              className="font-mono text-xs inline-flex items-center gap-1 mt-0.5 hover:underline w-fit"
               style={{ color: '#f0c040' }}
             >
-              Open Steam profile <ExternalLink className="w-3 h-3" />
+              Open Steam profile <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}
         </div>
@@ -91,20 +108,55 @@ function GeneralInformation({
 }) {
   return (
     <section className="flex flex-col gap-4">
-      <SectionHead
-        title="General information"
-        note="What we hold, and what you can change."
-      />
+      <SectionHead title="General information" />
 
       <div
         className="rounded-lg border overflow-hidden"
-        style={{ background: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.07)' }}
+        style={{
+          background: 'rgba(255,255,255,0.02)',
+          borderColor: 'rgba(255,255,255,0.07)',
+        }}
       >
         <ReadOnlyRow label="SteamID64" value={user.steamId} mono />
 
-        <TradeUrlRow user={user} onChanged={onChanged} />
+        <EditableRow
+          label="Trade URL"
+          initial={user.tradeUrl ?? ''}
+          placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…"
+          empty="Not set — the Trade Bot cannot send you anything without it"
+          save={async (value) => {
+            await setTradeUrl(value.trim());
+          }}
+          onSaved={onChanged}
+          help={{
+            href: 'https://steamcommunity.com/id/me/tradeoffers/privacy',
+            label: 'Find it on Steam',
+          }}
+        />
 
-        <EmailRow user={user} onChanged={onChanged} />
+        <EditableRow
+          label="Email"
+          initial={user.email ?? ''}
+          placeholder="you@example.com"
+          empty="Not set"
+          // Blank is a real input, not an error: it is how an address
+          // already given gets withdrawn.
+          allowEmpty
+          save={async (value) => {
+            await setEmail(value.trim());
+          }}
+          onSaved={onChanged}
+          badge={
+            user.email
+              ? user.emailVerified
+                ? { text: 'Verified', tone: 'good' as const }
+                : {
+                    text: 'Not verified — nothing is sent yet',
+                    tone: 'muted' as const,
+                  }
+              : undefined
+          }
+        />
 
         <ConsentRow user={user} onChanged={onChanged} />
 
@@ -114,54 +166,22 @@ function GeneralInformation({
   );
 }
 
-/* ─── Rows ─────────────────────────────────────────────────────────── */
-
-function TradeUrlRow({ user, onChanged }: { user: CurrentUser; onChanged: () => void }) {
+function ConsentRow({
+  user,
+  onChanged,
+}: {
+  user: CurrentUser;
+  onChanged: () => void;
+}) {
   return (
-    <EditableRow
-      label="Trade URL"
-      hint="Where the Trade Bot sends your items. Needed to sell and to receive what you buy."
-      initial={user.tradeUrl ?? ''}
-      placeholder="https://steamcommunity.com/tradeoffer/new/?partner=…&token=…"
-      empty="Not set — the Trade Bot cannot send you anything without it"
-      save={async (value) => { await setTradeUrl(value.trim()); }}
-      onSaved={onChanged}
-      help={{
-        href: 'https://steamcommunity.com/id/me/tradeoffers/privacy',
-        label: 'Find it on Steam',
-      }}
-    />
-  );
-}
-
-function EmailRow({ user, onChanged }: { user: CurrentUser; onChanged: () => void }) {
-  return (
-    <EditableRow
-      label="Email"
-      hint="For news and for telling you when an item of yours sells. Steam never gives us an address, so this is only here if you put it here."
-      initial={user.email ?? ''}
-      placeholder="you@example.com"
-      empty="Not set"
-      // Blank is a real input, not an error: it is how an address
-      // already given gets withdrawn.
-      allowEmpty
-      save={async (value) => { await setEmail(value.trim()); }}
-      onSaved={onChanged}
-      badge={
-        user.email
-          ? user.emailVerified
-            ? { text: 'Verified', tone: 'good' as const }
-            : { text: 'Not verified — nothing is sent yet', tone: 'muted' as const }
-          : undefined
-      }
-    />
-  );
-}
-
-function ConsentRow({ user, onChanged }: { user: CurrentUser; onChanged: () => void }) {
-  return (
-    <div className="px-5 py-4 border-t flex flex-col gap-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-      <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
+    <div
+      className="px-5 py-4 border-t flex flex-col gap-3.5"
+      style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+    >
+      <div
+        className="font-mono text-[11px] uppercase tracking-wider"
+        style={{ color: '#6c7290' }}
+      >
         Permissions
       </div>
 
@@ -170,7 +190,9 @@ function ConsentRow({ user, onChanged }: { user: CurrentUser; onChanged: () => v
         hint="News, offers, and alerts when your items sell."
         checked={user.consent.marketingEmail}
         since={user.consent.marketingEmailAt}
-        onChange={async (next) => { await setConsent({ marketingEmail: next }); }}
+        onChange={async (next) => {
+          await setConsent({ marketingEmail: next });
+        }}
         onSaved={onChanged}
         // Saying so beats letting someone switch this on and wonder for
         // a week why nothing arrives.
@@ -188,7 +210,9 @@ function ConsentRow({ user, onChanged }: { user: CurrentUser; onChanged: () => v
         hint="We do not use any yet. Your answer is recorded now and honoured the day we do."
         checked={user.consent.analytics}
         since={user.consent.analyticsAt}
-        onChange={async (next) => { await setConsent({ analytics: next }); }}
+        onChange={async (next) => {
+          await setConsent({ analytics: next });
+        }}
         onSaved={onChanged}
       />
     </div>
@@ -205,28 +229,42 @@ function ConsentRow({ user, onChanged }: { user: CurrentUser; onChanged: () => v
  */
 function CookieRow() {
   return (
-    <div className="px-5 py-4 border-t flex flex-col gap-2" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-      <div className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
+    <div
+      className="px-5 py-4 border-t flex flex-col gap-2"
+      style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+    >
+      <div
+        className="font-mono text-[11px] uppercase tracking-wider"
+        style={{ color: '#6c7290' }}
+      >
         Cookies we set
       </div>
 
-      <div className="font-mono text-[11px] leading-relaxed" style={{ color: '#9da3c0' }}>
+      <div
+        className="font-mono text-xs leading-relaxed"
+        style={{ color: '#9da3c0' }}
+      >
         One: the session cookie that keeps you signed in. It is readable
         only by the server, never by scripts in the page, and it holds no
-        personal data — just proof that this browser signed in. Signing
-        out removes it.
+        personal data — just proof that this browser signed in. Signing out
+        removes it.
       </div>
 
-      <div className="font-mono text-[11px] leading-relaxed" style={{ color: '#6c7290' }}>
-        We set no advertising or tracking cookies. If that ever changes,
-        the switch above governs it — and it is already off unless you
-        turned it on.
+      <div
+        className="font-mono text-xs leading-relaxed"
+        style={{ color: '#6c7290' }}
+      >
+        We set no advertising or tracking cookies. If that ever changes, the
+        switch above governs it — and it is already off unless you turned it
+        on.
       </div>
 
-      <div className="font-mono text-[11px] leading-relaxed" style={{ color: '#6c7290' }}>
-        We never hold your Steam session. Signing in happens on Steam's
-        own page and gives us your Steam ID, nothing that could act as
-        you.
+      <div
+        className="font-mono text-xs leading-relaxed"
+        style={{ color: '#6c7290' }}
+      >
+        We never hold your Steam session. Signing in happens on Steam's own
+        page and gives us your Steam ID, nothing that could act as you.
       </div>
     </div>
   );
@@ -234,22 +272,40 @@ function CookieRow() {
 
 /* ─── Pieces ───────────────────────────────────────────────────────── */
 
-function SectionHead({ title, note }: { title: string; note: string }) {
+function SectionHead({ title }: { title: string }) {
   return (
-    <div className="flex items-baseline gap-3 border-b pb-2" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
-      <h2 className="font-display text-lg font-bold" style={{ color: '#e8eaf0' }}>{title}</h2>
-      <span className="font-mono text-[10px]" style={{ color: '#6c7290' }}>{note}</span>
+    <div
+      className="border-b pb-2"
+      style={{ borderColor: 'rgba(255,255,255,0.08)' }}
+    >
+      <h2 className="font-display text-xl font-bold" style={{ color: '#e8eaf0' }}>
+        {title}
+      </h2>
     </div>
   );
 }
 
-function ReadOnlyRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function ReadOnlyRow({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div className="px-5 py-4 flex items-baseline justify-between gap-4">
-      <span className="font-mono text-[10px] uppercase tracking-wider flex-shrink-0" style={{ color: '#6c7290' }}>
+      <span
+        className="font-mono text-[11px] uppercase tracking-wider flex-shrink-0"
+        style={{ color: '#6c7290' }}
+      >
         {label}
       </span>
-      <span className={`text-xs truncate ${mono ? 'font-mono' : ''}`} style={{ color: '#e8eaf0' }}>
+      <span
+        className={`text-sm truncate ${mono ? 'font-mono' : ''}`}
+        style={{ color: '#e8eaf0' }}
+      >
         {value}
       </span>
     </div>
@@ -258,7 +314,6 @@ function ReadOnlyRow({ label, value, mono }: { label: string; value: string; mon
 
 function EditableRow({
   label,
-  hint,
   initial,
   placeholder,
   empty,
@@ -269,7 +324,6 @@ function EditableRow({
   badge,
 }: {
   label: string;
-  hint: string;
   initial: string;
   placeholder: string;
   empty: string;
@@ -308,26 +362,39 @@ function EditableRow({
   }
 
   return (
-    <div className="px-5 py-4 border-t flex flex-col gap-2" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+    <div
+      className="px-5 py-4 border-t flex flex-col gap-2"
+      style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+    >
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
-        <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
+        <span
+          className="font-mono text-[11px] uppercase tracking-wider"
+          style={{ color: '#6c7290' }}
+        >
           {label}
         </span>
         {help && (
-          <a href={help.href} target="_blank" rel="noreferrer" className="font-mono text-[10px] hover:underline" style={{ color: '#f0c040' }}>
+          <a
+            href={help.href}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-xs hover:underline"
+            style={{ color: '#f0c040' }}
+          >
             {help.label}
           </a>
         )}
       </div>
 
-      <div className="font-mono text-[11px] leading-relaxed" style={{ color: '#9da3c0' }}>{hint}</div>
-
       <div className="flex gap-2 flex-wrap">
         <input
           value={value}
-          onChange={(e) => { setValue(e.target.value); setSaved(false); }}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setSaved(false);
+          }}
           placeholder={placeholder}
-          className="flex-1 min-w-[16rem] px-3 py-2 rounded font-mono text-xs focus:outline-none"
+          className="flex-1 min-w-[16rem] px-3 py-2 rounded font-mono text-sm focus:outline-none"
           style={{
             background: 'rgba(255,255,255,0.05)',
             border: `1px solid ${error ? '#e84060' : 'rgba(255,255,255,0.08)'}`,
@@ -337,7 +404,7 @@ function EditableRow({
         <button
           onClick={() => void submit()}
           disabled={!canSave}
-          className="px-4 py-2 rounded font-display text-xs font-bold tracking-wide transition-opacity disabled:opacity-40"
+          className="px-4 py-2 rounded font-display text-sm font-bold tracking-wide transition-opacity disabled:opacity-40"
           style={{ background: '#f0c040', color: '#08090d' }}
         >
           {saving ? 'SAVING…' : 'SAVE'}
@@ -345,20 +412,32 @@ function EditableRow({
       </div>
 
       {!initial && !error && (
-        <div className="font-mono text-[10px]" style={{ color: '#6c7290' }}>{empty}</div>
+        <div className="font-mono text-xs" style={{ color: '#6c7290' }}>
+          {empty}
+        </div>
       )}
 
       {badge && !error && (
-        <div className="font-mono text-[10px]" style={{ color: badge.tone === 'good' ? '#4ade80' : '#6c7290' }}>
+        <div
+          className="font-mono text-xs"
+          style={{ color: badge.tone === 'good' ? '#4ade80' : '#6c7290' }}
+        >
           {badge.text}
         </div>
       )}
 
-      {error && <div className="font-mono text-[10px]" style={{ color: '#e84060' }}>{error}</div>}
+      {error && (
+        <div className="font-mono text-xs" style={{ color: '#e84060' }}>
+          {error}
+        </div>
+      )}
 
       {saved && !error && (
-        <div className="font-mono text-[10px] flex items-center gap-1" style={{ color: '#4ade80' }}>
-          <Check className="w-3 h-3" /> Saved
+        <div
+          className="font-mono text-xs flex items-center gap-1"
+          style={{ color: '#4ade80' }}
+        >
+          <Check className="w-3.5 h-3.5" /> Saved
         </div>
       )}
     </div>
@@ -407,41 +486,61 @@ function Toggle({
         role="switch"
         aria-checked={checked}
         aria-label={label}
-        className="flex-shrink-0 mt-0.5 rounded-full transition-colors disabled:opacity-50"
+        className="flex-shrink-0 mt-1 rounded-full transition-colors disabled:opacity-50"
         style={{
-          width: 34,
-          height: 20,
+          width: 38,
+          height: 22,
           padding: 2,
-          background: checked ? 'rgba(74,222,128,0.25)' : 'rgba(255,255,255,0.07)',
+          background: checked
+            ? 'rgba(74,222,128,0.25)'
+            : 'rgba(255,255,255,0.07)',
           border: `1px solid ${checked ? 'rgba(74,222,128,0.5)' : 'rgba(255,255,255,0.1)'}`,
         }}
       >
         <span
           className="block rounded-full transition-transform"
           style={{
-            width: 14,
-            height: 14,
+            width: 16,
+            height: 16,
             background: checked ? '#4ade80' : '#6c7290',
-            transform: checked ? 'translateX(14px)' : 'translateX(0)',
+            transform: checked ? 'translateX(16px)' : 'translateX(0)',
           }}
         />
       </button>
 
       <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="font-display text-xs font-semibold" style={{ color: '#e8eaf0' }}>{label}</span>
-        <span className="font-mono text-[11px] leading-relaxed" style={{ color: '#9da3c0' }}>{hint}</span>
+        <span
+          className="font-display text-sm font-semibold"
+          style={{ color: '#e8eaf0' }}
+        >
+          {label}
+        </span>
+        <span
+          className="font-mono text-xs leading-relaxed"
+          style={{ color: '#9da3c0' }}
+        >
+          {hint}
+        </span>
 
-        {note && <span className="font-mono text-[10px]" style={{ color: '#f0c040' }}>{note}</span>}
+        {note && (
+          <span className="font-mono text-xs" style={{ color: '#f0c040' }}>
+            {note}
+          </span>
+        )}
 
         {/* When, not just whether. An undated "they agreed" answers
             nothing the day someone asks. */}
         {since && (
-          <span className="font-mono text-[10px]" style={{ color: '#4a4f68' }}>
+          <span className="font-mono text-xs" style={{ color: '#4a4f68' }}>
             {checked ? 'Agreed' : 'Withdrawn'} {formatDate(since)}
           </span>
         )}
 
-        {error && <span className="font-mono text-[10px]" style={{ color: '#e84060' }}>{error}</span>}
+        {error && (
+          <span className="font-mono text-xs" style={{ color: '#e84060' }}>
+            {error}
+          </span>
+        )}
       </div>
     </div>
   );
