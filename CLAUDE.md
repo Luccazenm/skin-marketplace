@@ -191,12 +191,14 @@ not valued.** Decided 2026-08-19, deliberately: pricing applied items
 automatically is already forbidden here, because SP% runs from 2% to
 over 50% and no API delivers it with confidence.
 
-The consequence has to be stated on screen, in plain words, wherever the
-offer appears. An AK worth thousands for its Katowice stickers gets an
-offer for a clean AK, and someone who accepts without noticing has a
-grievance worth repeating in public — in a market where trust is the
-product. Said out loud, it is an informed choice and there is no
-argument to have later.
+**There is no requirement to state that on screen.** It was one until
+2026-08-25, on the reasoning that an AK worth thousands for its Katowice
+stickers gets an offer for a clean AK and the seller should be told.
+The rule was dropped on that date: the sell screen now shows the
+suggested price broken into the skin and what each applied piece adds,
+so the offer sits beside an itemised valuation rather than beside
+nothing, and a disclaimer under every offer was noise on the ordinary
+item to warn about the rare one.
 
 **Discount by liquidity, measured by the bid-ask spread**, which is what
 the vendor's cheaper plan provides:

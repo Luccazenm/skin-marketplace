@@ -294,14 +294,13 @@ export function SellDetail({
                   needs to see that the rifle is $30 of the total and the
                   stickers are $61, not $5,821 — and a single figure says
                   none of that. */}
-              {breakdown && (applied.length > 0 || breakdown.stickerCapped) && (
+              {breakdown && applied.length > 0 && (
                 <div className="flex flex-col gap-1 mb-3">
                   <Part label="Skin" value={usd(Number(breakdown.base))} />
                   {Number(breakdown.stickers) > 0 && (
                     <Part
-                      label={breakdown.stickerCapped ? 'Stickers (capped)' : 'Stickers'}
+                      label="Stickers"
                       value={`+${usd(Number(breakdown.stickers))}`}
-                      capped={breakdown.stickerCapped}
                     />
                   )}
                   {Number(breakdown.charms) > 0 && (
@@ -391,10 +390,11 @@ export function SellDetail({
  * one is irreversible — we pay, we hold, and the seller does not get the
  * item back if the price moves the next day.
  *
- * **The offer prices the base skin only**, and nothing on this screen
- * says so any more — removed on request 2026-08-25. CLAUDE.md still
- * requires that statement wherever the offer appears (decided
- * 2026-08-19), so the two disagree until one of them is changed.
+ * **The offer prices the base skin only**, and nothing here says so:
+ * the requirement to state it was dropped on 2026-08-25, because the
+ * suggested price above is now itemised into the skin and what each
+ * applied piece adds. The offer sits beside that breakdown rather than
+ * beside nothing.
  */
 function InstantSell({
   buyout,
@@ -443,24 +443,13 @@ function InstantSell({
 }
 
 /** One line of the suggestion's arithmetic. */
-function Part({
-  label,
-  value,
-  capped,
-}: {
-  label: string;
-  value: string;
-  capped?: boolean;
-}) {
+function Part({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="font-mono text-[12px]" style={{ color: '#6c7290' }}>
         {label}
       </span>
-      <span
-        className="font-mono text-[12px] font-semibold"
-        style={{ color: capped ? '#f0c040' : '#9da3c0' }}
-      >
+      <span className="font-mono text-[12px] font-semibold" style={{ color: '#9da3c0' }}>
         {value}
       </span>
     </div>
