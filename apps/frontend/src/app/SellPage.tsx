@@ -11,7 +11,12 @@ import {
 import { fromCents, payoutAfterFee, toCents } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
 import { usePrices } from '@/lib/use-prices';
-import { AppliedPopup, useAppliedHover } from './AppliedPopup';
+import {
+  AppliedPopup,
+  AppliedValueProvider,
+  useAppliedHover,
+  type AppliedValue,
+} from './AppliedPopup';
 import { SellDetail } from './SellDetail';
 import { MiniSortDropdown, SELL_SORTS } from './MiniSortDropdown';
 import {
@@ -84,6 +89,28 @@ export function SellPage({
   const market = usePrices(
     useMemo(() => sellable.map((i) => i.marketHashName), [sellable]),
   );
+
+  /**
+   * Every distinct sticker, patch and charm in the inventory, priced in
+   * one go so the hover popup has a number to show.
+   *
+   * Cheap despite the count of items: applied pieces repeat heavily —
+   * a real 178-item inventory here carries 25 distinct ones — and the
+   * request is deduplicated and batched anyway. It is the badges on the
+   * cards that need this; what each piece *adds* to a weapon is the
+   * suggestion's arithmetic, and only the detail asks for that.
+   */
+  const appliedMarket = usePrices(
+    useMemo(
+      () => sellable.flatMap((i) => i.applied.map((a) => a.marketHashName)),
+      [sellable],
+    ),
+  );
+
+  const appliedValue = (marketHashName: string): AppliedValue => ({
+    own: appliedMarket.prices[marketHashName]?.ask ?? null,
+    adds: null,
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -200,6 +227,9 @@ export function SellPage({
   }
 
   return (
+    // Wraps the grid, the sell panel and the detail alike: all three
+    // draw the same badges and open the same popup.
+    <AppliedValueProvider value={appliedValue}>
     <div className="flex gap-0" style={{ height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden pt-6 pb-4 pr-6">
         {/* The toolbar sits inside this column, not above the split, so
@@ -341,6 +371,7 @@ export function SellPage({
         </div>
       )}
     </div>
+    </AppliedValueProvider>
   );
 }
 

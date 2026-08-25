@@ -1,7 +1,12 @@
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { X, Package } from 'lucide-react';
 import type { InventoryItem, ItemPrice } from '@/lib/api';
-import { AppliedPopup, useAppliedHover } from './AppliedPopup';
+import {
+  AppliedPopup,
+  AppliedValueProvider,
+  useAppliedHover,
+  type AppliedValue,
+} from './AppliedPopup';
 import { payoutAfterFee, toCents, usd } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
 import { useSuggestion } from '@/lib/use-suggestion';
@@ -75,6 +80,21 @@ export function SellDetail({
     (breakdown?.applied ?? []).map((a) => [a.marketHashName, a]),
   );
 
+  /**
+   * What the popup says about a piece on this item: its own price, and
+   * what the suggestion above worked out that it adds here. The second
+   * half is the reason the modal supplies this rather than the grid —
+   * the grid has no suggestion to quote from.
+   */
+  const valueOf = (marketHashName: string): AppliedValue => {
+    const part = parts.get(marketHashName);
+
+    return {
+      own: part?.own == null ? null : Number(part.own),
+      adds: part == null ? null : Number(part.adds),
+    };
+  };
+
   const hover = useAppliedHover();
 
   const priced = toCents(price) !== null && toCents(price)! > 0;
@@ -82,6 +102,7 @@ export function SellDetail({
     priced && feePercent !== null ? payoutAfterFee(price, feePercent) : null;
 
   return (
+    <AppliedValueProvider value={valueOf}>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
@@ -390,6 +411,7 @@ export function SellDetail({
 
       {hover.detail && <AppliedPopup applied={hover.detail.applied} anchor={hover.detail.anchor} />}
     </div>
+    </AppliedValueProvider>
   );
 }
 

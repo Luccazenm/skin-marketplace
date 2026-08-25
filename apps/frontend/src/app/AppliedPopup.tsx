@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AppliedItem } from '@/lib/api';
+import { usd } from '@/lib/money';
 
 /**
  * How long the pointer has to rest on a badge before the popup opens.
@@ -65,6 +66,39 @@ export function useAppliedHover() {
   };
 }
 
+/** What a screen knows about one applied piece, if anything. */
+export interface AppliedValue {
+  /** What it sells for on its own, in USD. Null where nothing carries it. */
+  own: number | null;
+  /**
+   * What it adds to the item it is on, in USD. Null on screens that have
+   * not worked out a suggestion — the grid shows the badges long before
+   * anybody opens one.
+   *
+   * A number, not a formatted string: every other money figure on these
+   * screens goes through `usd`, and one that skipped it arrived without
+   * its dollar sign.
+   */
+  adds: number | null;
+}
+
+const NOTHING: AppliedValue = { own: null, adds: null };
+
+/**
+ * Where the popup gets its numbers.
+ *
+ * A context rather than a prop because the badges sit three components
+ * deep, on two screens, and neither `AppliedBadges` nor `AppliedRow` has
+ * any other reason to know what a sticker costs. The default answers
+ * nothing, so a screen that has no prices draws the dashes it drew
+ * before this existed.
+ */
+const AppliedValues = createContext<(marketHashName: string) => AppliedValue>(
+  () => NOTHING,
+);
+
+export const AppliedValueProvider = AppliedValues.Provider;
+
 /**
  * The detail card shown while hovering a sticker or charm badge.
  *
@@ -86,6 +120,12 @@ export function AppliedPopup({
   /** The badge's rect, in viewport coordinates. */
   anchor: DOMRect;
 }) {
+  // Read from context rather than passed in: the badges are three
+  // components deep in two different screens, and threading a price map
+  // through `AppliedBadges` and `AppliedRow` would put a money argument
+  // in two components that have no other business with money.
+  const { own, adds } = useContext(AppliedValues)(applied.marketHashName);
+
   const WIDTH = 240;
   const GAP = 10;
 
@@ -132,18 +172,36 @@ export function AppliedPopup({
           {applied.name}
         </div>
 
+        {/* What it sells for by itself. A dash where no market carries
+            it — plenty of old stickers have none — and a dash again on
+            screens that never asked for prices, because an absent number
+            and an unknown one look the same to whoever is reading. */}
         <div className="flex items-center justify-between gap-3">
           <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
             Value
           </span>
-          {/* No price source is subscribed yet, so there is no value to
-              show. An em dash says that; a number here would be invented,
-              and this one feeds directly into what a seller asks for the
-              weapon. */}
-          <span className="font-mono text-xs" style={{ color: '#4a4f68' }}>
-            —
+          <span
+            className="font-mono text-xs font-semibold"
+            style={{ color: own ? '#e8eaf0' : '#4a4f68' }}
+          >
+            {own ? usd(own) : '—'}
           </span>
         </div>
+
+        {/* And what it actually adds to the weapon, where that has been
+            worked out. The two side by side are the point: a $3,422
+            Titan adding $36 is the whole lesson about applied stickers,
+            and it needs no sentence. */}
+        {adds != null && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
+              Adds here
+            </span>
+            <span className="font-mono text-xs font-semibold" style={{ color: '#4ade80' }}>
+              +{usd(adds)}
+            </span>
+          </div>
+        )}
 
         {/* Charms do not scrape, so the row is absent rather than empty.
             A sticker whose scrape the backend could not match to this
