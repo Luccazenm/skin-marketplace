@@ -439,12 +439,15 @@ function InstantSell({
   /** Why pressing it did nothing, once it has been pressed. */
   notice: string | null;
 }) {
+  // No bid says nothing at all: the absent button is the whole message,
+  // and the grid already leaves the bolt off this card.
   if (buyout.amount === null) {
+    if (buyout.reason === 'no_bid') return null;
+
     return (
       <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
-        {buyout.reason === 'no_bid'
-          ? 'Nobody has a buy order open on this one, so we have nothing to base an offer on.'
-          : 'This one trades too slowly for us to buy outright. Listing it is the way to sell it.'}
+        This one trades too slowly for us to buy outright. Listing it is
+        the way to sell it.
       </div>
     );
   }
