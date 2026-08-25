@@ -19,13 +19,12 @@ import {
  * in the missing halves later is a matter of supplying data rather than
  * rebuilding the screen.
  *
- * **Every slot that has no data says so.** No price source is
- * subscribed, so the price, the market volume, the recommended price and
- * the 30-day history have nothing behind them, and each shows that
- * plainly instead of a number. The storefront's version of this screen
- * fills those with invented figures — $3.38 a sticker, a hardcoded
- * history array, a "pattern" derived from the float — and none of that
- * is carried over here.
+ * **Every slot that has no data says so.** The prices are real now, but
+ * an item no market carries still has none, and the 30-day history is
+ * still being collected — each says that plainly instead of showing a
+ * number. The storefront's version of this screen fills those with
+ * invented figures — $3.38 a sticker, a hardcoded history array, a
+ * "pattern" derived from the float — and none of that is carried over.
  */
 export function SellDetail({
   item,
@@ -35,6 +34,8 @@ export function SellDetail({
   feePercent,
   isListed,
   onList,
+  onInstantSell,
+  instantSellNotice,
   onClose,
 }: {
   item: InventoryItem;
@@ -42,6 +43,10 @@ export function SellDetail({
   /** The market's price for the skin itself. Absent when it has none. */
   market: ItemPrice | undefined;
   onPriceChange: (price: string) => void;
+  /** Sell it to the platform now, at the offer on the button. */
+  onInstantSell: (amount: string) => void;
+  /** Shown under the button when the sale could not be started. */
+  instantSellNotice: string | null;
   /** From GET /api/config, never assumed. */
   feePercent: number | null;
   isListed: boolean;
@@ -59,25 +64,20 @@ export function SellDetail({
   const applied = [...charms, ...stickers];
   const appliedMarket = usePrices(applied.map((a) => a.marketHashName));
 
+  /**
+   * The applied pieces are worth at least as much as the skin they are
+   * on — an AK-47 Blue Laminate carrying $5,821 of Katowice stickers on
+   * a $30.80 rifle.
+   *
+   * Not a valuation. It decides how loudly the buyout has to say that it
+   * prices the skin alone: on an ordinary item that is a footnote, and
+   * on this one it is the whole story.
+   */
   const appliedTotal = applied.reduce(
     (sum, a) => sum + (appliedMarket.prices[a.marketHashName]?.ask ?? 0),
     0,
   );
 
-  /**
-   * The stickers are worth at least as much as the skin they are on.
-   *
-   * Not a valuation — it is the question of which half of the item the
-   * recommendation describes. The number below prices the skin alone, so
-   * on an AK-47 Blue Laminate carrying $5,821 of Katowice stickers it
-   * reads $30.80, and a button that fills that in with one click is a
-   * way to lose thousands by accident. Above this line the suggestion
-   * stops being offered and says why.
-   *
-   * The real answer is the capped `base + stickers + charm` suggestion,
-   * which needs a transfer rate per sticker and is not written yet.
-   * Until it is, refusing to suggest beats suggesting the wrong half.
-   */
   const appliedDominates = market !== undefined && appliedTotal >= market.ask;
 
   const hover = useAppliedHover();
@@ -140,20 +140,8 @@ export function SellDetail({
 
             {applied.length > 0 && (
               <div className="px-5 pb-5">
-                <div className="flex items-baseline justify-between mb-2">
-                  <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: r.color }}>
-                    Applied
-                  </span>
-                  {/* The sum of what these pieces sell for on their own.
-                      Said in those words on the line below, because the
-                      number is meaningless without them: it is not what
-                      the weapon is worth, and on a Katowice rifle it can
-                      be twenty times the skin. */}
-                  {appliedTotal > 0 && (
-                    <span className="font-mono text-[10px]" style={{ color: '#9da3c0' }}>
-                      {usd(appliedTotal)} on their own
-                    </span>
-                  )}
+                <div className="font-mono text-[12px] uppercase tracking-wider mb-2" style={{ color: r.color }}>
+                  Applied
                 </div>
                 {/* No names here: five copies of one sticker would be
                     five identical lines of truncated text, and the image
@@ -182,7 +170,7 @@ export function SellDetail({
                             could not match a scrape to has none either — so
                             the line is absent rather than empty. */}
                         {piece.wear !== null && (
-                          <div className="font-mono text-[9px] font-semibold" style={{ color: '#f0c040' }}>
+                          <div className="font-mono text-[11px] font-semibold" style={{ color: '#f0c040' }}>
                             {piece.wear === 0 ? 'Untouched' : `${Math.round(piece.wear * 100)}%`}
                           </div>
                         )}
@@ -191,7 +179,7 @@ export function SellDetail({
                             stickers have none, and a zero would read as
                             worthless rather than as unlisted. */}
                         <div
-                          className="font-mono text-[9px] font-semibold"
+                          className="font-mono text-[11px] font-semibold"
                           style={{ color: own ? '#e8eaf0' : '#4a4f68' }}
                         >
                           {own ? usd(own.ask) : '—'}
@@ -200,33 +188,14 @@ export function SellDetail({
                     );
                   })}
                 </div>
-
-                {/* The sentence that stops someone reading the total
-                    above as their rifle's price. Both halves are true and
-                    they point opposite ways, which is exactly why both
-                    are here: a sticker mostly dies on the gun, a charm
-                    comes off whole. */}
-                <div className="font-mono text-[10px] leading-relaxed mt-2" style={{ color: '#6c7290' }}>
-                  {stickers.length > 0 && (
-                    <div>
-                      Stickers are destroyed when removed, so only a small
-                      part of that reaches what the weapon sells for.
-                    </div>
-                  )}
-                  {charms.length > 0 && (
-                    <div>
-                      A charm comes off intact and can be sold on its own.
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 
             <div className="px-5 pb-5">
-              <div className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: r.color }}>
+              <div className="font-mono text-[12px] uppercase tracking-wider mb-1" style={{ color: r.color }}>
                 History
               </div>
-              <div className="font-mono text-[9px] uppercase tracking-wider mb-3" style={{ color: '#6c7290' }}>
+              <div className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: '#6c7290' }}>
                 30-day price history
               </div>
               {/* The frame, with nothing in it yet. Every price read on
@@ -244,7 +213,7 @@ export function SellDetail({
                   </LineChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="font-mono text-[10px]" style={{ color: '#4a4f68' }}>
+                  <span className="font-mono text-[12px]" style={{ color: '#4a4f68' }}>
                     Building the series — not enough days yet
                   </span>
                 </div>
@@ -283,11 +252,11 @@ export function SellDetail({
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[11px]" style={{ color: '#6c7290' }}>Float</span>
+                  <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>Float</span>
                   {/* All ten decimals: this is the number that separates
                       one copy of a skin from another, and rounding it
                       loses exactly what makes it worth more. */}
-                  <span className="font-mono text-[11px] font-semibold" style={{ color: '#e8eaf0' }}>
+                  <span className="font-mono text-[13px] font-semibold" style={{ color: '#e8eaf0' }}>
                     {item.float.toFixed(10)}
                   </span>
                 </div>
@@ -301,35 +270,13 @@ export function SellDetail({
                   from the float, which is not what a pattern is — this
                   one comes from Steam. */}
               {item.paintSeed !== null && <Row label="Pattern" value={String(item.paintSeed)} />}
-              {/* Listings standing on the market, not sales — depth, not
-                  turnover. Forty thousand of a case says it will always
-                  sell; twenty-five of a knife says the next price is
-                  whatever the next buyer feels like. */}
-              <Row
-                label="Listings"
-                value={
-                  market?.askVolume != null
-                    ? market.askVolume.toLocaleString('en-US')
-                    : '—'
-                }
-                muted={market?.askVolume == null}
-              />
-              {/* What someone is offering to pay right now, against what
-                  someone is asking. The gap between the two is how fast
-                  the item moves, and it is the number a seller wants
-                  before deciding what to charge. */}
-              <Row
-                label="Highest bid"
-                value={market?.bid != null ? usd(market.bid) : '—'}
-                muted={market?.bid == null}
-              />
             </div>
 
             <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-mono text-[11px]" style={{ color: '#6c7290' }}>Recommended</span>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>Recommended</span>
                 <span
-                  className="font-mono text-sm font-semibold"
+                  className="font-mono text-base font-semibold"
                   style={{ color: market ? '#e8eaf0' : '#4a4f68' }}
                 >
                   {market ? usd(market.ask) : '—'}
@@ -337,54 +284,15 @@ export function SellDetail({
               </div>
 
               {market ? (
-                <>
-                  {appliedDominates ? (
-                    /* Loud, and where the button was: this is the one
-                       place on the screen someone can lose a lot of
-                       money in a single click, and a grey footnote under
-                       a bright number is not a warning. */
-                    <div
-                      className="rounded px-2.5 py-2 font-mono text-[10px] leading-relaxed"
-                      style={{
-                        background: 'rgba(232,64,96,0.08)',
-                        border: '1px solid rgba(232,64,96,0.25)',
-                        color: '#f0a0b0',
-                      }}
-                    >
-                      What is on this is worth more than the skin itself —
-                      {' '}{usd(appliedTotal)} against {usd(market.ask)}. We
-                      do not price applied stickers yet, so there is no
-                      suggestion here worth taking. Set this one yourself.
-                    </div>
-                  ) : (
-                    /* Offered, never applied for you. The seller sets the
-                       number on this screen — a price that filled itself
-                       in is one nobody chose. */
-                    <button
-                      onClick={() => onPriceChange(market.ask.toFixed(2))}
-                      className="w-full py-1.5 rounded font-mono text-[10px] uppercase tracking-wider transition-colors"
-                      style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: '#9da3c0',
-                      }}
-                    >
-                      Use this price
-                    </button>
-                  )}
-
-                  {/* Where it came from and how old it is. A price with
-                      neither is an assertion, and the first question from
-                      anyone who disagrees with one is which market. */}
-                  <div className="font-mono text-[10px] leading-relaxed mt-2" style={{ color: '#4a4f68' }}>
-                    Lowest listing on {market.market}, {freshness(market.quotedAt)}.
-                    {stickers.length > 0 && !appliedDominates && (
-                      <> This is the skin alone — the stickers on it are not counted.</>
-                    )}
-                  </div>
-                </>
+                <InstantSell
+                  buyout={market.buyout}
+                  applied={applied.length > 0}
+                  dominated={appliedDominates}
+                  onSell={onInstantSell}
+                  notice={instantSellNotice}
+                />
               ) : (
-                <div className="font-mono text-[10px] leading-relaxed" style={{ color: '#4a4f68' }}>
+                <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
                   No market carries this one, so there is nothing to
                   compare against. The price is yours to decide.
                 </div>
@@ -393,18 +301,18 @@ export function SellDetail({
 
             <div className="px-5 py-4 flex flex-col gap-3">
               <div>
-                <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
+                <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
                   Your price
                 </div>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-xs" style={{ color: '#6c7290' }}>$</span>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-sm" style={{ color: '#6c7290' }}>$</span>
                   <input
                     value={price}
                     onChange={(e) => onPriceChange(e.target.value)}
                     inputMode="decimal"
                     placeholder="0.00"
                     autoFocus
-                    className="w-full pl-6 pr-2 py-2 rounded font-mono text-sm font-semibold focus:outline-none"
+                    className="w-full pl-6 pr-2 py-2 rounded font-mono text-base font-semibold focus:outline-none"
                     style={{
                       background: 'rgba(255,255,255,0.06)',
                       border: `1px solid ${price && !priced ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
@@ -415,14 +323,14 @@ export function SellDetail({
               </div>
 
               <div>
-                <div className="font-mono text-[10px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
+                <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
                   You receive
                   {feePercent !== null && (
                     <span style={{ color: '#4a4f68' }}> · after {feePercent}% fee</span>
                   )}
                 </div>
                 <div
-                  className="w-full px-2.5 py-2 rounded font-mono text-sm font-semibold"
+                  className="w-full px-2.5 py-2 rounded font-mono text-base font-semibold"
                   style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: payout ? '#4ade80' : '#4a4f68' }}
                 >
                   {payout ? `$${payout}` : '—'}
@@ -432,7 +340,7 @@ export function SellDetail({
               <button
                 onClick={onList}
                 disabled={!priced}
-                className="w-full py-2.5 rounded font-display text-sm font-bold tracking-wide transition-opacity disabled:opacity-40"
+                className="w-full py-2.5 rounded font-display text-[15px] font-bold tracking-wide transition-opacity disabled:opacity-40"
                 style={{
                   background: isListed ? 'rgba(255,255,255,0.08)' : '#f0c040',
                   color: isListed ? '#e8eaf0' : '#08090d',
@@ -451,35 +359,88 @@ export function SellDetail({
 }
 
 /**
- * How long ago the market was measured, in words.
+ * The platform's offer to buy the item outright.
  *
- * Deliberately vague past the first hour: the difference between three
- * and four minutes decides whether a price is worth acting on, the
- * difference between nine and ten hours does not.
+ * The amount is on the button on purpose: an "instant sell" that reveals
+ * its price on the next screen is a button nobody should press, and this
+ * one is irreversible — we pay, we hold, and the seller does not get the
+ * item back if the price moves the next day.
+ *
+ * **The offer prices the base skin only, and says so whenever the item
+ * carries anything.** Decided 2026-08-19 and not optional: an AK worth
+ * thousands for its Katowice stickers gets an offer for a clean AK, and
+ * somebody who accepts without noticing has a grievance worth repeating
+ * in public — in a market where trust is the product. Said out loud it
+ * is an informed choice, and there is no argument to have later.
  */
-function freshness(quotedAt: string): string {
-  const seconds = Math.max(
-    0,
-    Math.round((Date.now() - new Date(quotedAt).getTime()) / 1000),
+function InstantSell({
+  buyout,
+  applied,
+  dominated,
+  onSell,
+  notice,
+}: {
+  buyout: ItemPrice['buyout'];
+  /** The item carries stickers, patches or a charm. */
+  applied: boolean;
+  /** Those pieces are worth more than the skin itself. */
+  dominated: boolean;
+  onSell: (amount: string) => void;
+  /** Why pressing it did nothing, once it has been pressed. */
+  notice: string | null;
+}) {
+  if (buyout.amount === null) {
+    return (
+      <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
+        {buyout.reason === 'no_bid'
+          ? 'Nobody has a buy order open on this one, so we have nothing to base an offer on.'
+          : 'This one trades too slowly for us to buy outright. Listing it is the way to sell it.'}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => onSell(buyout.amount)}
+        className="w-full py-2.5 rounded font-display text-[13px] font-bold tracking-wide transition-opacity"
+        style={{ background: '#4ade80', color: '#08090d' }}
+      >
+        SELL INSTANTLY · ${buyout.amount}
+      </button>
+
+      {notice && (
+        <div
+          className="rounded px-2.5 py-2 font-mono text-[12px] leading-relaxed mt-2"
+          style={{
+            background: 'rgba(240,192,64,0.08)',
+            border: '1px solid rgba(240,192,64,0.25)',
+            color: '#f0c040',
+          }}
+        >
+          {notice}
+        </div>
+      )}
+
+      {applied && (
+        <div
+          className="font-mono text-[12px] leading-relaxed mt-2"
+          style={{ color: dominated ? '#f0a0b0' : '#6c7290' }}
+        >
+          This offer is for the skin alone. What is applied to it is not
+          valued{dominated ? ', and here it is worth more than the skin.' : '.'}
+        </div>
+      )}
+    </>
   );
-
-  if (seconds < 90) return 'measured just now';
-
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `measured ${minutes} min ago`;
-
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `measured ${hours}h ago`;
-
-  return `measured ${Math.round(hours / 24)}d ago`;
 }
 
 function Row({ label, value, color, muted }: { label: string; value: string; color?: string; muted?: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="font-mono text-[11px]" style={{ color: '#6c7290' }}>{label}</span>
+      <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>{label}</span>
       <span
-        className="font-mono text-[11px] font-semibold"
+        className="font-mono text-[13px] font-semibold"
         style={{ color: muted ? '#4a4f68' : (color ?? '#e8eaf0') }}
       >
         {value}

@@ -373,6 +373,14 @@ export interface ItemPrice {
   spread: number | null;
   askVolume: number | null;
   quotedAt: string;
+  /**
+   * What the platform would pay to buy it outright today, or why it
+   * would not. Never computed in the browser: it is the platform
+   * spending its own money.
+   */
+  buyout:
+    | { amount: string; discount: number }
+    | { amount: null; reason: 'no_bid' | 'illiquid' };
 }
 
 /**

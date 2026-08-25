@@ -52,6 +52,11 @@ export function SellPage({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<string | null>(null);
 
+  // Why the instant-sell button did nothing. Lives here rather than in
+  // the modal because the reason is a fact about the platform, not about
+  // the item on screen, and it clears when the modal does.
+  const [instantNotice, setInstantNotice] = useState<string | null>(null);
+
   // The commission comes from the backend: it decides what the seller is
   // paid, and a constant here would keep quoting the old number the day
   // it changes. Null until it answers, and the payout box says nothing
@@ -302,7 +307,9 @@ export function SellPage({
             feePercent={feePercent}
             isListed={selected.includes(item.assetId)}
             onList={() => { toggle(item.assetId); setDetailFor(null); }}
-            onClose={() => setDetailFor(null)}
+            onInstantSell={() => setInstantNotice(INSTANT_SELL_NOT_OPEN)}
+            instantSellNotice={instantNotice}
+            onClose={() => { setDetailFor(null); setInstantNotice(null); }}
           />
         );
       })()}
@@ -336,6 +343,17 @@ export function SellPage({
     </div>
   );
 }
+
+/**
+ * The offer is real and computed by the backend, but nothing can act on
+ * it yet: buying the item means the Trade Bot fetching it, and
+ * `apps/bot-service` is still empty. Said in full rather than left as a
+ * dead button — a control that does nothing when pressed is worse than
+ * one that explains itself.
+ */
+const INSTANT_SELL_NOT_OPEN =
+  'Instant sell is not open yet — the Trade Bots that collect the item ' +
+  'are not running. List it and it sells the same way.';
 
 /**
  * Prices are strings all the way to the API — a JSON number is a float,

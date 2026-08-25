@@ -2,6 +2,7 @@ import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PricesQueryDto } from './dto/prices-query.dto';
+import { instantSellOffer, type NoOfferReason } from './instant-sell';
 import { PriceService } from './price.service';
 
 /** One item's worth, as the screens receive it. */
@@ -16,7 +17,24 @@ interface PriceResponse {
   spread: number | null;
   askVolume: number | null;
   quotedAt: string;
+  /**
+   * What we would pay to buy it outright, or why we would not.
+   *
+   * Computed here rather than by the screen: this is the platform
+   * spending its own money, and a discount table living in a browser is
+   * one a browser can argue with.
+   */
+  buyout: BuyoutResponse;
 }
+
+type BuyoutResponse =
+  | {
+      /** USD, as a string — this is money we pay, not a quote we read. */
+      amount: string;
+      /** Taken off the highest bid. 0.15 = 15%. */
+      discount: number;
+    }
+  | { amount: null; reason: NoOfferReason };
 
 /**
  * Prices, asked for by name.
@@ -64,9 +82,19 @@ export class PricingController {
         spread: p.spread,
         askVolume: p.askVolume,
         quotedAt: p.quotedAt.toISOString(),
+        buyout: buyoutOf(p.bid, p.spread),
       };
     }
 
     return { prices };
   }
+}
+
+/** The offer as the screens receive it: an amount, or a reason there is none. */
+function buyoutOf(bid: number | null, spread: number | null): BuyoutResponse {
+  const offer = instantSellOffer(bid, spread);
+
+  return offer.ok
+    ? { amount: offer.amount, discount: offer.discount }
+    : { amount: null, reason: offer.reason };
 }
