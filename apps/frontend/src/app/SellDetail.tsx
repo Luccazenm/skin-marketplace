@@ -7,7 +7,7 @@ import {
   useAppliedHover,
   type AppliedValue,
 } from './AppliedPopup';
-import { payoutAfterFee, toCents, usd } from '@/lib/money';
+import { fromCents, payoutAfterFee, toCents, usd } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
 import { useSuggestion } from '@/lib/use-suggestion';
 import {
@@ -37,6 +37,7 @@ export function SellDetail({
   market,
   onPriceChange,
   feePercent,
+  minimumCents,
   isListed,
   onList,
   onInstantSell,
@@ -54,6 +55,12 @@ export function SellDetail({
   instantSellNotice: string | null;
   /** From GET /api/config, never assumed. */
   feePercent: number | null;
+  /**
+   * The lowest price the backend will accept, in cents. Also from the
+   * config: it is derived from the commission there, and a copy here
+   * would let this screen offer a price the server refuses.
+   */
+  minimumCents: number;
   isListed: boolean;
   onList: () => void;
   onClose: () => void;
@@ -97,7 +104,17 @@ export function SellDetail({
 
   const hover = useAppliedHover();
 
-  const priced = toCents(price) !== null && toCents(price)! > 0;
+  const cents = toCents(price);
+  const priced = cents !== null && cents >= minimumCents;
+
+  /**
+   * Typed something, and it is not enough. Kept apart from "typed
+   * nothing yet" so an empty field is not an error and a rejected one
+   * says why — the alternative is a LIST ITEM button that refuses to
+   * light up and never explains itself.
+   */
+  const tooLow = cents !== null && cents > 0 && cents < minimumCents;
+
   const payout =
     priced && feePercent !== null ? payoutAfterFee(price, feePercent) : null;
 
@@ -373,6 +390,13 @@ export function SellDetail({
                     }}
                   />
                 </div>
+
+                {tooLow && (
+                  <div className="font-mono text-[11px] leading-relaxed mt-1.5" style={{ color: '#e84060' }}>
+                    The lowest an item can be listed for is $
+                    {fromCents(minimumCents)}.
+                  </div>
+                )}
               </div>
 
               <div>

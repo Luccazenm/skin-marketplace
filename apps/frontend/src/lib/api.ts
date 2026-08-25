@@ -496,6 +496,14 @@ export async function markNotificationsRead(): Promise<number> {
 export interface PlatformConfig {
   /** The commission as a percentage: 5 means 5%. */
   platformFeePercent: number;
+  /**
+   * The lowest price an item may be listed at, in USD. Derived from the
+   * commission by the backend — below it the fee would take the whole
+   * price and the seller would be paid nothing.
+   */
+  minimumListingPrice: string;
+  /** The smallest commission charged on a sale, in USD. */
+  minimumFee: string;
 }
 
 /**

@@ -42,11 +42,24 @@ export function usd(value: number): string {
 }
 
 /**
+ * The smallest commission the platform charges on a sale, in cents.
+ *
+ * A percentage of a small price rounds to nothing, and a sale that
+ * moves an item and earns zero is one we pay for and record for free.
+ * Mirrors `MINIMUM_FEE_CENTS` in the backend, which is where the rule
+ * actually lives — this copy exists so the payout box can show the same
+ * number the server will compute.
+ */
+const MINIMUM_FEE_CENTS = 1;
+
+/**
  * What the seller keeps after the platform's commission.
  *
- * Rounded half-up on the fee, so the cent that cannot be split goes to
- * the seller rather than to us. It is one cent, and it is the direction
- * that does not need explaining to anybody.
+ * Rounded down on the percentage, so the cent that cannot be split goes
+ * to the seller rather than to us. It is one cent, and it is the
+ * direction that does not need explaining to anybody — and then the
+ * minimum above takes it back, which is why the two are applied in this
+ * order and not the other.
  *
  * This is an estimate for the screen. The authoritative figure is
  * computed by the backend when the sale closes and frozen onto the
@@ -59,6 +72,10 @@ export function payoutAfterFee(
   const cents = toCents(price);
   if (cents === null) return null;
 
-  const fee = Math.floor((cents * feePercent) / 100);
+  const fee = Math.max(
+    MINIMUM_FEE_CENTS,
+    Math.floor((cents * feePercent) / 100),
+  );
+
   return fromCents(cents - fee);
 }

@@ -5,6 +5,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   BotStatus,
   TradeOfferReason,
@@ -22,6 +23,11 @@ import {
 } from '../audit/audit.service';
 import { capabilitiesFor } from '../auth/steam-restrictions';
 import { InventoryService } from '../inventory/inventory.service';
+import {
+  centsToUsd,
+  minimumListingCents,
+  usdToCents,
+} from '../pricing/commission';
 import {
   NOTIFICATION_KINDS,
   NotificationsService,
@@ -52,6 +58,7 @@ export class DepositsService {
     private readonly inventory: InventoryService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -77,6 +84,45 @@ export class DepositsService {
   }
 
   /**
+   * Refuses a price the seller would not actually be paid at.
+   *
+   * The floor is derived from the commission, not fixed: at 5% it is
+   * $0.02, because a cent listing pays out nothing once the minimum fee
+   * is taken. Checked here rather than in the DTO because the DTO
+   * validates the shape of a price and this is a rule about money —
+   * and because a refusal belongs in the audit trail, where a run of
+   * them is a pattern worth seeing.
+   */
+  private async refuseIfUnderMinimum(
+    user: User,
+    requested: DepositRequestItem[],
+    context?: AuditContext,
+  ): Promise<void> {
+    const minimum = minimumListingCents(
+      this.config.getOrThrow<number>('PLATFORM_FEE_PERCENT'),
+    );
+
+    const under = requested.filter((i) => {
+      const cents = usdToCents(i.price);
+      return cents === null || cents < minimum;
+    });
+
+    if (under.length === 0) return;
+
+    await this.recordRefusal(
+      user,
+      'price_below_minimum',
+      under.map((i) => i.assetId),
+      context,
+    );
+
+    throw new BadRequestException(
+      `The lowest an item can be listed for is $${centsToUsd(minimum)}. ` +
+        `Raise the price on ${under.length === 1 ? 'that item' : 'those items'} to continue.`,
+    );
+  }
+
+  /**
    * Records the intent to deposit and queues the trade offer.
    *
    * It sends nothing: sending is the bot service's job. What lives here
@@ -98,6 +144,8 @@ export class DepositsService {
       await this.recordRefusal(user, 'duplicate_items', assetIds, context);
       throw new BadRequestException('The selection contains repeated items.');
     }
+
+    await this.refuseIfUnderMinimum(user, requested, context);
 
     if (!user.tradeUrl) {
       await this.recordRefusal(user, 'no_trade_url', unique, context);

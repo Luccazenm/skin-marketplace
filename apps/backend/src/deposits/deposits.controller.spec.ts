@@ -164,6 +164,47 @@ describe('DepositsController', () => {
         .expect(400);
     });
 
+    /**
+     * A cent listing pays out nothing: the minimum commission takes the
+     * whole of it. The floor is derived from the fee and comes back on
+     * GET /api/config, so the screen and the server refuse the same
+     * prices.
+     */
+    it('refuses a price below the minimum listing price', async () => {
+      const r = await http()
+        .post('/api/deposits')
+        .set(ctx.authFor(user))
+        .send({ items: [{ assetId: '111', price: '0.01' }] })
+        .expect(400);
+
+      expect(body<{ message: string }>(r).message).toContain('$0.02');
+    });
+
+    // The boundary belongs to the side that is allowed. A rule that
+    // refuses the number it names is the kind nobody can act on.
+    it('accepts the minimum itself', async () => {
+      await http()
+        .post('/api/deposits')
+        .set(ctx.authFor(user))
+        .send({ items: [{ assetId: '111', price: '0.02' }] })
+        .expect(201);
+    });
+
+    // One bad price refuses the whole selection: the seller picked the
+    // items together and gets them back together to fix.
+    it('refuses the request when only one item is under the minimum', async () => {
+      await http()
+        .post('/api/deposits')
+        .set(ctx.authFor(user))
+        .send({
+          items: [
+            { assetId: '111', price: '40.00' },
+            { assetId: '222', price: '0.01' },
+          ],
+        })
+        .expect(400);
+    });
+
     it('refuses an item with no price at all', async () => {
       await http()
         .post('/api/deposits')

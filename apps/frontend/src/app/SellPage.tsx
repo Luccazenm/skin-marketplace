@@ -8,6 +8,7 @@ import {
   type AppliedItem,
   type InventoryItem,
   type ItemPrice,
+  type PlatformConfig,
 } from '@/lib/api';
 import { fromCents, payoutAfterFee, toCents } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
@@ -63,17 +64,28 @@ export function SellPage({
   // the item on screen, and it clears when the modal does.
   const [instantNotice, setInstantNotice] = useState<string | null>(null);
 
-  // The commission comes from the backend: it decides what the seller is
-  // paid, and a constant here would keep quoting the old number the day
-  // it changes. Null until it answers, and the payout box says nothing
-  // rather than guessing at 5%.
-  const [feePercent, setFeePercent] = useState<number | null>(null);
+  // The commission and the minimum price both come from the backend:
+  // they decide what the seller is paid and what they are allowed to
+  // ask, and a constant here would keep quoting the old number the day
+  // either changes. Null until it answers, and the payout box says
+  // nothing rather than guessing at 5%.
+  const [config, setConfig] = useState<PlatformConfig | null>(null);
 
   useEffect(() => {
     getPlatformConfig()
-      .then((c) => setFeePercent(c.platformFeePercent))
-      .catch(() => setFeePercent(null));
+      .then(setConfig)
+      .catch(() => setConfig(null));
   }, []);
+
+  const feePercent = config?.platformFeePercent ?? null;
+
+  /**
+   * The floor, in cents. Two while the config is in flight — the same
+   * answer the server gives at the fee we charge, and the server refuses
+   * anything under it regardless, so a wrong guess here is caught rather
+   * than acted on.
+   */
+  const minimumCents = config ? (toCents(config.minimumListingPrice) ?? 2) : 2;
 
   // Only what can actually be deposited is offered for sale. The rest is
   // still counted, and said out loud below, because an item silently
@@ -146,7 +158,7 @@ export function SellPage({
     // already priced and calling the other two hundred a tie.
     const priceOf = (i: InventoryItem) => {
       const p = prices[i.assetId];
-      if (isValidPrice(p)) return Number(p);
+      if (isValidPrice(p, minimumCents)) return Number(p);
 
       return market.prices[i.marketHashName]?.ask ?? null;
     };
@@ -163,7 +175,7 @@ export function SellPage({
       default:
         return matched;
     }
-  }, [sellable, search, sort, prices, market.prices]);
+  }, [sellable, search, sort, prices, market.prices, minimumCents]);
 
   const selectedItems = useMemo(
     () => sellable.filter((i) => selected.includes(i.assetId)),
@@ -179,7 +191,9 @@ export function SellPage({
   }
 
   /** Every selected item needs a price above zero before this can go. */
-  const priced = selectedItems.every((i) => isValidPrice(prices[i.assetId]));
+  const priced = selectedItems.every((i) =>
+    isValidPrice(prices[i.assetId], minimumCents),
+  );
   const canSubmit =
     hasTradeUrl && selectedItems.length > 0 && priced && !submitting;
 
@@ -316,6 +330,7 @@ export function SellPage({
                   selected={selected.includes(item.assetId)}
                   price={prices[item.assetId]}
                   market={market.prices[item.marketHashName]}
+                  minimumCents={minimumCents}
                   onToggle={() => toggle(item.assetId)}
                   onOpen={() => setDetailFor(item.assetId)}
                 />
@@ -336,6 +351,7 @@ export function SellPage({
             market={market.prices[item.marketHashName]}
             onPriceChange={(p) => setPrices((prev) => ({ ...prev, [item.assetId]: p }))}
             feePercent={feePercent}
+            minimumCents={minimumCents}
             isListed={selected.includes(item.assetId)}
             onList={() => { toggle(item.assetId); setDetailFor(null); }}
             onInstantSell={() => setInstantNotice(INSTANT_SELL_NOT_OPEN)}
@@ -363,6 +379,7 @@ export function SellPage({
             onRemove={toggle}
             onClear={() => { setSelected([]); setPrices({}); }}
             feePercent={feePercent}
+            minimumCents={minimumCents}
             hasTradeUrl={hasTradeUrl}
             canSubmit={canSubmit}
             submitting={submitting}
@@ -487,10 +504,21 @@ const INSTANT_SELL_NOT_OPEN =
 
 /**
  * Prices are strings all the way to the API — a JSON number is a float,
- * and this is money. Up to two decimals, and something above zero.
+ * and this is money. Up to two decimals, and at least the minimum the
+ * backend will accept.
+ *
+ * The minimum is passed in rather than fixed here: it is derived from
+ * the commission and served on GET /api/config, and a copy in this file
+ * would let the screen accept a price the server refuses.
  */
-function isValidPrice(value: string | undefined): boolean {
-  return !!value && /^\d+(\.\d{1,2})?$/.test(value) && Number(value) > 0;
+function isValidPrice(
+  value: string | undefined,
+  minimumCents: number,
+): boolean {
+  if (!value || !/^\d+(\.\d{1,2})?$/.test(value)) return false;
+
+  const cents = toCents(value);
+  return cents !== null && cents >= minimumCents;
 }
 
 /**
@@ -578,7 +606,7 @@ function AppliedStack({
  * seller has typed rather than a market price — there is no market
  * price for an item that is not on sale yet.
  */
-function ItemCard({ item, selected, price, market, onToggle, onOpen }: { item: InventoryItem; selected: boolean; price: string | undefined; market: ItemPrice | undefined; onToggle: () => void; onOpen: () => void }) {
+function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpen }: { item: InventoryItem; selected: boolean; price: string | undefined; market: ItemPrice | undefined; /** The lowest price the backend will accept, in cents. */ minimumCents: number; onToggle: () => void; onOpen: () => void }) {
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
@@ -671,7 +699,7 @@ function ItemCard({ item, selected, price, market, onToggle, onOpen }: { item: I
               reads as prices: "5" becomes 5.00, "42.5" becomes 42.50,
               and "0100" becomes 100.00 instead of $0100. The stored
               value stays exactly what was typed — this is display. */}
-          {isValidPrice(price) ? (
+          {isValidPrice(price, minimumCents) ? (
             <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#f0f2f8' }}>
               ${fromCents(toCents(price)!)}
             </div>
@@ -809,6 +837,8 @@ function SellPanel(props: {
   onClear: () => void;
   /** Null until /api/config answers — the payout stays blank rather than guessing. */
   feePercent: number | null;
+  /** The lowest price the backend will accept, in cents. */
+  minimumCents: number;
   hasTradeUrl: boolean;
   canSubmit: boolean;
   submitting: boolean;
@@ -837,7 +867,7 @@ function SellPanel(props: {
             const r = rarityStyle(rarityKeyForItem(item));
             const price = props.prices[item.assetId] ?? '';
 
-            const valid = isValidPrice(price);
+            const valid = isValidPrice(price, props.minimumCents);
             const payout =
               valid && props.feePercent !== null
                 ? payoutAfterFee(price, props.feePercent)
