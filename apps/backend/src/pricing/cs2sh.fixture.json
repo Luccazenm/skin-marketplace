@@ -1,0 +1,240 @@
+{
+  "response_time": "2026-08-25T14:46:36.824210728Z",
+  "currency": "USD",
+  "items": {
+    "AK-47 | Redline (Field-Tested)": {
+      "market_hash_name": "AK-47 | Redline (Field-Tested)",
+      "buff": {
+        "updated_at": "2026-08-25T14:44:16Z",
+        "collected_at": "2026-08-25T14:46:10.341Z",
+        "ask": 27.68,
+        "ask_volume": 11285,
+        "bid": 27.53,
+        "bid_volume": 311
+      },
+      "youpin": {
+        "updated_at": "2026-08-25T14:44:48Z",
+        "collected_at": "2026-08-25T14:45:22.631Z",
+        "ask": 27.67,
+        "ask_volume": 10000,
+        "bid": null,
+        "bid_volume": null
+      },
+      "csfloat": {
+        "updated_at": "2026-08-25T14:46:05.628Z",
+        "collected_at": "2026-08-25T14:46:05.678Z",
+        "ask": 27.4,
+        "ask_volume": 3702,
+        "bid": 26.4
+      },
+      "skinport": {
+        "updated_at": "2026-08-25T14:45:10.511Z",
+        "collected_at": "2026-08-25T14:45:17.008Z",
+        "ask": 28.78,
+        "ask_volume": 634,
+        "max_ask": 20411.03,
+        "mean_ask": 171.94,
+        "median_ask": 51.7,
+        "24h_history": {
+          "price": 27.4,
+          "max_price": 90.75,
+          "mean_price": 38.61,
+          "median_price": 32.67,
+          "volume": 12
+        },
+        "7d_history": {
+          "price": 23.7,
+          "max_price": 686.41,
+          "mean_price": 56.15,
+          "median_price": 33.02,
+          "volume": 67
+        },
+        "30d_history": {
+          "price": 23.7,
+          "max_price": 960.96,
+          "mean_price": 54.14,
+          "median_price": 32.33,
+          "volume": 280
+        },
+        "90d_history": {
+          "price": 21.86,
+          "max_price": 960.96,
+          "mean_price": 49.09,
+          "median_price": 33.22,
+          "volume": 1073
+        }
+      },
+      "steam": {
+        "updated_at": "2026-08-25T14:44:13.045Z",
+        "collected_at": "2026-08-25T14:45:10.076Z",
+        "ask": 38.95,
+        "ask_volume": 1233,
+        "bid": 38.5,
+        "bid_volume": 50831
+      },
+      "c5game": {
+        "updated_at": "2026-08-25T14:43:58.593Z",
+        "collected_at": "2026-08-25T14:44:02.332Z",
+        "ask": 27.89,
+        "ask_volume": 2858,
+        "bid": null
+      }
+    },
+    "AWP | Dragon Lore (Factory New)": {
+      "market_hash_name": "AWP | Dragon Lore (Factory New)",
+      "buff": {
+        "updated_at": "2026-08-25T14:44:31Z",
+        "collected_at": "2026-08-25T14:46:10.341Z",
+        "ask": 11159.42,
+        "ask_volume": 183,
+        "bid": 10771.36,
+        "bid_volume": 19
+      },
+      "youpin": {
+        "updated_at": "2026-08-25T14:40:36Z",
+        "collected_at": "2026-08-25T14:44:13.475Z",
+        "ask": 11439.56,
+        "ask_volume": 131,
+        "bid": null,
+        "bid_volume": null
+      },
+      "csfloat": {
+        "updated_at": "2026-08-25T14:46:05.628Z",
+        "collected_at": "2026-08-25T14:46:05.678Z",
+        "ask": 11100,
+        "ask_volume": 72,
+        "bid": 10830
+      },
+      "skinport": {
+        "updated_at": "2026-08-25T14:45:10.511Z",
+        "collected_at": "2026-08-25T14:45:17.008Z",
+        "ask": 11808.68,
+        "ask_volume": 3,
+        "max_ask": 16886.19,
+        "mean_ask": 14189.96,
+        "median_ask": 13875.01,
+        "24h_history": {
+          "price": null,
+          "max_price": null,
+          "mean_price": null,
+          "median_price": null,
+          "volume": 0
+        },
+        "7d_history": {
+          "price": null,
+          "max_price": null,
+          "mean_price": null,
+          "median_price": null,
+          "volume": 0
+        },
+        "30d_history": {
+          "price": 10885.33,
+          "max_price": 11702.37,
+          "mean_price": 11253.74,
+          "median_price": 11254.81,
+          "volume": 6
+        },
+        "90d_history": {
+          "price": 10885.33,
+          "max_price": 12251.93,
+          "mean_price": 11345.62,
+          "median_price": 11256.43,
+          "volume": 15
+        }
+      },
+      "steam": {
+        "updated_at": "2026-08-25T14:39:59.754Z",
+        "collected_at": "2026-08-25T14:40:01.048Z",
+        "ask": null,
+        "ask_volume": 0,
+        "bid": 2379.4,
+        "bid_volume": 2579
+      },
+      "c5game": {
+        "updated_at": "2026-08-25T14:43:57.512Z",
+        "collected_at": "2026-08-25T14:44:02.332Z",
+        "ask": 11379.9,
+        "ask_volume": 27,
+        "bid": 8183.67
+      }
+    },
+    "AK-47 | Jet Set (Factory New)": {
+      "market_hash_name": "AK-47 | Jet Set (Factory New)",
+      "buff": {
+        "updated_at": "2026-08-25T14:40:17Z",
+        "collected_at": "2026-08-25T14:45:29.189Z",
+        "ask": 1175.49,
+        "ask_volume": 11,
+        "bid": null,
+        "bid_volume": 3
+      },
+      "youpin": {
+        "updated_at": "2026-08-25T14:36:48.775Z",
+        "collected_at": "2026-08-25T14:44:13.475Z",
+        "ask": 1188.08,
+        "ask_volume": 11,
+        "bid": 688.76,
+        "bid_volume": 2
+      },
+      "csfloat": {
+        "updated_at": "2026-08-25T14:46:05.628Z",
+        "collected_at": "2026-08-25T14:46:05.678Z",
+        "ask": 1130.9,
+        "ask_volume": 6,
+        "bid": 350
+      },
+      "skinport": {
+        "updated_at": "2026-08-25T14:45:10.511Z",
+        "collected_at": "2026-08-25T14:45:17.008Z",
+        "ask": 1182.88,
+        "ask_volume": 2,
+        "max_ask": 1301.96,
+        "mean_ask": 1242.42,
+        "median_ask": 1242.42,
+        "24h_history": {
+          "price": null,
+          "max_price": null,
+          "mean_price": null,
+          "median_price": null,
+          "volume": 0
+        },
+        "7d_history": {
+          "price": null,
+          "max_price": null,
+          "mean_price": null,
+          "median_price": null,
+          "volume": 0
+        },
+        "30d_history": {
+          "price": null,
+          "max_price": null,
+          "mean_price": null,
+          "median_price": null,
+          "volume": 0
+        },
+        "90d_history": {
+          "price": 985.08,
+          "max_price": 985.08,
+          "mean_price": 985.08,
+          "median_price": 985.08,
+          "volume": 1
+        }
+      },
+      "steam": {
+        "updated_at": "2026-08-25T14:39:54.946Z",
+        "collected_at": "2026-08-25T14:39:55.95Z",
+        "ask": null,
+        "ask_volume": 0,
+        "bid": 1042.17,
+        "bid_volume": 558
+      },
+      "c5game": {
+        "updated_at": "2026-08-25T14:43:57.621Z",
+        "collected_at": "2026-08-25T14:44:02.332Z",
+        "ask": 1174.47,
+        "ask_volume": 9,
+        "bid": 1023.7
+      }
+    }
+  }
+}

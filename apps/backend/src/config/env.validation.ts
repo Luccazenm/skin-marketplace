@@ -32,6 +32,11 @@ export const envSchema = z.object({
   // Login works without it — the OpenID authenticates, not this key.
   STEAM_API_KEY: z.string().min(1).optional(),
 
+  // The price source. Optional so the app still boots without it: every
+  // screen that shows a price already handles not having one, and a
+  // missing key should degrade the storefront rather than stop it.
+  CS2SH_API_KEY: z.string().min(1).optional(),
+
   // Signs the session tokens. No default on purpose: a default secret
   // that leaks into production lets anyone forge a session for any
   // account.
