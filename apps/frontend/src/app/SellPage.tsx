@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Package, Lock, X, RotateCw } from 'lucide-react';
+import { Package, Lock, X, RotateCw, Zap } from 'lucide-react';
 import {
   ApiError,
   getPlatformConfig,
@@ -584,6 +584,33 @@ function ItemCard({ item, selected, price, market, onToggle, onOpen }: { item: I
             <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#4a4f68' }}>
               Not priced
             </div>
+          )}
+
+          {/* We would buy this one outright today.
+
+              On the price row rather than in a corner: the corners hold
+              the sticker and charm stacks, and this belongs beside the
+              money anyway. Absent rather than greyed out when there is no
+              offer — most of an inventory is cases and graffiti nobody
+              bids on, and a disabled mark on two thirds of the grid is
+              noise, not information.
+
+              The same green as the button it leads to, so the mark and
+              the action read as one thing. */}
+          {market?.buyout.amount !== null && market !== undefined && (
+            <span
+              title={`We will buy this now for $${market.buyout.amount}`}
+              aria-label="Eligible for instant sell"
+              className="flex items-center justify-center rounded flex-shrink-0"
+              style={{
+                width: 18,
+                height: 18,
+                background: 'rgba(74,222,128,0.12)',
+                border: '1px solid rgba(74,222,128,0.3)',
+              }}
+            >
+              <Zap className="w-3 h-3" style={{ color: '#4ade80' }} fill="#4ade80" />
+            </span>
           )}
         </div>
       </div>
