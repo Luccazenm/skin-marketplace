@@ -6,9 +6,11 @@ import {
   requestDeposit,
   type AppliedItem,
   type InventoryItem,
+  type ItemPrice,
 } from '@/lib/api';
 import { fromCents, payoutAfterFee, toCents } from '@/lib/money';
 import { rarityStyle } from '@/lib/rarity';
+import { usePrices } from '@/lib/use-prices';
 import { AppliedPopup, useAppliedHover } from './AppliedPopup';
 import { SellDetail } from './SellDetail';
 import { MiniSortDropdown, SELL_SORTS } from './MiniSortDropdown';
@@ -70,6 +72,14 @@ export function SellPage({
     [inventory.items],
   );
 
+  // Asked for the whole sellable inventory at once, not per card: two
+  // hundred cards mounting would be two hundred requests, and the
+  // backend answers a list in one round trip. The hook keys on the set
+  // of names, so filtering and sorting do not re-fetch.
+  const market = usePrices(
+    useMemo(() => sellable.map((i) => i.marketHashName), [sellable]),
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const matched = q
@@ -97,9 +107,15 @@ export function SellPage({
         return descending ? y - x : x - y;
       });
 
+    // The same number the card shows: your asking price where you set
+    // one, the market's where you did not. Sorting only by what has been
+    // typed would leave "Highest Price" ordering the two items you had
+    // already priced and calling the other two hundred a tie.
     const priceOf = (i: InventoryItem) => {
       const p = prices[i.assetId];
-      return isValidPrice(p) ? Number(p) : null;
+      if (isValidPrice(p)) return Number(p);
+
+      return market.prices[i.marketHashName]?.ask ?? null;
     };
 
     switch (sort) {
@@ -114,7 +130,7 @@ export function SellPage({
       default:
         return matched;
     }
-  }, [sellable, search, sort, prices]);
+  }, [sellable, search, sort, prices, market.prices]);
 
   const selectedItems = useMemo(
     () => sellable.filter((i) => selected.includes(i.assetId)),
@@ -263,6 +279,7 @@ export function SellPage({
                   item={item}
                   selected={selected.includes(item.assetId)}
                   price={prices[item.assetId]}
+                  market={market.prices[item.marketHashName]}
                   onToggle={() => toggle(item.assetId)}
                   onOpen={() => setDetailFor(item.assetId)}
                 />
@@ -412,7 +429,7 @@ function AppliedStack({
  * seller has typed rather than a market price — there is no market
  * price for an item that is not on sale yet.
  */
-function ItemCard({ item, selected, price, onToggle, onOpen }: { item: InventoryItem; selected: boolean; price: string | undefined; onToggle: () => void; onOpen: () => void }) {
+function ItemCard({ item, selected, price, market, onToggle, onOpen }: { item: InventoryItem; selected: boolean; price: string | undefined; market: ItemPrice | undefined; onToggle: () => void; onOpen: () => void }) {
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
@@ -495,13 +512,29 @@ function ItemCard({ item, selected, price, onToggle, onOpen }: { item: Inventory
           </div>
         </div>
         <div className="flex items-center justify-between">
-          {/* Shown through cents rather than as typed, so the column
+          {/* Your asking price once you have set one, the market's price
+              until then — and the two are told apart rather than left to
+              look alike. A tilde marks the market figure as a reference:
+              it is what the item goes for elsewhere, not what you have
+              decided to charge.
+
+              Shown through cents rather than as typed, so the column
               reads as prices: "5" becomes 5.00, "42.5" becomes 42.50,
               and "0100" becomes 100.00 instead of $0100. The stored
               value stays exactly what was typed — this is display. */}
-          <div className="font-mono font-semibold text-sm leading-none" style={{ color: isValidPrice(price) ? '#f0f2f8' : '#4a4f68' }}>
-            {isValidPrice(price) ? `$${fromCents(toCents(price)!)}` : 'Not priced'}
-          </div>
+          {isValidPrice(price) ? (
+            <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#f0f2f8' }}>
+              ${fromCents(toCents(price)!)}
+            </div>
+          ) : market ? (
+            <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#9da3c0' }}>
+              ~${market.ask.toFixed(2)}
+            </div>
+          ) : (
+            <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#4a4f68' }}>
+              Not priced
+            </div>
+          )}
         </div>
       </div>
 

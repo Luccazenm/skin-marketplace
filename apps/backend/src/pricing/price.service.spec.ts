@@ -113,11 +113,51 @@ describe('pickPrices', () => {
       at,
     );
 
-    expect(pickPrices(quotes, preferred).get('Zero | Bid')!.spread).toBeNull();
+    const price = pickPrices(quotes, preferred).get('Zero | Bid')!;
+
+    expect(price.spread).toBeNull();
+    // And the zero does not survive as the bid either: the instant-sell
+    // offer is anchored on this number, and zero would become an offer
+    // of nothing rather than a refusal to make one.
+    expect(price.bid).toBeNull();
   });
 
   it('omits an item nothing could price rather than pricing it at zero', () => {
     expect(pickPrices([], preferred).size).toBe(0);
+  });
+
+  /**
+   * Observed live on 2026-08-25: PP-Bizon | Thermal Currents came back
+   * from BUFF at ask 0 with an ask_volume of 950. Passed through, it
+   * reached a card as "~$0.00" — which reads as a free skin, not as an
+   * item nobody has listed.
+   */
+  it('drops a market quoting zero rather than showing a free skin', () => {
+    const quotes = toQuotes(
+      'Zero | Ask',
+      { buff: { ask: 0, bid: 0, ask_volume: 950, updated_at: at.toISOString() } },
+      at,
+    );
+
+    expect(pickPrices(quotes, preferred).has('Zero | Ask')).toBe(false);
+  });
+
+  // Only that market is discarded, not the item: the next one in the
+  // order still knows what it is worth.
+  it('falls through to the next market when the first quotes zero', () => {
+    const quotes = toQuotes(
+      'Zero | Then Real',
+      {
+        buff: { ask: 0, bid: 0, updated_at: at.toISOString() },
+        youpin: { ask: 12.5, bid: 12, updated_at: at.toISOString() },
+      },
+      at,
+    );
+
+    expect(pickPrices(quotes, preferred).get('Zero | Then Real')).toMatchObject({
+      ask: 12.5,
+      bid: 12,
+    });
   });
 
   it('reads a five-figure item without losing cents', () => {

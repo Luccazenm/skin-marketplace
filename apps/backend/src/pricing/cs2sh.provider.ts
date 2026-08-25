@@ -205,16 +205,23 @@ export function toQuotes(
 
     // No ask means nothing is listed. There is no price to record, and a
     // bid alone is not one — it is what somebody hopes to pay.
-    if (typeof source.ask !== 'number') continue;
+    //
+    // **Zero is one of the ways they say "nothing".** Observed on
+    // 2026-08-25: PP-Bizon | Thermal Currents came back at ask 0 with an
+    // ask_volume of 950. Taken at face value it reaches a card as
+    // "~$0.00", which reads as a free skin. An absent price is honest;
+    // a zero is a lie the screen cannot tell from a bargain.
+    if (typeof source.ask !== 'number' || source.ask <= 0) continue;
 
     quotes.push({
       marketHashName,
       market,
       price: source.ask,
-      // Absent and null both mean the same thing: this market has no buy
-      // orders for this item. Kept apart from zero, which would read as
-      // "somebody bids nothing".
-      bid: source.bid ?? null,
+      // Absent, null and zero all mean the same thing: this market has
+      // no buy orders for this item. Kept apart from a real bid, which
+      // is what the instant-sell offer is anchored on — a zero there
+      // would become an offer of nothing.
+      bid: source.bid && source.bid > 0 ? source.bid : null,
       ask: source.ask,
       volume24h: source.ask_volume ?? null,
       // When the marketplace was measured, not when we received it. A

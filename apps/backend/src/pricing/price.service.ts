@@ -203,13 +203,20 @@ export function pickPrices(
   const prices = new Map<string, ItemPrice>();
 
   for (const [name, list] of byName) {
+    // A zero ask is not a price, whichever market said it. The provider
+    // already drops them; repeated here because this function is where
+    // "there is no price" is decided, and a caller with quotes from
+    // anywhere else has to land on the same answer.
     const chosen = preferred
       .map((market) => list.find((q) => q.market === market))
-      .find((q): q is RawQuote => q !== undefined && typeof q.ask === 'number');
+      .find(
+        (q): q is RawQuote =>
+          q !== undefined && typeof q.ask === 'number' && q.ask > 0,
+      );
 
     if (!chosen || typeof chosen.ask !== 'number') continue;
 
-    const bid = chosen.bid ?? null;
+    const bid = chosen.bid && chosen.bid > 0 ? chosen.bid : null;
 
     prices.set(name, {
       marketHashName: name,

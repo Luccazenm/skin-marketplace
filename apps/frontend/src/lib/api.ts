@@ -344,6 +344,45 @@ export async function requestDeposit(
 }
 
 // ---------------------------------------------------------------------
+// Prices
+// ---------------------------------------------------------------------
+
+/** What one item is worth, from the market that answered. */
+export interface ItemPrice {
+  /** Lowest listing, in USD. What the item sells for. */
+  ask: number;
+  /** Highest buy order, or null where nobody is bidding. */
+  bid: number | null;
+  /**
+   * `(ask - bid) / bid`. The liquidity signal: a tight spread means the
+   * item moves, a wide one means it sits. Null without a bid.
+   */
+  spread: number | null;
+  askVolume: number | null;
+  quotedAt: string;
+}
+
+/**
+ * POST /api/prices — prices for a list of items.
+ *
+ * A name with no price is **absent from the result**, never present at
+ * zero. Callers have to handle a missing entry, which is the honest
+ * shape: plenty of items have no market at all.
+ */
+export async function getPrices(
+  items: string[],
+): Promise<Record<string, ItemPrice>> {
+  if (items.length === 0) return {};
+
+  const result = await request<{ prices: Record<string, ItemPrice> }>(
+    '/prices',
+    { method: 'POST', body: JSON.stringify({ items }) },
+  );
+
+  return result.prices;
+}
+
+// ---------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------
 
