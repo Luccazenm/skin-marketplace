@@ -330,13 +330,21 @@ export function SellDetail({
                 </div>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-sm" style={{ color: '#6c7290' }}>$</span>
+                  {/* The border is set inline and changes colour on an
+                      invalid price, so hover and focus are a ring
+                      instead — a separate shadow that composes with it
+                      rather than fighting it.
+
+                      Focus had no mark at all before this: `outline-none`
+                      with nothing put back, on the one field somebody has
+                      to type a number into. */}
                   <input
                     value={price}
                     onChange={(e) => onPriceChange(e.target.value)}
                     inputMode="decimal"
                     placeholder="0.00"
                     autoFocus
-                    className="w-full pl-6 pr-2 py-2 rounded font-mono text-base font-semibold focus:outline-none"
+                    className="w-full pl-6 pr-2 py-2 rounded font-mono text-base font-semibold transition-shadow focus:outline-none hover:ring-1 hover:ring-white/20 focus:ring-2 focus:ring-[#f0c040]/50"
                     style={{
                       background: 'rgba(255,255,255,0.06)',
                       border: `1px solid ${price && !priced ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
@@ -361,10 +369,13 @@ export function SellDetail({
                 </div>
               </div>
 
+              {/* The same treatment, guarded on `enabled:` — a button
+                  that lights up while it refuses to be pressed is worse
+                  than one that never lights up at all. */}
               <button
                 onClick={onList}
                 disabled={!priced}
-                className="w-full py-2.5 rounded font-display text-[15px] font-bold tracking-wide transition-opacity disabled:opacity-40"
+                className="w-full py-2.5 rounded font-display text-[15px] font-bold tracking-wide transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed enabled:cursor-pointer enabled:hover:brightness-110 enabled:active:translate-y-px enabled:active:brightness-95"
                 style={{
                   background: isListed ? 'rgba(255,255,255,0.08)' : '#f0c040',
                   color: isListed ? '#e8eaf0' : '#08090d',
@@ -418,9 +429,13 @@ function InstantSell({
 
   return (
     <>
+      {/* Brightness and a glow rather than a colour swap: the background
+          is set inline, and hovering something that changes shade is the
+          cheapest way to say a control is live. The press moves it a
+          pixel down, which is the other half of feeling like a button. */}
       <button
         onClick={() => onSell(buyout.amount)}
-        className="w-full py-2.5 rounded font-display text-[13px] font-bold tracking-wide transition-opacity"
+        className="w-full py-2.5 rounded font-display text-[13px] font-bold tracking-wide cursor-pointer transition-all duration-150 hover:brightness-110 hover:shadow-[0_0_18px_rgba(74,222,128,0.35)] active:translate-y-px active:brightness-95"
         style={{ background: '#4ade80', color: '#08090d' }}
       >
         SELL INSTANTLY · ${buyout.amount}
