@@ -32,8 +32,33 @@ model User {
   displayCurrency String  @default("USD")
 
   // Contact / account
+  //
+  // Steam never gives us an address, so this is only ever here because
+  // the person typed it. It stays unverified until a confirmation flow
+  // exists, and NOTHING is sent to an unverified address — an address
+  // someone typed is a claim, not a fact, and it may be a typo or
+  // somebody else's.
   email         String? @unique
   emailVerified Boolean @default(false)
+
+  // ---- Consent ----
+  //
+  // Current state only. The history is the audit log, which is immutable
+  // by trigger — and "did they agree, and when?" is exactly the question
+  // that gets asked months later.
+  //
+  // Each flag is recorded before the thing it governs exists. That is
+  // deliberate: a preference set in advance is honoured the day the
+  // feature ships, rather than everyone being opted in by default and
+  // asked afterwards.
+  //
+  // The session cookie is NOT here. It is strictly necessary — without
+  // it there is no session — so there is nothing to consent to, and a
+  // switch that cannot be turned off is theatre.
+  consentMarketingEmail   Boolean   @default(false)
+  consentMarketingEmailAt DateTime?
+  consentAnalytics        Boolean   @default(false)
+  consentAnalyticsAt      DateTime?
 
   // OUR moderation: we suspended this account. It blocks login.
   isBanned  Boolean @default(false)

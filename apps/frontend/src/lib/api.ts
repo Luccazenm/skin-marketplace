@@ -127,6 +127,26 @@ export interface CurrentUser {
   steamBanCheckedAt: string | null;
   tradeUrl: string | null;
   hasTradeUrl: boolean;
+
+  /** When we first saw the account. Not the same as the Steam one. */
+  createdAt: string;
+  profileUrl: string | null;
+  /** When Valve says the Steam account was created. */
+  steamCreatedAt: string | null;
+
+  /**
+   * Only ever present because the person typed it — Steam gives no
+   * address. Unverified means nothing is sent to it.
+   */
+  email: string | null;
+  emailVerified: boolean;
+
+  consent: {
+    marketingEmail: boolean;
+    marketingEmailAt: string | null;
+    analytics: boolean;
+    analyticsAt: string | null;
+  };
 }
 
 /**
@@ -263,6 +283,33 @@ export async function setTradeUrl(tradeUrl: string): Promise<string | null> {
   );
 
   return result.tradeUrl;
+}
+
+/**
+ * PUT /api/users/me/email — an empty string removes the address, which
+ * is the only way to withdraw one already given.
+ */
+export async function setEmail(
+  email: string,
+): Promise<{ email: string | null; emailVerified: boolean }> {
+  return request('/users/me/email', {
+    method: 'PUT',
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * PUT /api/users/me/consent — send only the switch that moved. The
+ * server leaves the rest alone, so a stale screen cannot undo a choice
+ * made elsewhere.
+ */
+export async function setConsent(
+  consent: { marketingEmail?: boolean; analytics?: boolean },
+): Promise<{ marketingEmail: boolean; analytics: boolean }> {
+  return request('/users/me/consent', {
+    method: 'PUT',
+    body: JSON.stringify(consent),
+  });
 }
 
 // ---------------------------------------------------------------------

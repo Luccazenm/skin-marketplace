@@ -120,6 +120,8 @@ export const AUDIT_ACTIONS = {
   LOGOUT: 'auth.logout',
   LOGOUT_ALL: 'auth.logout_all',
   TRADE_URL_UPDATED: 'user.trade_url.updated',
+  EMAIL_UPDATED: 'user.email.updated',
+  CONSENT_UPDATED: 'user.consent.updated',
   DEPOSIT_REQUESTED: 'deposit.requested',
   BOT_REGISTERED: 'bot.registered',
   BOT_REGISTRATION_DENIED: 'bot.registration_denied',

@@ -38,6 +38,7 @@ import {
   useInventory,
 } from "@/lib/use-inventory";
 import { useSession } from "@/lib/use-session";
+import { AccountPage } from "./AccountPage";
 import { SellPage } from "./SellPage";
 // TradeUrlBanner is not rendered right now — it is being moved. Kept
 // out of the imports so an unused symbol does not sit here looking wired
@@ -2961,7 +2962,12 @@ export default function App() {
                           impersonation, then help. Sign out sits apart at
                           the bottom, behind its own rule — it is the only
                           entry here that ends something. */}
-                      <div className="py-1">
+                      {/* No padding around this list. It used to have
+                          py-1, and those four pixels belonged to no
+                          button — hovering the top of the menu lit
+                          nothing, which reads as a dead strip. The
+                          buttons carry their own padding instead. */}
+                      <div>
                         {Object.entries(ACCOUNT_SCREENS).map(([id, screen]) => {
                           const Icon = screen.icon;
                           return (
@@ -3018,7 +3024,9 @@ export default function App() {
           because its background is, while its text sits on the same
           inset. The other screens keep the gutter: they are pages. */}
       <div className={`w-full ${activeNav === "Trade" ? "px-0" : "px-4"} ${activeNav === "Trade" || activeNav === "Sell" ? "py-0" : "py-6"}`}>
-        {ACCOUNT_SCREENS[activeNav] ? (
+        {activeNav === "Account" && session.user ? (
+          <AccountPage user={session.user} onChanged={() => void session.refresh()} />
+        ) : ACCOUNT_SCREENS[activeNav] ? (
           <StubScreen screen={ACCOUNT_SCREENS[activeNav]} />
         ) : activeNav === "Trade" ? <TradePage signedIn={!!session.user} /> : activeNav === "Sell" ? (
           <SellPage

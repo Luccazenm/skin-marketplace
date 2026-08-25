@@ -127,6 +127,28 @@ export class AuthController {
       // has to ask for it before letting the user attempt a deposit.
       tradeUrl: user.tradeUrl,
       hasTradeUrl: user.tradeUrl !== null,
+
+      // ---- The account screen ----
+      //
+      // Not needed to render the header, which is why they were not here
+      // before. `createdAt` is ours — when the account was first seen —
+      // while `steamCreatedAt` is Valve's, and the two are worth telling
+      // apart on screen.
+      createdAt: user.createdAt,
+      profileUrl: user.profileUrl,
+      steamCreatedAt: user.steamCreatedAt,
+
+      // Only ever here because the person typed it: Steam gives no
+      // address. Unverified means nothing is sent to it.
+      email: user.email,
+      emailVerified: user.emailVerified,
+
+      consent: {
+        marketingEmail: user.consentMarketingEmail,
+        marketingEmailAt: user.consentMarketingEmailAt,
+        analytics: user.consentAnalytics,
+        analyticsAt: user.consentAnalyticsAt,
+      },
     };
   }
 
