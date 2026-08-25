@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Package, Lock, X, RotateCw, Zap } from 'lucide-react';
 import {
   ApiError,
@@ -376,6 +377,104 @@ export function SellPage({
 }
 
 /**
+ * The bolt on a card we would buy outright, and what it means.
+ *
+ * A popup of our own rather than a `title`: the native tooltip picks its
+ * own delay, its own position and its own typeface, and on this grid it
+ * would be the one piece of chrome that does not look like the rest of
+ * the screen.
+ *
+ * Portalled for the same reason `AppliedPopup` is — the card is
+ * `overflow-hidden` so its artwork keeps rounded corners, and anything
+ * nested inside it is clipped at the edge.
+ */
+function InstantSellMark() {
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const timer = useRef<number | null>(null);
+
+  function cancel() {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }
+
+  // The badge can leave under the pointer — re-sorting the grid drops
+  // and rebuilds the cards — and a timer left running would then open a
+  // popup anchored to a rectangle that no longer means anything.
+  useEffect(() => cancel, []);
+
+  return (
+    <>
+      <span
+        aria-label="Eligible for instant sell"
+        onMouseEnter={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          cancel();
+          // Shorter than the sticker popup's second: that one guards
+          // against a column of five badges flashing past, and this is a
+          // single target somebody has aimed at.
+          timer.current = window.setTimeout(() => setAnchor(rect), 250);
+        }}
+        onMouseLeave={() => {
+          cancel();
+          setAnchor(null);
+        }}
+        className="flex items-center justify-center rounded flex-shrink-0"
+        style={{
+          width: 18,
+          height: 18,
+          background: 'rgba(74,222,128,0.12)',
+          border: '1px solid rgba(74,222,128,0.3)',
+        }}
+      >
+        <Zap className="w-3 h-3" style={{ color: '#4ade80' }} fill="#4ade80" />
+      </span>
+
+      {anchor && <InstantSellTip anchor={anchor} />}
+    </>
+  );
+}
+
+/** One line, above the badge, kept on screen. */
+function InstantSellTip({ anchor }: { anchor: DOMRect }) {
+  const WIDTH = 168;
+  const GAP = 8;
+
+  // Centred on the badge, then pushed back inside whichever edge it
+  // would have crossed. The badges sit at the right of a card, so on the
+  // last column this is always the right edge.
+  const left = Math.min(
+    Math.max(8, anchor.left + anchor.width / 2 - WIDTH / 2),
+    window.innerWidth - WIDTH - 8,
+  );
+
+  // Above by default, below when there is no room — the top row of the
+  // grid sits close enough to the toolbar for that to happen.
+  const ESTIMATED_HEIGHT = 34;
+  const above = anchor.top - GAP - ESTIMATED_HEIGHT > 8;
+  const top = above ? anchor.top - GAP - ESTIMATED_HEIGHT : anchor.bottom + GAP;
+
+  return createPortal(
+    <div
+      className="fixed z-[100] rounded px-2 py-1.5 font-mono text-[10px] leading-snug text-center pointer-events-none"
+      style={{
+        left,
+        top,
+        width: WIDTH,
+        background: '#0f1117',
+        border: '1px solid rgba(74,222,128,0.3)',
+        color: '#9da3c0',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+      }}
+    >
+      This item can be sold instantly
+    </div>,
+    document.body,
+  );
+}
+
+/**
  * The offer is real and computed by the backend, but nothing can act on
  * it yet: buying the item means the Trade Bot fetching it, and
  * `apps/bot-service` is still empty. Said in full rather than left as a
@@ -598,19 +697,7 @@ function ItemCard({ item, selected, price, market, onToggle, onOpen }: { item: I
               The same green as the button it leads to, so the mark and
               the action read as one thing. */}
           {market?.buyout.amount !== null && market !== undefined && (
-            <span
-              title={`We will buy this now for $${market.buyout.amount}`}
-              aria-label="Eligible for instant sell"
-              className="flex items-center justify-center rounded flex-shrink-0"
-              style={{
-                width: 18,
-                height: 18,
-                background: 'rgba(74,222,128,0.12)',
-                border: '1px solid rgba(74,222,128,0.3)',
-              }}
-            >
-              <Zap className="w-3 h-3" style={{ color: '#4ade80' }} fill="#4ade80" />
-            </span>
+            <InstantSellMark />
           )}
         </div>
       </div>
