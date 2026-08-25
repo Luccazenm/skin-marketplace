@@ -75,20 +75,6 @@ export function SellDetail({
     (breakdown?.applied ?? []).map((a) => [a.marketHashName, a]),
   );
 
-  /**
-   * The applied pieces are worth at least as much as the skin they are
-   * on — an AK-47 Blue Laminate carrying $5,821 of Katowice stickers on
-   * a $30.80 rifle.
-   *
-   * Not a valuation. It decides how loudly the buyout has to say that it
-   * prices the skin alone: on an ordinary item that is a footnote, and
-   * on this one it is the whole story.
-   */
-  const appliedDominates =
-    breakdown !== null &&
-    breakdown.applied.reduce((sum, a) => sum + Number(a.own ?? 0), 0) >=
-      Number(breakdown.base);
-
   const hover = useAppliedHover();
 
   const priced = toCents(price) !== null && toCents(price)! > 0;
@@ -321,25 +307,12 @@ export function SellDetail({
                   {Number(breakdown.charms) > 0 && (
                     <Part label="Charm" value={`+${usd(Number(breakdown.charms))}`} />
                   )}
-
-                  {/* Said once, where the cap is, rather than as a
-                      standing disclaimer: the cap is the surprising part
-                      and it only binds on the items where it matters. */}
-                  {breakdown.stickerCapped && (
-                    <div className="font-mono text-[11px] leading-relaxed mt-1" style={{ color: '#6c7290' }}>
-                      Stickers add at most twice the skin. Nobody pays a
-                      four-figure premium on a rifle — sell the stickers,
-                      not the gun.
-                    </div>
-                  )}
                 </div>
               )}
 
               {market ? (
                 <InstantSell
                   buyout={market.buyout}
-                  applied={applied.length > 0}
-                  dominated={appliedDominates}
                   onSell={onInstantSell}
                   notice={instantSellNotice}
                 />
@@ -418,25 +391,17 @@ export function SellDetail({
  * one is irreversible — we pay, we hold, and the seller does not get the
  * item back if the price moves the next day.
  *
- * **The offer prices the base skin only, and says so whenever the item
- * carries anything.** Decided 2026-08-19 and not optional: an AK worth
- * thousands for its Katowice stickers gets an offer for a clean AK, and
- * somebody who accepts without noticing has a grievance worth repeating
- * in public — in a market where trust is the product. Said out loud it
- * is an informed choice, and there is no argument to have later.
+ * **The offer prices the base skin only**, and nothing on this screen
+ * says so any more — removed on request 2026-08-25. CLAUDE.md still
+ * requires that statement wherever the offer appears (decided
+ * 2026-08-19), so the two disagree until one of them is changed.
  */
 function InstantSell({
   buyout,
-  applied,
-  dominated,
   onSell,
   notice,
 }: {
   buyout: ItemPrice['buyout'];
-  /** The item carries stickers, patches or a charm. */
-  applied: boolean;
-  /** Those pieces are worth more than the skin itself. */
-  dominated: boolean;
   onSell: (amount: string) => void;
   /** Why pressing it did nothing, once it has been pressed. */
   notice: string | null;
@@ -471,16 +436,6 @@ function InstantSell({
           }}
         >
           {notice}
-        </div>
-      )}
-
-      {applied && (
-        <div
-          className="font-mono text-[12px] leading-relaxed mt-2"
-          style={{ color: dominated ? '#f0a0b0' : '#6c7290' }}
-        >
-          This offer is for the skin alone. What is applied to it is not
-          valued{dominated ? ', and here it is worth more than the skin.' : '.'}
         </div>
       )}
     </>
