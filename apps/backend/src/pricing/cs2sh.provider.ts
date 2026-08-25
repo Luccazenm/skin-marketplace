@@ -6,13 +6,18 @@ import type { PriceProvider, RawQuote } from './price-provider';
 /**
  * cs2.sh, on the Developer plan.
  *
- * Two things about this endpoint shape everything below.
+ * The endpoint has two doors, and which one you use matters by three
+ * orders of magnitude:
  *
- * **It takes no filter.** `/v1/prices/latest` returns every item there
- * is — about 40,000 of them, 50MB, in roughly eight seconds. So
- * `fetchPrices` does not query per name: it reads the whole thing once
- * and picks out what was asked for. Calling it in a loop would download
- * fifty megabytes per item.
+ * - **POST** with up to 100 names returns just those. Two items came
+ *   back in 1.5KB.
+ * - **GET** with no body returns the entire catalogue — about 40,000
+ *   items, 52MB uncompressed.
+ *
+ * So `fetchPrices` posts in batches of 100 and `fetchAll` is reserved
+ * for the sync that genuinely wants everything. Reading the whole
+ * catalogue to answer a question about three items is what this class
+ * did before the full spec was read.
  *
  * **Bid is real here, and it is the point.** BUFF, Youpin, Steam and
  * C5Game carry buy orders; Skinport does not. The instant-sell offer is
@@ -28,9 +33,16 @@ export class Cs2ShProvider implements PriceProvider {
 
   private static readonly URL = 'https://api.cs2.sh/v1/prices/latest';
 
+  /** The documented ceiling for one POST. */
+  private static readonly BATCH = 100;
+
+  /** Documented as 10 requests per second, per key. */
+  private static readonly MIN_INTERVAL_MS = 110;
+
   /**
-   * Generous because the response is 50MB. The plan allows unlimited
-   * requests at 10/s, so the risk here is a slow transfer, not a quota.
+   * Generous because the full catalogue is 52MB. The plan allows
+   * unlimited requests at 10/s, so the risk here is a slow transfer
+   * rather than a quota.
    */
   private static readonly TIMEOUT_MS = 120_000;
 
@@ -46,16 +58,47 @@ export class Cs2ShProvider implements PriceProvider {
   async fetchPrices(marketHashNames: string[]): Promise<RawQuote[]> {
     if (marketHashNames.length === 0) return [];
 
-    const all = await this.fetchAll();
-    const wanted = new Set(marketHashNames);
+    // Duplicates would spend batch slots on the same item.
+    const names = [...new Set(marketHashNames)];
     const quotes: RawQuote[] = [];
 
-    for (const [name, sources] of Object.entries(all.items)) {
-      if (!wanted.has(name)) continue;
-      quotes.push(...toQuotes(name, sources, all.collectedAt));
+    for (let i = 0; i < names.length; i += Cs2ShProvider.BATCH) {
+      if (i > 0) await sleep(Cs2ShProvider.MIN_INTERVAL_MS);
+
+      const batch = names.slice(i, i + Cs2ShProvider.BATCH);
+      const body = await this.post(batch);
+      const at = new Date(body.response_time);
+
+      for (const [name, sources] of Object.entries(body.items)) {
+        quotes.push(...toQuotes(name, sources, at));
+      }
+
+      // An item cs2.sh does not know is not a failure of the request —
+      // it comes back beside the ones that worked. Ours can be ahead of
+      // their schema after a Valve update, so this is expected traffic
+      // and belongs in the log, not in an exception.
+      if (body.errors?.length) {
+        this.logger.warn(
+          `cs2.sh did not recognise ${body.errors.length} item(s): ` +
+            body.errors
+              .slice(0, 5)
+              .map((e) => `${e.item} (${e.code})`)
+              .join(', '),
+        );
+      }
     }
 
     return quotes;
+  }
+
+  private async post(items: string[]): Promise<Cs2ShResponse> {
+    const response = await this.request({
+      method: 'POST',
+      body: JSON.stringify({ items }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    return assertUsd((await response.json()) as Cs2ShResponse);
   }
 
   /**
@@ -69,16 +112,35 @@ export class Cs2ShProvider implements PriceProvider {
     items: Record<string, MarketSources>;
     collectedAt: Date;
   }> {
+    const started = Date.now();
+    const response = await this.request({ method: 'GET' });
+    const body = assertUsd((await response.json()) as Cs2ShResponse);
+    const count = Object.keys(body.items).length;
+
+    this.logger.log(
+      `Read ${count} items from cs2.sh in ${Date.now() - started}ms`,
+    );
+
+    return { items: body.items, collectedAt: new Date(body.response_time) };
+  }
+
+  /** The one place the key, the headers and the failure shape live. */
+  private async request(init: RequestInit): Promise<Response> {
     if (!this.apiKey) {
       throw new Error(
         'CS2SH_API_KEY is not set — the price source cannot be read.',
       );
     }
 
-    const started = Date.now();
-
     const response = await fetch(Cs2ShProvider.URL, {
-      headers: { Authorization: `Bearer ${this.apiKey}` },
+      ...init,
+      headers: {
+        ...init.headers,
+        Authorization: `Bearer ${this.apiKey}`,
+        // Required by cs2.sh, and it is what turns a 52MB catalogue into
+        // something worth transferring.
+        'Accept-Encoding': 'gzip',
+      },
       signal: AbortSignal.timeout(Cs2ShProvider.TIMEOUT_MS),
     });
 
@@ -91,25 +153,26 @@ export class Cs2ShProvider implements PriceProvider {
       );
     }
 
-    const body = (await response.json()) as Cs2ShResponse;
-
-    if (body.currency !== 'USD') {
-      // Everything downstream stores USD. A silent currency change would
-      // turn every price into a wrong number rather than an error.
-      throw new Error(
-        `cs2.sh returned ${body.currency}, and the ledger is USD.`,
-      );
-    }
-
-    const count = Object.keys(body.items).length;
-
-    this.logger.log(
-      `Read ${count} items from cs2.sh in ${Date.now() - started}ms`,
-    );
-
-    return { items: body.items, collectedAt: new Date(body.response_time) };
+    return response;
   }
 }
+
+/**
+ * Everything downstream stores USD, so a currency change has to be an
+ * error rather than forty thousand wrong numbers.
+ *
+ * Called on the parsed body, not on a clone of the response: cloning to
+ * peek at one field means parsing 52MB twice on the catalogue read.
+ */
+function assertUsd(body: Cs2ShResponse): Cs2ShResponse {
+  if (body.currency !== 'USD') {
+    throw new Error(`cs2.sh returned ${body.currency}, and the ledger is USD.`);
+  }
+
+  return body;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /* ─── Mapping ──────────────────────────────────────────────────────── */
 
@@ -181,4 +244,6 @@ interface Cs2ShResponse {
   response_time: string;
   currency: string;
   items: Record<string, MarketSources>;
+  /** Partial success: names cs2.sh does not know, beside the ones it does. */
+  errors?: { item: string; code: string; message: string }[];
 }
