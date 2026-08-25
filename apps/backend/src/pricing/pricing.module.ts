@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
+import { RedisModule } from '../redis/redis.module';
 import { Cs2ShProvider } from './cs2sh.provider';
 import { PriceHistoryService } from './price-history.service';
+import { PriceService } from './price.service';
 
 /**
  * Pricing.
@@ -11,13 +13,15 @@ import { PriceHistoryService } from './price-history.service';
  * bid is the part that matters, since the instant-sell offer is anchored
  * on it rather than on any listing price.
  *
- * The provider is registered but nothing is stored yet: the endpoint
- * returns all 40,000 items in one 50MB read, so what to keep and how
- * often is its own decision rather than a detail of fetching.
+ * Nothing syncs the whole catalogue, on purpose. The POST form takes a
+ * hundred names at a time, so prices are fetched for the items actually
+ * being looked at rather than for all 40,000 every few minutes — and
+ * every reading that passes through is kept, because the history series
+ * cannot be built backwards.
  */
 @Module({
-  imports: [PrismaModule],
-  providers: [PriceHistoryService, Cs2ShProvider],
-  exports: [PriceHistoryService, Cs2ShProvider],
+  imports: [PrismaModule, RedisModule],
+  providers: [PriceHistoryService, Cs2ShProvider, PriceService],
+  exports: [PriceHistoryService, Cs2ShProvider, PriceService],
 })
 export class PricingModule {}
