@@ -3020,8 +3020,13 @@ export default function App() {
               </div>
             ) : (
               <button
+                // The same treatment the other amber buttons got:
+                // brightness and a glow rather than a colour swap, since
+                // the background is set inline, plus a pixel of travel on
+                // press. This one is the first control anyone touches on
+                // the site, and it had no hover at all.
                 onClick={startSteamLogin}
-                className="px-3 py-1.5 rounded font-display text-xs font-semibold tracking-wide transition-colors"
+                className="px-3 py-1.5 rounded font-display text-xs font-semibold tracking-wide cursor-pointer transition-all duration-150 hover:brightness-110 hover:shadow-[0_0_18px_rgba(240,192,64,0.35)] active:translate-y-px active:brightness-95"
                 style={{ background: "#f0c040", color: "#08090d" }}
               >
                 SIGN IN WITH STEAM
