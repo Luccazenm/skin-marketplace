@@ -29,7 +29,14 @@ import {
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { logout, startSteamLogin, type AppliedItem, type InventoryItem } from "@/lib/api";
 import { rarityStyle } from "@/lib/rarity";
-import { AppliedPopup, useAppliedHover } from "./AppliedPopup";
+import { usd } from "@/lib/money";
+import { usePrices } from "@/lib/use-prices";
+import {
+  AppliedPopup,
+  AppliedValueProvider,
+  useAppliedHover,
+  type AppliedValue,
+} from "./AppliedPopup";
 import {
   appliedLabel,
   charmsOf,
@@ -1298,10 +1305,13 @@ function TradeGridCard({
 /** A real Steam inventory item, mapped onto the shared card. */
 function TradeInventoryCard({
   item,
+  price,
   selected,
   onClick,
 }: {
   item: InventoryItem;
+  /** Lowest listing on the reference market. Null where it has none. */
+  price: number | null;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -1314,11 +1324,12 @@ function TradeInventoryCard({
       name={item.catalog?.skinName ?? item.marketHashName}
       exterior={item.exterior}
       float={item.float}
-      // A Steam inventory carries no price, PriceSnapshot has no rows and
-      // no provider adapter is written yet. Anything printed here would
-      // be invented, on the number a trade is judged by.
-      price="Not priced"
-      priceMuted
+      // The market's price for the skin itself, the same figure the Sell
+      // grid prints. Not the suggestion — that costs a request per item
+      // and this is a grid of two hundred — so a stickered rifle reads
+      // low here, exactly as it does over there.
+      price={price === null ? "Not priced" : usd(price)}
+      priceMuted={price === null}
       statTrak={isStatTrak(item)}
       charms={charmsOf(item)}
       stickers={stickersOf(item)}
@@ -1664,9 +1675,10 @@ function TradeSide({
  * is how someone reads a bill as a refund.
  */
 function TradeDifference({ difference, canTrade }: { difference: number | null; canTrade: boolean }) {
-  // Your side is a real Steam inventory with no prices on it. Treating
-  // that as zero would quote the whole market total as the amount to
-  // add, as if your items were worthless, so an unknown stays unknown.
+  // Your side is valued now; the other one is the mock storefront, and
+  // its prices are invented. Subtracting one from the other would give
+  // a real-looking figure that is half fiction, so an unknown stays
+  // unknown until the storefront has a backend.
   const priced = canTrade && difference !== null;
   const owed = priced && (difference as number) < 0;
 
@@ -1706,7 +1718,7 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
       {!priced && (
         <span className="font-mono text-[9px] text-center leading-relaxed" style={{ color: "#4a4f68" }}>
           {canTrade
-            ? "Your side is not valued yet"
+            ? "The market side is not priced yet"
             : "Pick from both sides"}
         </span>
       )}
@@ -1868,6 +1880,30 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
     [inventory.items],
   );
 
+  // The same read the Sell grid does, for the same reason: one request
+  // for the whole side rather than one per card. Only your half of the
+  // screen — the other side is still the mock storefront and carries
+  // prices of its own invention.
+  const myMarket = usePrices(
+    useMemo(() => myTradable.map((i) => i.marketHashName), [myTradable]),
+  );
+
+  const myApplied = usePrices(
+    useMemo(
+      () => myTradable.flatMap((i) => i.applied.map((a) => a.marketHashName)),
+      [myTradable],
+    ),
+  );
+
+  const appliedValue = (marketHashName: string): AppliedValue => ({
+    own: myApplied.prices[marketHashName]?.ask ?? null,
+    adds: null,
+  });
+
+  /** What one of your items is worth, as the cards print it. */
+  const myPriceOf = (item: InventoryItem) =>
+    myMarket.prices[item.marketHashName]?.ask ?? null;
+
   const myFiltered = useMemo(() => {
     const q = mySearch.trim().toLowerCase();
 
@@ -1948,17 +1984,35 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
   const receiveHeight = receiveCollapsed ? COLLAPSED : EXPANDED;
 
   /**
-   * What still has to be settled in cash, once both sides are valued.
+   * What your side is worth, or nothing.
    *
-   * Null while either side has no price. Your side is a real Steam
-   * inventory and carries none, and there is no price source wired up
-   * yet — so the figure exists in code and waits for the data rather
-   * than being faked from the mock storefront on the other side.
+   * **Null the moment one picked item has no price**, rather than
+   * summing what is known and calling that the total. Half a total on a
+   * screen where the two halves are compared is worse than no total: it
+   * reads low, and reading low here means giving away the difference.
    */
-  const myTotal: number | null = null;
-  const difference = myTotal === null ? null : myTotal - mktTotal;
+  const myTotal = myItems.reduce<number | null>((sum, item) => {
+    const price = myPriceOf(item);
+    return sum === null || price === null ? null : sum + price;
+  }, 0);
+
+  /**
+   * What would still have to be settled in cash — and it stays unknown.
+   *
+   * Your side is real now. The other side is the mock storefront, and
+   * its prices are invented, so subtracting one from the other would
+   * produce a real-looking figure that is half fiction. It waits for the
+   * storefront to have a backend rather than being computed from what is
+   * on screen today.
+   */
+  const difference: number | null = null;
 
   return (
+    // Your half of the screen has prices for the applied pieces too, so
+    // the popup on a sticker badge shows what it is worth. The mock side
+    // carries placeholder badges with no market name, and they answer
+    // nothing — which is the honest result rather than a special case.
+    <AppliedValueProvider value={appliedValue}>
     <div className="flex" style={{ height: "calc(100vh - 56px)" }}>
 
       {/* ── LEFT COLUMN: what you offer, then where you pick it ─────
@@ -1972,12 +2026,17 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         >
         <TradeSide
           title="Your offer"
-          // A summed value, the same slot the other side uses — but it
-          // stays "Not priced" until there is a price source. Every card
-          // beneath it says the same, so the total agrees with its parts
-          // rather than inventing a figure they cannot add up to.
-          total={myItems.length > 0 ? "Not priced" : "—"}
-          totalMuted
+          // The sum of the cards beneath it, and "Not priced" the moment
+          // one of them has no figure — the total always agrees with its
+          // parts rather than quietly leaving one out.
+          total={
+            myItems.length === 0
+              ? "—"
+              : myTotal === null
+                ? "Not priced"
+                : usd(myTotal)
+          }
+          totalMuted={myTotal === null}
           count={myItems.length}
           align="left"
           collapsed={offerCollapsed}
@@ -1999,8 +2058,8 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                   item.exterior ? (WEAR_SHORT[item.exterior] ?? item.exterior) : null,
                   item.float !== null ? item.float.toFixed(4) : null,
                 ].filter(Boolean).join(" / ")}
-                price="Not priced"
-                priceMuted
+                price={myPriceOf(item) === null ? "Not priced" : usd(myPriceOf(item)!)}
+                priceMuted={myPriceOf(item) === null}
                 onRemove={() => toggleMy(item.assetId)}
               >
                 {item.iconUrl ? (
@@ -2128,6 +2187,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                 <TradeInventoryCard
                   key={item.assetId}
                   item={item}
+                  price={myPriceOf(item)}
                   selected={mySelected.includes(item.assetId)}
                   onClick={() => toggleMy(item.assetId)}
                 />
@@ -2410,6 +2470,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         </div>
       </div>
     </div>
+    </AppliedValueProvider>
   );
 }
 
