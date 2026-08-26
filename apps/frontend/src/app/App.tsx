@@ -31,6 +31,7 @@ import { logout, startSteamLogin, type AppliedItem, type InventoryItem } from "@
 import { rarityStyle } from "@/lib/rarity";
 import { usd } from "@/lib/money";
 import { usePrices } from "@/lib/use-prices";
+import { useSuggestions } from "@/lib/use-suggestions";
 import {
   AppliedPopup,
   AppliedValueProvider,
@@ -1324,10 +1325,9 @@ function TradeInventoryCard({
       name={item.catalog?.skinName ?? item.marketHashName}
       exterior={item.exterior}
       float={item.float}
-      // The market's price for the skin itself, the same figure the Sell
-      // grid prints. Not the suggestion — that costs a request per item
-      // and this is a grid of two hundred — so a stickered rifle reads
-      // low here, exactly as it does over there.
+      // What a trade credits for it, not what it would list for: less
+      // than the suggestion, because the item becomes our stock and we
+      // carry it from here.
       price={price === null ? "Not priced" : usd(price)}
       priceMuted={price === null}
       statTrak={isStatTrak(item)}
@@ -1900,9 +1900,30 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
     adds: null,
   });
 
-  /** What one of your items is worth, as the cards print it. */
-  const myPriceOf = (item: InventoryItem) =>
-    myMarket.prices[item.marketHashName]?.ask ?? null;
+  /**
+   * The suggestion for every tradable item, in one request.
+   *
+   * This is what the trade is priced off — `base + stickers + charm`,
+   * capped — rather than the bare skin. An AK carrying thousands in
+   * Katowice stickers becomes our stock with the stickers on it, and
+   * valuing it as a clean AK is the same grievance the instant sell
+   * warns about, only larger.
+   */
+  const { suggestions } = useSuggestions(
+    useMemo(() => myTradable.map((i) => i.assetId), [myTradable]),
+  );
+
+  /**
+   * What we credit for one of your items: the suggestion less our cut.
+   *
+   * The number comes from the backend, not from a multiplier applied
+   * here — it decides what somebody is paid, and a rate living in a
+   * browser is a rate a browser can argue with.
+   */
+  const myPriceOf = (item: InventoryItem) => {
+    const s = suggestions[item.assetId];
+    return s && s.suggested !== null ? Number(s.tradeValue) : null;
+  };
 
   const myFiltered = useMemo(() => {
     const q = mySearch.trim().toLowerCase();

@@ -15,6 +15,7 @@ import { SuggestQueryDto } from './dto/suggest-query.dto';
 import { instantSellOffer, type NoOfferReason } from './instant-sell';
 import { PriceService } from './price.service';
 import { suggestedPrice, type AppliedInput } from './suggested-price';
+import { valueGiving } from './trade-value';
 
 /** One item's worth, as the screens receive it. */
 interface PriceResponse {
@@ -105,19 +106,20 @@ export class PricingController {
 
   @Post('suggest')
   @ApiOperation({
-    summary: 'A suggested asking price for one of your own items',
+    summary: 'Suggested asking prices for items you own',
     description:
       'base + stickers at their transfer rate + charm in full, with the ' +
       'sticker part capped at twice the skin. The parts come back with ' +
       'the total because the screen shows them: a seller who put four ' +
       'stickers on a rifle needs to see how little of that transfers, ' +
       'and the number alone does not say it. Never a market price — the ' +
-      'seller sets the figure.',
+      'seller sets the figure. Each entry also carries what the item is ' +
+      'worth inside a trade, which is the suggestion less our cut.',
   })
   async suggest(
     @CurrentUser() user: User,
     @Body() dto: SuggestQueryDto,
-  ): Promise<SuggestionResponse> {
+  ): Promise<{ suggestions: Record<string, SuggestionResponse> }> {
     // From the inventory, not from the body. The stickers and their
     // scrape decide the number, and taking them from the request would
     // let anyone ask what a rifle with four Katowice holos is worth and
@@ -130,18 +132,23 @@ export class PricingController {
       );
     }
 
-    const item = inventory.items.find((i) => i.assetId === dto.assetId);
+    const wanted = new Set(dto.assetIds);
+    const items = inventory.items.filter((i) => wanted.has(i.assetId));
 
-    if (!item) {
+    if (items.length === 0) {
       throw new NotFoundException(
-        'That item is not in your inventory. It may have been traded away.',
+        'None of those items are in your inventory. They may have been ' +
+          'traded away.',
       );
     }
 
-    const names = [
-      item.marketHashName,
-      ...item.applied.map((a) => a.marketHashName),
-    ];
+    // Every name across every item, priced in one read. Asking per item
+    // would be a request each for the skin and its stickers, and this
+    // endpoint exists precisely to value a whole screen at once.
+    const names = items.flatMap((i) => [
+      i.marketHashName,
+      ...i.applied.map((a) => a.marketHashName),
+    ]);
 
     const prices = await this.prices.pricesFor(names);
     const centsOf = (name: string) => {
@@ -149,32 +156,46 @@ export class PricingController {
       return price ? Math.round(price.ask * 100) : null;
     };
 
-    const applied: AppliedInput[] = item.applied.map((a) => ({
-      kind: a.kind,
-      marketHashName: a.marketHashName,
-      priceCents: centsOf(a.marketHashName),
-      wear: a.wear,
-    }));
+    const suggestions: Record<string, SuggestionResponse> = {};
 
-    const suggestion = suggestedPrice(centsOf(item.marketHashName), applied);
+    for (const item of items) {
+      const applied: AppliedInput[] = item.applied.map((a) => ({
+        kind: a.kind,
+        marketHashName: a.marketHashName,
+        priceCents: centsOf(a.marketHashName),
+        wear: a.wear,
+      }));
 
-    if (!suggestion) {
-      return { suggested: null, reason: 'no_base_price' };
+      const suggestion = suggestedPrice(centsOf(item.marketHashName), applied);
+
+      if (!suggestion) {
+        suggestions[item.assetId] = {
+          suggested: null,
+          reason: 'no_base_price',
+        };
+        continue;
+      }
+
+      suggestions[item.assetId] = {
+        suggested: fromCents(suggestion.totalCents),
+        base: fromCents(suggestion.baseCents),
+        stickers: fromCents(suggestion.stickerCents),
+        charms: fromCents(suggestion.charmCents),
+        stickerCapped: suggestion.stickerCapped,
+        // What a trade would credit for it: the suggestion less our
+        // cut. Computed here rather than by the screen, like every
+        // other figure that decides what somebody is paid.
+        tradeValue: fromCents(valueGiving(suggestion.totalCents)),
+        applied: suggestion.applied.map((a) => ({
+          marketHashName: a.marketHashName,
+          kind: a.kind,
+          own: a.priceCents === null ? null : fromCents(a.priceCents),
+          adds: fromCents(a.addsCents),
+        })),
+      };
     }
 
-    return {
-      suggested: fromCents(suggestion.totalCents),
-      base: fromCents(suggestion.baseCents),
-      stickers: fromCents(suggestion.stickerCents),
-      charms: fromCents(suggestion.charmCents),
-      stickerCapped: suggestion.stickerCapped,
-      applied: suggestion.applied.map((a) => ({
-        marketHashName: a.marketHashName,
-        kind: a.kind,
-        own: a.priceCents === null ? null : fromCents(a.priceCents),
-        adds: fromCents(a.addsCents),
-      })),
-    };
+    return { suggestions };
   }
 }
 
@@ -195,6 +216,12 @@ type SuggestionResponse =
       charms: string;
       /** The stickers were worth more than twice the skin. */
       stickerCapped: boolean;
+      /**
+       * What a trade credits for it — the suggestion less our cut. The
+       * other side of a trade is our own stock and is priced where that
+       * stock lives, not here.
+       */
+      tradeValue: string;
       applied: {
         marketHashName: string;
         kind: string;

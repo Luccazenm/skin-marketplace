@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSuggestion, type Suggestion } from './api';
+import { getSuggestions, type Suggestion } from './api';
 
 /**
  * The suggested asking price for one item.
@@ -31,9 +31,9 @@ export function useSuggestion(assetId: string | null): {
     // new item is worse than no number at all.
     setSuggestion(null);
 
-    getSuggestion(assetId)
+    getSuggestions([assetId])
       .then((result) => {
-        if (current) setSuggestion(result);
+        if (current) setSuggestion(result[assetId] ?? null);
       })
       .catch(() => {
         // A missing suggestion is a state the screen already draws — an

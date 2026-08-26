@@ -219,7 +219,7 @@ describe('PricingController — suggest', () => {
   it('requires a session', async () => {
     await http()
       .post('/api/prices/suggest')
-      .send({ assetId: '9001' })
+      .send({ assetIds: ['9001'] })
       .expect(401);
   });
 
@@ -231,10 +231,10 @@ describe('PricingController — suggest', () => {
     const r = await http()
       .post('/api/prices/suggest')
       .set(ctx.authFor(user))
-      .send({ assetId: '9001' })
+      .send({ assetIds: ['9001'] })
       .expect(201);
 
-    expect(body<Suggestion>(r)).toMatchObject({
+    expect(only(r)).toMatchObject({
       base: '30.80',
       stickers: '61.60',
       charms: '0.00',
@@ -248,10 +248,10 @@ describe('PricingController — suggest', () => {
     const r = await http()
       .post('/api/prices/suggest')
       .set(ctx.authFor(user))
-      .send({ assetId: '9001' })
+      .send({ assetIds: ['9001'] })
       .expect(201);
 
-    const s = body<Suggestion>(r);
+    const s = only(r);
     const parts = s.applied.reduce((sum, a) => sum + Number(a.adds), 0);
 
     expect(parts).toBeCloseTo(Number(s.stickers) + Number(s.charms), 2);
@@ -264,10 +264,10 @@ describe('PricingController — suggest', () => {
     const r = await http()
       .post('/api/prices/suggest')
       .set(ctx.authFor(user))
-      .send({ assetId: '9001' })
+      .send({ assetIds: ['9001'] })
       .expect(201);
 
-    expect(body<Suggestion>(r).applied[0]).toMatchObject({
+    expect(only(r).applied[0]).toMatchObject({
       marketHashName: TITAN,
       kind: 'STICKER',
       own: '3422.32',
@@ -283,7 +283,7 @@ describe('PricingController — suggest', () => {
     await http()
       .post('/api/prices/suggest')
       .set(ctx.authFor(user))
-      .send({ assetId: '404' })
+      .send({ assetIds: ['404'] })
       .expect(404);
   });
 
@@ -297,13 +297,48 @@ describe('PricingController — suggest', () => {
     const r = await http()
       .post('/api/prices/suggest')
       .set(ctx.authFor(user))
-      .send({ assetId: '9001' })
+      .send({ assetIds: ['9001'] })
       .expect(201);
 
-    expect(body<Suggestion>(r)).toMatchObject({
+    expect(only(r)).toMatchObject({
       suggested: null,
       reason: 'no_base_price',
     });
+  });
+
+  /**
+   * The trade value rides along with the suggestion, because it is the
+   * suggestion less our cut. $92.40 capped, 5% off, rounded towards the
+   * user: $87.78.
+   */
+  it('carries what a trade would credit for the item', async () => {
+    const r = await http()
+      .post('/api/prices/suggest')
+      .set(ctx.authFor(user))
+      .send({ assetIds: ['9001'] })
+      .expect(201);
+
+    const s = only(r);
+
+    expect(s.suggested).toBe('92.40');
+    expect(s.tradeValue).toBe('87.78');
+    expect(Number(s.tradeValue)).toBeLessThan(Number(s.suggested));
+  });
+
+  // The whole reason the endpoint takes a list: the Trade grid values
+  // an inventory at once rather than one card at a time.
+  it('values several items in one request', async () => {
+    const r = await http()
+      .post('/api/prices/suggest')
+      .set(ctx.authFor(user))
+      .send({ assetIds: ['9001', '404'] })
+      .expect(201);
+
+    const { suggestions } = body<{ suggestions: Record<string, unknown> }>(r);
+
+    // The one we own comes back; the one we do not is simply absent
+    // rather than failing the whole request.
+    expect(Object.keys(suggestions)).toEqual(['9001']);
   });
 
   it('refuses a body without the field', async () => {
@@ -315,6 +350,15 @@ describe('PricingController — suggest', () => {
   });
 });
 
+/** The one entry these tests ask for, unwrapped from the map. */
+function only(r: { body: unknown }): Suggestion {
+  const { suggestions } = body<{ suggestions: Record<string, Suggestion> }>(r);
+  const entries = Object.values(suggestions);
+
+  expect(entries).toHaveLength(1);
+  return entries[0];
+}
+
 interface Suggestion {
   suggested: string | null;
   reason?: string;
@@ -322,6 +366,7 @@ interface Suggestion {
   stickers: string;
   charms: string;
   stickerCapped: boolean;
+  tradeValue: string;
   applied: {
     marketHashName: string;
     kind: string;

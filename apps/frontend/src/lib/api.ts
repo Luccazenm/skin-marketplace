@@ -435,16 +435,34 @@ export type Suggestion =
       charms: string;
       /** The stickers were worth more than twice the skin. */
       stickerCapped: boolean;
+      /**
+       * What a trade credits for it — the suggestion less our cut. The
+       * other side of a trade is our own stock and is priced where that
+       * stock lives, not here.
+       */
+      tradeValue: string;
       applied: SuggestedPart[];
     }
   | { suggested: null; reason: 'no_base_price' };
 
-/** Takes only the asset id — the stickers are read from the inventory. */
-export async function getSuggestion(assetId: string): Promise<Suggestion> {
-  return request<Suggestion>('/prices/suggest', {
-    method: 'POST',
-    body: JSON.stringify({ assetId }),
-  });
+/**
+ * Takes only asset ids — the stickers are read from the inventory.
+ *
+ * An item the caller does not own is **absent from the result** rather
+ * than failing the request: a grid re-reading a stale inventory should
+ * lose one card's price, not its whole screen.
+ */
+export async function getSuggestions(
+  assetIds: string[],
+): Promise<Record<string, Suggestion>> {
+  if (assetIds.length === 0) return {};
+
+  const result = await request<{ suggestions: Record<string, Suggestion> }>(
+    '/prices/suggest',
+    { method: 'POST', body: JSON.stringify({ assetIds }) },
+  );
+
+  return result.suggestions;
 }
 
 // ---------------------------------------------------------------------
