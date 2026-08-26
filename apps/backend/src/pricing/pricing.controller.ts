@@ -5,6 +5,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { User } from '@prisma/client';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -14,6 +15,7 @@ import { PricesQueryDto } from './dto/prices-query.dto';
 import { SuggestQueryDto } from './dto/suggest-query.dto';
 import { instantSellOffer, type NoOfferReason } from './instant-sell';
 import { PriceService } from './price.service';
+import { minimumListingCents } from './commission';
 import { suggestedPrice, type AppliedInput } from './suggested-price';
 import { valueGiving } from './trade-value';
 
@@ -72,6 +74,7 @@ export class PricingController {
   constructor(
     private readonly prices: PriceService,
     private readonly inventory: InventoryService,
+    private readonly config: ConfigService,
   ) {}
 
   @Post()
@@ -156,6 +159,23 @@ export class PricingController {
       return price ? Math.round(price.ask * 100) : null;
     };
 
+    /**
+     * Nothing may be suggested below the price we would accept.
+     *
+     * Half a real inventory prices at a cent — 84 of 178 on the account
+     * this was found with — and the suggestion for those came back as
+     * $0.01 while the deposit endpoint refused anything under $0.02.
+     * The screen was recommending a price the server would reject.
+     *
+     * So the *listing* suggestion is lifted to the floor. The trade
+     * value below is deliberately not: it is computed from the true
+     * reference, because crediting $0.02 for a one-cent graffiti would
+     * pay above market for junk, and there are eighty-four of them.
+     */
+    const floor = minimumListingCents(
+      this.config.getOrThrow<number>('PLATFORM_FEE_PERCENT'),
+    );
+
     const suggestions: Record<string, SuggestionResponse> = {};
 
     for (const item of items) {
@@ -177,7 +197,9 @@ export class PricingController {
       }
 
       suggestions[item.assetId] = {
-        suggested: fromCents(suggestion.totalCents),
+        suggested: fromCents(Math.max(floor, suggestion.totalCents)),
+        /** True when the floor lifted it above what the item is worth. */
+        atMinimum: suggestion.totalCents < floor,
         base: fromCents(suggestion.baseCents),
         stickers: fromCents(suggestion.stickerCents),
         charms: fromCents(suggestion.charmCents),
@@ -216,6 +238,11 @@ type SuggestionResponse =
       charms: string;
       /** The stickers were worth more than twice the skin. */
       stickerCapped: boolean;
+      /**
+       * The suggestion is the platform's minimum rather than the item's
+       * worth — it prices below what anything may be listed for.
+       */
+      atMinimum: boolean;
       /**
        * What a trade credits for it — the suggestion less our cut. The
        * other side of a trade is our own stock and is priced where that

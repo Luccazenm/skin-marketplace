@@ -436,6 +436,12 @@ export type Suggestion =
       /** The stickers were worth more than twice the skin. */
       stickerCapped: boolean;
       /**
+       * The suggestion is the platform's floor rather than the item's
+       * worth — it prices below what anything may be listed for. True
+       * on about half a real inventory.
+       */
+      atMinimum: boolean;
+      /**
        * What a trade credits for it — the suggestion less our cut. The
        * other side of a trade is our own stock and is priced where that
        * stock lives, not here.

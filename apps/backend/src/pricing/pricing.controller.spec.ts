@@ -366,6 +366,7 @@ interface Suggestion {
   stickers: string;
   charms: string;
   stickerCapped: boolean;
+  atMinimum: boolean;
   tradeValue: string;
   applied: {
     marketHashName: string;

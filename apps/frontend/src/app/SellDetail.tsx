@@ -332,7 +332,13 @@ export function SellDetail({
                   needs to see that the rifle is $30 of the total and the
                   stickers are $61, not $5,821 — and a single figure says
                   none of that. */}
-              {breakdown && applied.length > 0 && (
+              {/* Hidden when the floor lifted the price: the parts add up
+                  to what the item is worth, and the number above them is
+                  the platform's minimum instead. A breakdown that does
+                  not sum to the figure it sits under is worse than no
+                  breakdown — the whole reason it is itemised is that the
+                  arithmetic is checkable. */}
+              {breakdown && !breakdown.atMinimum && applied.length > 0 && (
                 <div className="flex flex-col gap-1 mb-3">
                   <Part label="Skin" value={usd(Number(breakdown.base))} />
                   {Number(breakdown.stickers) > 0 && (
