@@ -17,7 +17,7 @@ import { instantSellOffer, type NoOfferReason } from './instant-sell';
 import { PriceService } from './price.service';
 import { minimumListingCents } from './commission';
 import { suggestedPrice, type AppliedInput } from './suggested-price';
-import { valueGiving } from './trade-value';
+import { tradeEligible, valueGiving } from './trade-value';
 
 /** One item's worth, as the screens receive it. */
 interface PriceResponse {
@@ -207,6 +207,12 @@ export class PricingController {
         // cut. Computed here rather than by the screen, like every
         // other figure that decides what somebody is paid.
         tradeValue: fromCents(valueGiving(suggestion.totalCents, feePercent)),
+        /**
+         * Whether it may go into a trade at all. False below two cents,
+         * where the minimum commission is the whole price — a trade
+         * that credits nothing is us collecting junk.
+         */
+        tradeEligible: tradeEligible(suggestion.totalCents, feePercent),
         applied: suggestion.applied.map((a) => ({
           marketHashName: a.marketHashName,
           kind: a.kind,
@@ -248,6 +254,8 @@ type SuggestionResponse =
        * stock lives, not here.
        */
       tradeValue: string;
+      /** False when the item is worth too little to put into a trade. */
+      tradeEligible: boolean;
       applied: {
         marketHashName: string;
         kind: string;

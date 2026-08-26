@@ -447,6 +447,12 @@ export type Suggestion =
        * stock lives, not here.
        */
       tradeValue: string;
+      /**
+       * False when the item is worth too little to put into a trade —
+       * below two cents the minimum commission is the whole price, and
+       * a trade that credits nothing is us collecting junk.
+       */
+      tradeEligible: boolean;
       applied: SuggestedPart[];
     }
   | { suggested: null; reason: 'no_base_price' };

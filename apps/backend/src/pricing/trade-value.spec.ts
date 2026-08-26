@@ -1,6 +1,7 @@
 import {
   TAKE_PREMIUM,
   roundTripCost,
+  tradeEligible,
   valueGiving,
   valueTaking,
 } from './trade-value';
@@ -61,6 +62,33 @@ describe('trade value', () => {
       expect(giving(reference)).toBeLessThanOrEqual(valueTaking(reference));
     },
   );
+
+  /**
+   * Two cents is the floor for a trade, and it is the listing floor
+   * arrived at from the other direction — not a second threshold
+   * somebody has to remember to keep in step.
+   */
+  describe('eligibility', () => {
+    it('refuses an item worth a cent', () => {
+      expect(tradeEligible(1, FEE)).toBe(false);
+    });
+
+    it('accepts from two cents up', () => {
+      expect(tradeEligible(2, FEE)).toBe(true);
+      expect(tradeEligible(19, FEE)).toBe(true);
+      expect(tradeEligible(92962, FEE)).toBe(true);
+    });
+
+    // An eligible item always credits something; that is what eligible
+    // means, and the two must not be able to disagree.
+    it.each([2, 19, 100, 3080, 92962])(
+      'credits something whenever it is eligible, at %i cents',
+      (reference) => {
+        expect(tradeEligible(reference, FEE)).toBe(true);
+        expect(giving(reference)).toBeGreaterThan(0);
+      },
+    );
+  });
 
   // The gap is widest in relative terms at the bottom, because the
   // minimum fee is a bigger share of a small price than 5% is.

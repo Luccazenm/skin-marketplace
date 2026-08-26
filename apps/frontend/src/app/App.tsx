@@ -53,7 +53,7 @@ import { SellPage } from "./SellPage";
 // out of the imports so an unused symbol does not sit here looking wired
 // up; the component itself is untouched.
 import { NotificationBell } from "./NotificationBell";
-import { MiniSortDropdown } from "./MiniSortDropdown";
+import { MiniSortDropdown, SELL_SORTS } from "./MiniSortDropdown";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
 const RARITY: Record<string, { label: string; color: string; glow: string; from: string; to: string }> = {
@@ -1189,6 +1189,7 @@ function TradeGridCard({
   charms = [],
   stickers = [],
   selected,
+  disabled = false,
   onClick,
   children,
 }: {
@@ -1206,6 +1207,12 @@ function TradeGridCard({
   charms?: AppliedItem[];
   stickers?: AppliedItem[];
   selected: boolean;
+  /**
+   * Refuses the click and dims the card. Used for an item worth too
+   * little to trade — the alternative is a card that looks pickable,
+   * takes the click, and then contributes nothing to the offer.
+   */
+  disabled?: boolean;
   onClick: () => void;
   /** The artwork: a Steam image on one side, a drawn weapon on the other. */
   children: ReactNode;
@@ -1221,11 +1228,15 @@ function TradeGridCard({
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 cursor-pointer flex flex-col"
+      className="relative w-full text-left rounded overflow-hidden border transition-colors duration-200 flex flex-col disabled:cursor-not-allowed enabled:cursor-pointer"
       style={{
         height: "230px",
+        // Dimmed rather than hidden: it is still your item and still
+        // worth finding, it just cannot go into this trade.
+        opacity: disabled ? 0.45 : 1,
         borderColor: active ? r.color : "rgba(255,255,255,0.07)",
         background: selected
           ? `linear-gradient(160deg, ${r.color}28, ${r.color}0e)`
@@ -1285,14 +1296,14 @@ function TradeGridCard({
       {/* Stays open while the card is selected, not only on hover: a
           picked item needs its way back visible without hunting for it,
           and the border alone does not offer an action. */}
-      <div style={{ display: "grid", gridTemplateRows: active ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
+      <div style={{ display: "grid", gridTemplateRows: active && !disabled ? "1fr" : "0fr", transition: "grid-template-rows 200ms ease" }}>
         <div style={{ overflow: "hidden" }}>
           <div className="px-3 pb-2.5">
             <div className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
               style={{
                 background: selected ? "rgba(255,255,255,0.08)" : "#f0c040",
                 color: selected ? "#e8eaf0" : "#08090d",
-                opacity: active ? 1 : 0,
+                opacity: active && !disabled ? 1 : 0,
               }}>
               {selected ? "DESELECT" : "SELECT"}
             </div>
@@ -1307,12 +1318,15 @@ function TradeGridCard({
 function TradeInventoryCard({
   item,
   price,
+  disabled,
   selected,
   onClick,
 }: {
   item: InventoryItem;
   /** Already worded by the caller — zero is a sentence, not a figure. */
   price: { text: string; muted: boolean };
+  /** Worth too little for a trade to credit anything. */
+  disabled: boolean;
   selected: boolean;
   onClick: () => void;
 }) {
@@ -1330,6 +1344,7 @@ function TradeInventoryCard({
       // carry it from here.
       price={price.text}
       priceMuted={price.muted}
+      disabled={disabled}
       statTrak={isStatTrak(item)}
       charms={charmsOf(item)}
       stickers={stickersOf(item)}
@@ -1937,9 +1952,23 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
     const value = myPriceOf(item);
 
     if (value === null) return { text: "Not priced", muted: true };
-    if (value === 0) return { text: "No trade value", muted: true };
+    if (!myEligible(item)) return { text: "Cannot be traded", muted: true };
 
     return { text: usd(value), muted: false };
+  };
+
+  /**
+   * Whether the item may go into a trade at all.
+   *
+   * The backend decides: below two cents the minimum commission is the
+   * whole price, so handing it over would credit nothing. Unknown while
+   * the suggestion is in flight, and treated as eligible then — the
+   * card is not yet claiming anything, and blocking on a figure that
+   * has not arrived would grey out the whole grid for a second.
+   */
+  const myEligible = (item: InventoryItem) => {
+    const s = suggestions[item.assetId];
+    return s === undefined || s.suggested === null || s.tradeEligible;
   };
 
   const myFiltered = useMemo(() => {
@@ -1954,9 +1983,15 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       );
     });
 
-    // Price sorts are absent rather than broken: a Steam inventory
-    // carries no price, and there is no price source wired up yet. The
-    // options that remain are the ones the data can answer.
+    /**
+     * Sorting by what the trade would credit — the number on the card,
+     * not the market price behind it. An item the trade refuses sorts
+     * as nothing, which puts the graffiti at the bottom of "Highest"
+     * and the top of "Lowest", where an item worth nothing belongs.
+     */
+    const byValue = (dir: 1 | -1) => (a: InventoryItem, b: InventoryItem) =>
+      ((myPriceOf(b) ?? 0) - (myPriceOf(a) ?? 0)) * dir;
+
     const byFloat = (dir: 1 | -1) => (a: InventoryItem, b: InventoryItem) => {
       // Items without a float sit at the end either way — a case is not
       // "float 0", and sorting it as if it were puts containers above
@@ -1966,10 +2001,12 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
       return (a.float - b.float) * dir;
     };
 
+    if (mySort === "Highest Price") out = [...out].sort(byValue(1));
+    if (mySort === "Lowest Price")  out = [...out].sort(byValue(-1));
     if (mySort === "Highest Float") out = [...out].sort(byFloat(-1));
     if (mySort === "Lowest Float")  out = [...out].sort(byFloat(1));
     return out;
-  }, [myTradable, mySearch, mySort]);
+  }, [myTradable, mySearch, mySort, suggestions]);
 
   const mktFiltered = useMemo(() => {
     let out = SKINS.filter((s) => {
@@ -2185,7 +2222,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
               style={inputStyle}
             />
           </div>
-          <MiniSortDropdown value={mySort} onChange={setMySort} />
+          <MiniSortDropdown value={mySort} onChange={setMySort} options={SELL_SORTS} />
         </div>
 
         {/* No running total here any more: the bar at the top of the
@@ -2226,6 +2263,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                   key={item.assetId}
                   item={item}
                   price={myPriceLabel(item)}
+                  disabled={!myEligible(item)}
                   selected={mySelected.includes(item.assetId)}
                   onClick={() => toggleMy(item.assetId)}
                 />

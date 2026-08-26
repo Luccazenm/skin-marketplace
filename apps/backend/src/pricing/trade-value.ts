@@ -60,6 +60,25 @@ export function valueGiving(
 }
 
 /**
+ * Whether an item may go into a trade at all.
+ *
+ * It may when handing it over leaves you with something. That works out
+ * to a reference of two cents — the same floor a listing has, reached
+ * from the other direction: below it the minimum commission is the
+ * whole price, and a trade that credits nothing is not a trade, it is
+ * us collecting junk.
+ *
+ * Derived rather than written as its own threshold, so it cannot drift
+ * away from the commission that produces it.
+ */
+export function tradeEligible(
+  referenceCents: number,
+  feePercent: number,
+): boolean {
+  return valueGiving(referenceCents, feePercent) > 0;
+}
+
+/**
  * What you pay for an item you take from our stock.
  *
  * Rounded **down**, which is the same rule read from the other side:
