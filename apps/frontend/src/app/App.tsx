@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   ShoppingCart,
@@ -2773,6 +2774,7 @@ export default function App() {
   }, [session.user]);
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
   const [signingOut, setSigningOut]     = useState(false);
 
   /**
@@ -2942,10 +2944,27 @@ export default function App() {
 
                 {userMenuOpen && (
                   <>
-                    {/* Catches the click that closes the menu. Without it
-                        the only way out is clicking the avatar again,
-                        which is not where anyone aims. */}
-                    <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                    {/* Catches the click that closes the menu, and stops
+                        it reaching whatever it landed on — without this,
+                        dismissing the menu also opens the card underneath.
+
+                        Portalled to the body, which is the whole fix: it
+                        used to be rendered here, and `fixed inset-0`
+                        covered the nav rather than the viewport, because
+                        the nav's `backdrop-filter` makes it the
+                        containing block for fixed descendants. Every
+                        click below the 56px header missed it.
+
+                        z-30 rather than z-40: it has to cover the page
+                        and stay under the nav, and the menu is inside the
+                        nav's stacking context. */}
+                    {createPortal(
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={() => setUserMenuOpen(false)}
+                      />,
+                      document.body,
+                    )}
                     <div
                       className="absolute right-0 mt-2 w-56 rounded border z-50 overflow-hidden"
                       style={{ background: "#0f1117", borderColor: "rgba(255,255,255,0.1)" }}

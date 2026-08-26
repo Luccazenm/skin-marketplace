@@ -183,11 +183,45 @@ export function SellPage({
   );
 
   function toggle(assetId: string) {
+    const removing = selected.includes(assetId);
+
     setSelected((prev) =>
-      prev.includes(assetId)
-        ? prev.filter((id) => id !== assetId)
-        : [...prev, assetId],
+      removing ? prev.filter((id) => id !== assetId) : [...prev, assetId],
     );
+
+    // Taking an item off the list forgets what it was going to be
+    // listed for, so the card goes back to showing the market's price
+    // like every card around it. Keeping the number would leave a price
+    // nobody can see the origin of any more, sitting there until the
+    // item was picked again.
+    if (removing) {
+      setPrices((prev) => {
+        const { [assetId]: _removed, ...rest } = prev;
+        return rest;
+      });
+    }
+  }
+
+  /**
+   * Closes the detail, and drops a price typed there but never listed.
+   *
+   * The rule the whole screen follows: **a card that is not on the list
+   * shows the market's price.** Without this, opening an item, typing
+   * $1,000 and closing leaves that number sitting on the card in the
+   * bright colour that means "you chose this" — attached to nothing, and
+   * indistinguishable from a real listing price to whoever scrolls past
+   * it later.
+   */
+  function closeDetail(assetId: string) {
+    setDetailFor(null);
+    setInstantNotice(null);
+
+    if (selected.includes(assetId)) return;
+
+    setPrices((prev) => {
+      const { [assetId]: _abandoned, ...rest } = prev;
+      return rest;
+    });
   }
 
   /** Every selected item needs a price above zero before this can go. */
@@ -356,7 +390,7 @@ export function SellPage({
             onList={() => { toggle(item.assetId); setDetailFor(null); }}
             onInstantSell={() => setInstantNotice(INSTANT_SELL_NOT_OPEN)}
             instantSellNotice={instantNotice}
-            onClose={() => { setDetailFor(null); setInstantNotice(null); }}
+            onClose={() => { closeDetail(item.assetId); }}
           />
         );
       })()}
@@ -690,10 +724,10 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
         </div>
         <div className="flex items-center justify-between">
           {/* Your asking price once you have set one, the market's price
-              until then — and the two are told apart rather than left to
-              look alike. A tilde marks the market figure as a reference:
-              it is what the item goes for elsewhere, not what you have
-              decided to charge.
+              until then. The two are told apart by weight alone: yours
+              is bright, the market's is grey. Deselecting an item clears
+              the price with it, so a card never keeps a number whose
+              origin has scrolled out of the story.
 
               Shown through cents rather than as typed, so the column
               reads as prices: "5" becomes 5.00, "42.5" becomes 42.50,
@@ -705,7 +739,7 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
             </div>
           ) : market ? (
             <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#9da3c0' }}>
-              ~${market.ask.toFixed(2)}
+              ${market.ask.toFixed(2)}
             </div>
           ) : (
             <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#4a4f68' }}>
