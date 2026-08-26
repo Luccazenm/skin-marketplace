@@ -1,10 +1,14 @@
 import {
-  GIVE_DISCOUNT,
   TAKE_PREMIUM,
   roundTripCost,
   valueGiving,
   valueTaking,
 } from './trade-value';
+
+/** The commission we charge today. The rule is the sell flow's own. */
+const FEE = 5;
+
+const giving = (cents: number) => valueGiving(cents, FEE);
 
 /**
  * The two sides of a trade.
@@ -15,8 +19,30 @@ import {
  */
 describe('trade value', () => {
   it('takes 5% off what you hand over', () => {
-    expect(valueGiving(100000)).toBe(95000);
-    expect(valueGiving(92962)).toBe(88314);
+    expect(giving(100000)).toBe(95000);
+    expect(giving(92962)).toBe(88314);
+  });
+
+  /**
+   * The same rule the sell flow runs, not a rate that matches it — so
+   * the minimum fee applies here too. An item worth a cent credits
+   * nothing: the floor is the whole of it.
+   *
+   * That is what stands in for a rule about junk. Half a real inventory
+   * prices at a cent, and none of it is worth anything in a trade
+   * without anybody having to write that down as a limit.
+   */
+  it('credits nothing for an item worth a cent', () => {
+    expect(giving(1)).toBe(0);
+  });
+
+  it('leaves the minimum fee applying below twenty cents', () => {
+    // 5% of anything under 20¢ rounds under a cent, so the floor bites.
+    expect(giving(2)).toBe(1);
+    expect(giving(19)).toBe(18);
+    expect(giving(20)).toBe(19);
+    // Past that the percentage takes over.
+    expect(giving(40)).toBe(38);
   });
 
   it('adds 12% to what you take', () => {
@@ -32,23 +58,15 @@ describe('trade value', () => {
   it.each([2, 19, 100, 3080, 92962, 1115942])(
     'never values your side above ours at %i cents',
     (reference) => {
-      expect(valueGiving(reference)).toBeLessThanOrEqual(
-        valueTaking(reference),
-      );
+      expect(giving(reference)).toBeLessThanOrEqual(valueTaking(reference));
     },
   );
 
-  /**
-   * Under about a dime the two sides meet, and that is the rounding
-   * doing its job rather than a bug: both directions round towards the
-   * user, and on a nine-cent item the two roundings are worth more than
-   * the 17% between them. We earn nothing on a trade of graffiti, which
-   * is the correct amount to earn on a trade of graffiti.
-   */
-  it('has no spread left on the cheapest items', () => {
-    expect(valueGiving(8)).toBe(valueTaking(8));
-    // Nine cents is where they separate.
-    expect(valueGiving(9)).toBeLessThan(valueTaking(9));
+  // The gap is widest in relative terms at the bottom, because the
+  // minimum fee is a bigger share of a small price than 5% is.
+  it('keeps a real gap even on the cheapest items', () => {
+    expect(giving(8)).toBe(7);
+    expect(valueTaking(8)).toBe(8);
   });
 
   /**
@@ -57,11 +75,11 @@ describe('trade value', () => {
    * cheaper, which is the position we chose.
    */
   it('costs about eighteen percent to swap a skin for its twin', () => {
-    expect(roundTripCost()).toBeCloseTo(0.1789, 4);
+    expect(roundTripCost(FEE)).toBeCloseTo(0.1789, 4);
 
     const reference = 92962;
-    const cost = valueTaking(reference) - valueGiving(reference);
-    expect(cost / valueGiving(reference)).toBeCloseTo(0.1789, 3);
+    const cost = valueTaking(reference) - giving(reference);
+    expect(cost / giving(reference)).toBeCloseTo(0.1789, 3);
   });
 
   /**
@@ -71,8 +89,8 @@ describe('trade value', () => {
    */
   describe('rounding', () => {
     it('rounds what we credit you up', () => {
-      // 333 × 0.95 = 316.35
-      expect(valueGiving(333)).toBe(317);
+      // The fee is floored at 16 of 16.65, so the payout keeps the rest.
+      expect(giving(333)).toBe(317);
     });
 
     it('rounds what we charge you down', () => {
@@ -80,17 +98,19 @@ describe('trade value', () => {
       expect(valueTaking(333)).toBe(372);
     });
 
-    // At the smallest price there is, neither side may round to nothing.
-    it('never values an item at zero', () => {
-      expect(valueGiving(2)).toBe(2);
-      expect(valueTaking(2)).toBe(2);
+    // What we charge never rounds to nothing, whatever the price.
+    it('never charges zero for an item we hand over', () => {
+      expect(valueTaking(1)).toBeGreaterThan(0);
+      expect(valueTaking(2)).toBeGreaterThan(0);
     });
   });
 
   // The trade discount has to stay well under the buyout's, or we would
   // be charging for cash risk in an operation that spends stock.
   it('is gentler than the instant-sell discount', () => {
-    expect(GIVE_DISCOUNT).toBeLessThan(0.1);
+    // The buyout takes 10% at its kindest; the trade takes the market's
+    // 5%, because it spends stock rather than cash.
+    expect(1 - giving(100000) / 100000).toBeLessThan(0.1);
     expect(TAKE_PREMIUM).toBeLessThan(0.142);
   });
 });

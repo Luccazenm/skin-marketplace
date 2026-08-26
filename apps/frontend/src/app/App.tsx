@@ -1311,8 +1311,8 @@ function TradeInventoryCard({
   onClick,
 }: {
   item: InventoryItem;
-  /** Lowest listing on the reference market. Null where it has none. */
-  price: number | null;
+  /** Already worded by the caller — zero is a sentence, not a figure. */
+  price: { text: string; muted: boolean };
   selected: boolean;
   onClick: () => void;
 }) {
@@ -1328,8 +1328,8 @@ function TradeInventoryCard({
       // What a trade credits for it, not what it would list for: less
       // than the suggestion, because the item becomes our stock and we
       // carry it from here.
-      price={price === null ? "Not priced" : usd(price)}
-      priceMuted={price === null}
+      price={price.text}
+      priceMuted={price.muted}
       statTrak={isStatTrak(item)}
       charms={charmsOf(item)}
       stickers={stickersOf(item)}
@@ -1925,6 +1925,23 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
     return s && s.suggested !== null ? Number(s.tradeValue) : null;
   };
 
+  /**
+   * How a card prints that value.
+   *
+   * Zero is a real answer here — the commission's minimum cent is the
+   * whole of a one-cent item, and half a real inventory prices there.
+   * It gets words rather than "$0.00", which would read as a price
+   * instead of as the refusal it is.
+   */
+  const myPriceLabel = (item: InventoryItem) => {
+    const value = myPriceOf(item);
+
+    if (value === null) return { text: "Not priced", muted: true };
+    if (value === 0) return { text: "No trade value", muted: true };
+
+    return { text: usd(value), muted: false };
+  };
+
   const myFiltered = useMemo(() => {
     const q = mySearch.trim().toLowerCase();
 
@@ -2079,8 +2096,8 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                   item.exterior ? (WEAR_SHORT[item.exterior] ?? item.exterior) : null,
                   item.float !== null ? item.float.toFixed(4) : null,
                 ].filter(Boolean).join(" / ")}
-                price={myPriceOf(item) === null ? "Not priced" : usd(myPriceOf(item)!)}
-                priceMuted={myPriceOf(item) === null}
+                price={myPriceLabel(item).text}
+                priceMuted={myPriceLabel(item).muted}
                 onRemove={() => toggleMy(item.assetId)}
               >
                 {item.iconUrl ? (
@@ -2208,7 +2225,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                 <TradeInventoryCard
                   key={item.assetId}
                   item={item}
-                  price={myPriceOf(item)}
+                  price={myPriceLabel(item)}
                   selected={mySelected.includes(item.assetId)}
                   onClick={() => toggleMy(item.assetId)}
                 />

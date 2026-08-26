@@ -1,3 +1,5 @@
+import { commission } from './commission';
+
 /**
  * What an item is worth inside a trade — which is two numbers, not one.
  *
@@ -9,7 +11,8 @@
  * round trip.
  *
  * **The two sides are deliberately not symmetric.** Yours carries the
- * commission and nothing else. Ours carries the commission plus what it
+ * commission — the sell flow's own `commission`, minimum cent and all,
+ * so the two can never drift apart — and nothing else. Ours carries the commission plus what it
  * costs to hold stock at all: capital parked in items, the risk that
  * the price moves while we hold them, and the week of trade lock on
  * everything we receive.
@@ -30,15 +33,6 @@
  */
 
 /**
- * Taken off your item's reference price when you put it into a trade.
- *
- * Our commission, and nothing more — the same 5% the market charges.
- * The costs of holding stock are on the other side, where the stock
- * actually is.
- */
-export const GIVE_DISCOUNT = 0.05;
-
-/**
  * Added to our item's reference price when you take it out of a trade.
  *
  * Commission plus the cost of having the item in the first place. Below
@@ -50,12 +44,19 @@ export const TAKE_PREMIUM = 0.12;
 /**
  * What we credit you for an item you hand over.
  *
- * Rounded **up**, so the cent that cannot be split goes to you. It is
- * one cent, and it is the direction that does not need explaining —
- * the same choice the commission and the buyout offer make.
+ * The sell flow's `commission` and nothing else, so the two can never
+ * drift: the percentage, the rounding towards you, and the one-cent
+ * minimum all come from the same place.
+ *
+ * **Can be zero**, on an item worth a cent — the minimum fee is the
+ * whole of it. Callers have to say that in words rather than printing
+ * "$0.00", which would read as a price rather than as a refusal.
  */
-export function valueGiving(referenceCents: number): number {
-  return Math.ceil(referenceCents * (1 - GIVE_DISCOUNT));
+export function valueGiving(
+  referenceCents: number,
+  feePercent: number,
+): number {
+  return commission(referenceCents, feePercent).payoutCents;
 }
 
 /**
@@ -70,9 +71,13 @@ export function valueTaking(referenceCents: number): number {
 
 /**
  * What a straight swap of one item for an identical one costs, as a
- * fraction. Exported because it is the number that describes the
- * business, and the one to watch when either side is tuned.
+ * fraction. The number that describes the business, and the one to
+ * watch when either side is tuned.
+ *
+ * Above the prices where the minimum fee bites, which is anything past
+ * about twenty cents — below that the commission is a flat cent and the
+ * ratio means nothing.
  */
-export function roundTripCost(): number {
-  return (1 + TAKE_PREMIUM) / (1 - GIVE_DISCOUNT) - 1;
+export function roundTripCost(feePercent: number): number {
+  return (1 + TAKE_PREMIUM) / (1 - feePercent / 100) - 1;
 }

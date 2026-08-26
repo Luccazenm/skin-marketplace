@@ -172,9 +172,8 @@ export class PricingController {
      * reference, because crediting $0.02 for a one-cent graffiti would
      * pay above market for junk, and there are eighty-four of them.
      */
-    const floor = minimumListingCents(
-      this.config.getOrThrow<number>('PLATFORM_FEE_PERCENT'),
-    );
+    const feePercent = this.config.getOrThrow<number>('PLATFORM_FEE_PERCENT');
+    const floor = minimumListingCents(feePercent);
 
     const suggestions: Record<string, SuggestionResponse> = {};
 
@@ -207,7 +206,7 @@ export class PricingController {
         // What a trade would credit for it: the suggestion less our
         // cut. Computed here rather than by the screen, like every
         // other figure that decides what somebody is paid.
-        tradeValue: fromCents(valueGiving(suggestion.totalCents)),
+        tradeValue: fromCents(valueGiving(suggestion.totalCents, feePercent)),
         applied: suggestion.applied.map((a) => ({
           marketHashName: a.marketHashName,
           kind: a.kind,
