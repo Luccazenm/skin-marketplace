@@ -28,7 +28,6 @@
       "rarity": "Raridade",
       "exterior": "Exterior",
       "type": "Tipo",
-      "float": "Float",
       "others": "Outros",
       "min": "MÍN",
       "max": "MÁX",
@@ -170,10 +169,8 @@
     }
   },
   "item": {
-    "float": "Float",
     "rarity": "Raridade",
     "wear": "Desgaste",
-    "pattern": "Padrão",
     "volume": "Volume",
     "applied": "Aplicados",
     "history": "Histórico",

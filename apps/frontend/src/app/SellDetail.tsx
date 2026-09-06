@@ -298,7 +298,7 @@ export function SellDetail({
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>{t('item.float')}</span>
+                  <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>Float</span>
                   {/* All ten decimals: this is the number that separates
                       one copy of a skin from another, and rounding it
                       loses exactly what makes it worth more. */}
@@ -328,7 +328,7 @@ export function SellDetail({
               {/* The real paint seed. The storefront derives a "pattern"
                   from the float, which is not what a pattern is — this
                   one comes from Steam. */}
-              {item.paintSeed !== null && <Row label={t('item.pattern')} value={String(item.paintSeed)} />}
+              {item.paintSeed !== null && <Row label="Pattern" value={String(item.paintSeed)} />}
             </div>
 
             <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>

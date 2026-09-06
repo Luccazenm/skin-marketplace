@@ -28,7 +28,6 @@
       "rarity": "Rarity",
       "exterior": "Exterior",
       "type": "Type",
-      "float": "Float",
       "others": "Others",
       "min": "MIN",
       "max": "MAX",
@@ -170,10 +169,8 @@
     }
   },
   "item": {
-    "float": "Float",
     "rarity": "Rarity",
     "wear": "Wear",
-    "pattern": "Pattern",
     "volume": "Volume",
     "applied": "Applied",
     "history": "History",

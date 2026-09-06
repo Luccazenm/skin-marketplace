@@ -885,7 +885,7 @@ function SkinDetail({ skin, onClose, ctaLabel, onCta, showSellInputs = false }: 
                   style={{ left: `calc(${floatPct}% - 5px)`, background: "#fff" }} />
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] text-muted-foreground">{t("item.float")}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">Float</span>
                 <span className="font-mono text-[11px] text-foreground font-semibold">{skin.float.toFixed(10)}</span>
               </div>
             </div>
@@ -895,7 +895,7 @@ function SkinDetail({ skin, onClose, ctaLabel, onCta, showSellInputs = false }: 
               {[
                 [t("item.rarity"), t(`rarity.${skin.rarity}`), r.color],
                 [t("item.wear"), t(`wear.${skin.wear}`), null],
-                [t("item.pattern"), String(Math.floor(skin.float * 1000) % 1000), null],
+                ["Pattern", String(Math.floor(skin.float * 1000) % 1000), null],
                 [t("item.volume"), t("item.perDay", { count: skin.volume }), null],
               ].map(([label, val, color]) => (
                 <div key={label} className="flex items-center justify-between py-1.5">
@@ -2449,7 +2449,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           </FilterSection>
 
           {/* Float */}
-          <FilterSection title={t("market.filter.float")} defaultOpen={false} inset>
+          <FilterSection title="Float" defaultOpen={false} inset>
             <div className="pt-3">
               <DualRangeSlider
                 min={mktFloatMin}
@@ -3390,7 +3390,7 @@ export default function App() {
 
             {/* Others */}
             {/* Float */}
-            <FilterSection title={t("market.filter.float")} defaultOpen={false}>
+            <FilterSection title="Float" defaultOpen={false}>
               <div className="pt-3">
                 <DualRangeSlider
                   min={floatMin}

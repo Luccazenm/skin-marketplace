@@ -348,10 +348,16 @@ reads "Nova de Fábrica" in their own inventory, and reading English here
 would be the odd one out rather than the professional one.
 
 **Not translated: Valve's proper nouns.** Weapon names (AK-47, Karambit,
-M4A1-S), skin names (Dragon Lore, Fade), StatTrak™, Float, the
-tournaments and the sticker names. These are the same in every client
-and every market, they are how somebody searches, and translating them
-marks a marketplace as amateur.
+M4A1-S), skin names (Dragon Lore, Fade), StatTrak™, **Float**,
+**Pattern**, the tournaments and the sticker names. These are the same in
+every client and every market, they are how somebody searches, and
+translating them marks a marketplace as amateur.
+
+Float and Pattern are the two that look translatable and are not. Both
+are the trade's measurements, written in English on every market and in
+every language's community; "Padrão" for Pattern is also the word this
+catalogue already uses for the default sort, so a reader meets it twice
+meaning two things.
 
 The line between the two is not obvious from a string alone, so a
 translator cannot be left to draw it. **A key that must not be

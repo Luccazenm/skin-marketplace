@@ -973,12 +973,12 @@ function SellPanel(props: {
                       {isStatTrak(item) && <Chip text="ST" accent />}
                       {item.float !== null && (
                         <span style={{ color: '#6c7290' }}>
-                          {t('item.float')} <span style={{ color: '#c0c4d8' }}>{item.float.toFixed(4)}</span>
+                          Float <span style={{ color: '#c0c4d8' }}>{item.float.toFixed(4)}</span>
                         </span>
                       )}
                       {item.paintSeed !== null && (
                         <span style={{ color: '#6c7290' }}>
-                          {t('item.pattern')} <span style={{ color: '#c0c4d8' }}>{item.paintSeed}</span>
+                          Pattern <span style={{ color: '#c0c4d8' }}>{item.paintSeed}</span>
                         </span>
                       )}
                     </div>
