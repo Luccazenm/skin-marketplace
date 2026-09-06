@@ -346,10 +346,11 @@ function WeaponGroup({
   weaponFilter,
   onToggle,
 }: {
-  group: { label: string; items: string[] };
+  group: { key: string; items: string[] };
   weaponFilter: string[];
   onToggle: (w: string) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const activeCount = group.items.filter((w) => weaponFilter.includes(w)).length;
 
@@ -361,7 +362,7 @@ function WeaponGroup({
       >
         <div className="flex items-center gap-2">
           <span className="font-mono text-[10px] uppercase tracking-widest transition-colors" style={{ color: open ? "#c0c4d8" : "#6b7194" }}>
-            {group.label}
+            {t(`weaponGroup.${group.key}`)}
           </span>
           {activeCount > 0 && (
             <span className="font-mono text-[10px] font-bold px-1 rounded" style={{ background: "rgba(240,192,64,0.2)", color: "#f0c040" }}>
@@ -390,7 +391,12 @@ function WeaponGroup({
               active={weaponFilter.includes(w)}
               onClick={() => onToggle(w)}
             >
-              <span className="font-mono text-sm" style={{ color: weaponFilter.includes(w) ? "#e8eaf0" : "#6b7194" }}>{w}</span>
+              {/* Falls back to the name itself, which is the point: a row
+                  is translated only when the catalogue names it. Weapons
+                  are deliberately absent, so "AK-47" and "Karambit" pass
+                  through untouched, while "Stickers" under Miscellany —
+                  a category, not a weapon — becomes "Adesivos". */}
+              <span className="font-mono text-sm" style={{ color: weaponFilter.includes(w) ? "#e8eaf0" : "#6b7194" }}>{t(`weaponGroup.item.${w}`, { defaultValue: w })}</span>
               {weaponFilter.includes(w) && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
             </FilterOption>
           ))}
@@ -2394,7 +2400,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             <div className="pt-1 space-y-0.5">
               {WEAPON_GROUPS.map((group) => (
                 <WeaponGroup
-                  key={group.label}
+                  key={group.key}
                   group={group}
                   weaponFilter={mktWeapon}
                   onToggle={toggleMW}
@@ -2419,12 +2425,12 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           <FilterSection title={t("market.filter.others")} defaultOpen={false} inset>
             <div className="space-y-1 pt-2">
               {([
-                { label: "StatTrak™", value: mktStatTrak, set: setMktStatTrak },
-                { label: "Stickers",  value: mktStickers, set: setMktStickers },
-                { label: "Charms",    value: mktCharms,   set: setMktCharms   },
-              ] as { label: string; value: "yes"|"no"|null; set: (v: "yes"|"no"|null) => void }[]).map(({ label, value, set }) => (
-                <div key={label} className="px-2 py-1.5">
-                  <div className="font-mono text-xs mb-1.5" style={{ color: value ? "#e8eaf0" : "#6b7194" }}>{label}</div>
+                { key: "statTrak", value: mktStatTrak, set: setMktStatTrak },
+                { key: "stickers", value: mktStickers, set: setMktStickers },
+                { key: "charms",   value: mktCharms,   set: setMktCharms   },
+              ] as { key: string; value: "yes"|"no"|null; set: (v: "yes"|"no"|null) => void }[]).map(({ key, value, set }) => (
+                <div key={key} className="px-2 py-1.5">
+                  <div className="font-mono text-xs mb-1.5" style={{ color: value ? "#e8eaf0" : "#6b7194" }}>{t(`market.filter.${key}`)}</div>
                   <div className="flex gap-1.5">
                     {(["yes", "no"] as const).map((opt) => (
                       <button
@@ -2860,14 +2866,23 @@ function _TradeOfferCard({ offer }: { offer: TradeOffer }) {
 
 /* ─── Main app ──────────────────────────────────────────────────────── */
 const RARITIES = ["All", "Covert", "Classified", "Restricted", "Mil-Spec", "Rare"];
-const WEAPON_GROUPS: { label: string; items: string[] }[] = [
-  { label: "Knives", items: ["Bayonet", "Bowie Knife", "Butterfly Knife", "Falchion Knife", "Flip Knife", "Gut Knife", "Huntsman Knife", "Karambit", "M9 Bayonet", "Navaja Knife", "Nomad Knife", "Paracord Knife", "Shadow Daggers", "Skeleton Knife", "Stiletto Knife", "Survival Knife", "Talon Knife", "Ursus Knife"] },
-  { label: "Gloves", items: ["Bloodhound Gloves", "Broken Fang Gloves", "Driver Gloves", "Hand Wraps", "Hydra Gloves", "Moto Gloves", "Specialist Gloves", "Sport Gloves"] },
-  { label: "Pistols", items: ["CZ75-Auto", "Desert Eagle", "Dual Berettas", "Five-SeveN", "Glock-18", "P2000", "P250", "R8 Revolver", "Tec-9", "USP-S"] },
-  { label: "SMG", items: ["MAC-10", "MP5-SD", "MP7", "MP9", "P90", "PP-Bizon", "UMP-45"] },
-  { label: "Rifles", items: ["AK-47", "AUG", "AWP", "FAMAS", "G3SG1", "Galil AR", "M4A1-S", "M4A4", "SCAR-20", "SG 553", "SSG 08"] },
-  { label: "Heavy", items: ["M249", "MAG-7", "Negev", "Nova", "Sawed-Off", "XM1014"] },
-  { label: "Miscellany", items: ["Case Key", "Capsule Key", "Charms", "Stickers", "Cases", "Graffiti", "Music Kits", "Pins", "Agents", "Patches", "Zeus"] },
+/**
+ * The filter's own vocabulary, which is not the game's vocabulary.
+ *
+ * `items` are the filter values — they are matched against listings, so
+ * they stay exactly as the game spells them and are never translated in
+ * place. `key` names the heading, which is ours: "Knives" is a drawer we
+ * built, not the name of anything in CS2, so it reads "Facas" in
+ * Portuguese while the Karambit inside stays a Karambit.
+ */
+const WEAPON_GROUPS: { key: string; items: string[] }[] = [
+  { key: "knives", items: ["Bayonet", "Bowie Knife", "Butterfly Knife", "Falchion Knife", "Flip Knife", "Gut Knife", "Huntsman Knife", "Karambit", "M9 Bayonet", "Navaja Knife", "Nomad Knife", "Paracord Knife", "Shadow Daggers", "Skeleton Knife", "Stiletto Knife", "Survival Knife", "Talon Knife", "Ursus Knife"] },
+  { key: "gloves", items: ["Bloodhound Gloves", "Broken Fang Gloves", "Driver Gloves", "Hand Wraps", "Hydra Gloves", "Moto Gloves", "Specialist Gloves", "Sport Gloves"] },
+  { key: "pistols", items: ["CZ75-Auto", "Desert Eagle", "Dual Berettas", "Five-SeveN", "Glock-18", "P2000", "P250", "R8 Revolver", "Tec-9", "USP-S"] },
+  { key: "smg", items: ["MAC-10", "MP5-SD", "MP7", "MP9", "P90", "PP-Bizon", "UMP-45"] },
+  { key: "rifles", items: ["AK-47", "AUG", "AWP", "FAMAS", "G3SG1", "Galil AR", "M4A1-S", "M4A4", "SCAR-20", "SG 553", "SSG 08"] },
+  { key: "heavy", items: ["M249", "MAG-7", "Negev", "Nova", "Sawed-Off", "XM1014"] },
+  { key: "misc", items: ["Case Key", "Capsule Key", "Charms", "Stickers", "Cases", "Graffiti", "Music Kits", "Pins", "Agents", "Patches", "Zeus"] },
 ];
 // No "Newest"/"Oldest": the only thing resembling an age here is the
 // assetId, which changes on every trade. Sorting by it would order items
@@ -3318,7 +3333,7 @@ export default function App() {
               <div className="pt-1 space-y-0.5">
                 {WEAPON_GROUPS.map((group) => (
                   <WeaponGroup
-                    key={group.label}
+                    key={group.key}
                     group={group}
                     weaponFilter={weaponFilter}
                     onToggle={(w) => toggle(setWeapon, w)}

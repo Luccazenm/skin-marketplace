@@ -41,6 +41,27 @@
       "charms": "Chaveiros"
     }
   },
+  "weaponGroup": {
+    "knives": "Facas",
+    "gloves": "Luvas",
+    "pistols": "Pistolas",
+    "smg": "Submetralhadoras",
+    "rifles": "Rifles",
+    "heavy": "Pesadas",
+    "misc": "Diversos",
+    "item": {
+      "Case Key": "Chave de Caixa",
+      "Capsule Key": "Chave de Cápsula",
+      "Charms": "Chaveiros",
+      "Stickers": "Adesivos",
+      "Cases": "Caixas",
+      "Graffiti": "Grafites",
+      "Music Kits": "Kits de Música",
+      "Pins": "Broches",
+      "Agents": "Agentes",
+      "Patches": "Remendos"
+    }
+  },
   "sort": {
     "default": "Padrão",
     "highestPrice": "Maior preço",

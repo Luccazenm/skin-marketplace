@@ -41,6 +41,27 @@
       "charms": "Charms"
     }
   },
+  "weaponGroup": {
+    "knives": "Knives",
+    "gloves": "Gloves",
+    "pistols": "Pistols",
+    "smg": "SMG",
+    "rifles": "Rifles",
+    "heavy": "Heavy",
+    "misc": "Miscellany",
+    "item": {
+      "Case Key": "Case Key",
+      "Capsule Key": "Capsule Key",
+      "Charms": "Charms",
+      "Stickers": "Stickers",
+      "Cases": "Cases",
+      "Graffiti": "Graffiti",
+      "Music Kits": "Music Kits",
+      "Pins": "Pins",
+      "Agents": "Agents",
+      "Patches": "Patches"
+    }
+  },
   "sort": {
     "default": "Default",
     "highestPrice": "Highest Price",
