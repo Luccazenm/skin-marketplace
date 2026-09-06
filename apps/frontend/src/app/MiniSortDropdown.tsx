@@ -31,8 +31,12 @@ export const TRADE_SORTS = [...SELL_SORTS, 'Discount'];
  * decides the trigger's colour, and the pages switch on it — so
  * translating the array would change what the comparisons match. The
  * label is looked up here and the value never moves.
+ *
+ * Exported because the Market screen has a second, larger dropdown of
+ * its own. Two maps would be two places to add a sort to, and the one
+ * nobody remembered would quietly render the English name.
  */
-const SORT_KEYS: Record<string, string> = {
+export const SORT_KEYS: Record<string, string> = {
   Default: 'sort.default',
   'Highest Price': 'sort.highestPrice',
   'Lowest Price': 'sort.lowestPrice',

@@ -54,7 +54,7 @@ import { SellPage } from "./SellPage";
 // out of the imports so an unused symbol does not sit here looking wired
 // up; the component itself is untouched.
 import { NotificationBell } from "./NotificationBell";
-import { MiniSortDropdown, SELL_SORTS } from "./MiniSortDropdown";
+import { MiniSortDropdown, SELL_SORTS, SORT_KEYS } from "./MiniSortDropdown";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
 const RARITY: Record<string, { label: string; color: string; glow: string; from: string; to: string }> = {
@@ -693,6 +693,7 @@ const CURRENCIES = [
 
 /* ─── Sort dropdown ─────────────────────────────────────────────────── */
 function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) => void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -715,7 +716,7 @@ function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) =>
           color: "#e8eaf0",
         }}
       >
-        <span>{sort}</span>
+        <span>{t(SORT_KEYS[sort] ?? "sort.default")}</span>
         <ChevronDown className="w-3 h-3 text-muted-foreground transition-transform" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
       </button>
 
@@ -736,7 +737,7 @@ function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) =>
               onMouseEnter={e => (e.currentTarget.style.background = sort === s ? "rgba(240,192,64,0.12)" : "rgba(255,255,255,0.04)")}
               onMouseLeave={e => (e.currentTarget.style.background = sort === s ? "rgba(240,192,64,0.08)" : "transparent")}
             >
-              {s}
+              {t(SORT_KEYS[s] ?? "sort.default")}
               {sort === s && <Check className="w-3 h-3" style={{ color: "#f0c040" }} />}
             </button>
           ))}
