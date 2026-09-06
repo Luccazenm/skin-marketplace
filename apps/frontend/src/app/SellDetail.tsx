@@ -333,7 +333,7 @@ export function SellDetail({
 
             <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
               <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>{t('sell.recommended')}</span>
+                <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>{t('item.recommended')}</span>
                 <span
                   className="font-mono text-base font-semibold"
                   style={{ color: breakdown ? '#e8eaf0' : '#4a4f68' }}

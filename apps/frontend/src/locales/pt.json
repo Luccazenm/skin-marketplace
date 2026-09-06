@@ -22,7 +22,7 @@
     "search": "Buscar no mercado...",
     "filters": "Filtros",
     "clearFilters": "Limpar filtros",
-    "empty": "Nada corresponde a esses filtros.",
+    "empty": "Nenhuma skin corresponde aos seus filtros.",
     "filter": {
       "price": "Preço",
       "rarity": "Raridade",
@@ -142,7 +142,6 @@
     "afterFee": " · após taxa de {{fee}}%",
     "feeShort": " · {{fee}}%",
     "minimum": "O menor preço com que um item pode ser anunciado é ${{amount}}.",
-    "recommended": "Recomendado",
     "part": {
       "skin": "Skin",
       "stickers": "Adesivos",
@@ -187,7 +186,16 @@
     "addsHere": "Soma aqui",
     "notPriced": "Sem preço",
     "currentPrice": "Preço atual",
-    "addToCart": "Adicionar ao carrinho"
+    "recommended": "Recomendado",
+    "charm": "Chaveiro",
+    "rareStickers": "Adesivos raros",
+    "basedOn": "Baseado nas vendas recentes do mercado e no valor do float.",
+    "listingPrice": "Preço do anúncio",
+    "priceLabel": "Preço",
+    "perDay": "{{count}}/dia",
+    "buyNow": "COMPRAR AGORA",
+    "addToCart": "ADICIONAR AO CARRINHO",
+    "sellInstantlyFor": "VENDER NA HORA POR ${{amount}}"
   },
   "wear": {
     "Factory New": "Nova de Fábrica",

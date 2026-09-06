@@ -594,7 +594,7 @@ function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
               className="w-full text-center text-xs font-semibold py-1.5 rounded font-display tracking-wide transition-opacity duration-200"
               style={{ background: "#f0c040", color: "#08090d", opacity: hovered ? 1 : 0 }}
             >
-              BUY NOW
+              {t("item.buyNow")}
             </div>
           </div>
         </div>
@@ -747,7 +747,7 @@ function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) =>
 }
 
 /* ─── Detail modal ──────────────────────────────────────────────────── */
-function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellInputs = false }: { skin: Skin; onClose: () => void; ctaLabel?: string; onCta?: (price: string) => void; showSellInputs?: boolean }) {
+function SkinDetail({ skin, onClose, ctaLabel, onCta, showSellInputs = false }: { skin: Skin; onClose: () => void; ctaLabel?: string; onCta?: (price: string) => void; showSellInputs?: boolean }) {
   const { t } = useTranslation();
   const r = RARITY[skin.rarity];
   const [tab] = useState<"history">("history");
@@ -851,11 +851,11 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
 
             {/* History label */}
             <div className="px-5 pt-3 pb-0 flex-shrink-0">
-              <span className="font-display text-[11px] uppercase tracking-widest font-semibold" style={{ color: r.color }}>History</span>
+              <span className="font-display text-[11px] uppercase tracking-widest font-semibold" style={{ color: r.color }}>{t("item.history")}</span>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto p-5" style={{ scrollbarWidth: "none" }}>
-              <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">30-Day Price History</div>
+              <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">{t("item.priceHistory")}</div>
               <ResponsiveContainer width="100%" height={180}>
                 <LineChart key={`detail-chart-${skin.id}`} data={PRICE_HISTORY}>
                   <XAxis key="detail-xaxis" dataKey="d" tick={{ fill: "#9da3c0", fontSize: 9, fontFamily: "JetBrains Mono" }} axisLine={false} tickLine={false} />
@@ -865,9 +865,9 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
                     contentStyle={{ background: "#1a1d28", border: `1px solid ${r.color}40`, borderRadius: 4, fontFamily: "JetBrains Mono", fontSize: 11 }}
                     labelStyle={{ color: r.color }}
                     itemStyle={{ color: "#e8eaf0" }}
-                    formatter={(v: number) => [`$${v.toFixed(2)}`, "Price"]}
+                    formatter={(v: number) => [`$${v.toFixed(2)}`, t("item.priceLabel")]}
                   />
-                  <Line key="detail-line" type="monotone" dataKey="p" name="Price" stroke={r.color} strokeWidth={2} dot={false} />
+                  <Line key="detail-line" type="monotone" dataKey="p" name={t("item.priceLabel")} stroke={r.color} strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -885,7 +885,7 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
                   style={{ left: `calc(${floatPct}% - 5px)`, background: "#fff" }} />
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] text-muted-foreground">Float</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{t("item.float")}</span>
                 <span className="font-mono text-[11px] text-foreground font-semibold">{skin.float.toFixed(10)}</span>
               </div>
             </div>
@@ -896,7 +896,7 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
                 [t("item.rarity"), t(`rarity.${skin.rarity}`), r.color],
                 [t("item.wear"), t(`wear.${skin.wear}`), null],
                 [t("item.pattern"), String(Math.floor(skin.float * 1000) % 1000), null],
-                [t("item.volume"), `${skin.volume}/day`, null],
+                [t("item.volume"), t("item.perDay", { count: skin.volume }), null],
               ].map(([label, val, color]) => (
                 <div key={label} className="flex items-center justify-between py-1.5">
                   <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
@@ -909,26 +909,26 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
             <div className="px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
               {skin.charms && (
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-[11px] text-muted-foreground">Charm</span>
+                  <span className="font-mono text-[11px] text-muted-foreground">{t("item.charm")}</span>
                   <span className="font-mono text-[11px] font-semibold" style={{ color: "#4ade80" }}>+ ${charmValue.toFixed(2)}</span>
                 </div>
               )}
               {skin.stickers > 0 && (
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-[11px] text-muted-foreground">Rare stickers</span>
+                  <span className="font-mono text-[11px] text-muted-foreground">{t("item.rareStickers")}</span>
                   <span className="font-mono text-[11px] font-semibold" style={{ color: "#4ade80" }}>+ ${stickerValue.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between mb-0.5">
-                <span className="font-mono text-[11px] text-muted-foreground">Recommended</span>
+                <span className="font-mono text-[11px] text-muted-foreground">{t("item.recommended")}</span>
                 <span className="font-mono text-[11px] font-semibold" style={{ color: "#4ade80" }}>${recommendedPrice.toFixed(2)}</span>
               </div>
-              <div className="font-mono text-[9px] text-muted-foreground leading-relaxed">Based on recent market sales and float value.</div>
+              <div className="font-mono text-[9px] text-muted-foreground leading-relaxed">{t("item.basedOn")}</div>
             </div>
 
             {/* Price */}
             <div className="px-5 py-4 flex-shrink-0">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Current price</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{t("item.currentPrice")}</div>
               <div className="flex items-center gap-2 mb-4">
                 <span className="font-display text-2xl font-bold text-foreground">
                   ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
@@ -941,7 +941,7 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
 
               {showSellInputs && (
                 <div className="mb-3">
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block mb-1.5">Listing price</label>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground block mb-1.5">{t("item.listingPrice")}</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-muted-foreground">$</span>
                     <input
@@ -953,7 +953,7 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
                     />
                   </div>
                   <div className="flex items-center justify-between mt-1.5 px-0.5">
-                    <span className="font-mono text-[10px] text-muted-foreground">You receive</span>
+                    <span className="font-mono text-[10px] text-muted-foreground">{t("sell.youReceive")}</span>
                     <span className="font-mono text-[10px] font-semibold" style={{ color: "#4ade80" }}>
                       ${(Math.max(0, parseFloat(listingPrice) || 0) * (1 - 0.05)).toFixed(2)}
                     </span>
@@ -965,7 +965,7 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
                 onClick={() => { onCta?.(listingPrice); onClose(); }}
                 className="w-full py-3 rounded-lg font-display font-bold text-sm tracking-wide transition-all hover:opacity-90 mb-2"
                 style={{ background: "#f0c040", color: "#08090d", boxShadow: "0 0 24px rgba(240,192,64,0.2)" }}>
-                {ctaLabel}
+                {ctaLabel ?? t("item.addToCart")}
               </button>
 
               {showSellInputs && (
@@ -973,7 +973,7 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
                   onClick={onClose}
                   className="w-full py-2.5 rounded-lg font-display font-bold text-sm tracking-wide transition-all hover:opacity-80"
                   style={{ background: "linear-gradient(135deg, #e84060, #c0284a)", color: "#fff", boxShadow: "0 0 20px rgba(232,64,96,0.35)" }}>
-                  SELL INSTANTLY FOR ${instantPrice.toFixed(2)}
+                  {t("item.sellInstantlyFor", { amount: instantPrice.toFixed(2) })}
                 </button>
               )}
             </div>
@@ -1154,7 +1154,7 @@ function TradeSkinCard({
       rarity={r}
       category={skin.weapon}
       name={skin.name}
-      exterior={t(`wear.${skin.wear}`)}
+      exterior={WEAR_SHORT[skin.wear] ?? skin.wear}
       float={skin.float}
       price={`$${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
       statTrak={skin.statTrak}
@@ -1358,11 +1358,7 @@ function TradeInventoryCard({
       rarity={r}
       category={item.catalog?.weapon ?? item.typeLabel ?? ""}
       name={item.catalog?.skinName ?? item.marketHashName}
-      exterior={
-        item.exterior
-          ? t(`wear.${item.exterior}`, { defaultValue: item.exterior })
-          : null
-      }
+      exterior={item.exterior ? (WEAR_SHORT[item.exterior] ?? item.exterior) : null}
       float={item.float}
       // What a trade credits for it, not what it would list for: less
       // than the suggestion, because the item becomes our stock and we
@@ -1481,6 +1477,18 @@ const CART_TINT = "rgba(255,255,255,0.015)";
  * float and often StatTrak. "Factory New / 0.0395" does not fit and gets
  * cut mid-word; "FN / 0.0395" does, and these are the abbreviations the
  * trading community already uses.
+ */
+/**
+ * The trading community's shorthand, and deliberately not translated.
+ *
+ * FN, MW, FT, WW and BS are written the same on a Brazilian forum, a
+ * Russian one and a Chinese one — they are closer to ticker symbols than
+ * to words, and the full names are one click away in the detail.
+ *
+ * They are also the only thing that fits. A trade grid card gives the
+ * wear 58px; "Field-Tested" needs 65 and "Testada em Campo" needs 86, so
+ * every card on the screen was clipping the label the 112px minimum
+ * exists to protect.
  */
 const WEAR_SHORT: Record<string, string> = {
   "Factory New": "FN",
@@ -3484,7 +3492,7 @@ export default function App() {
             {/* Skin grid */}
             {filtered.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground font-mono text-sm">
-                No skins match your filters.
+                {t("market.empty")}
               </div>
             ) : (
               <div className="overflow-y-auto" style={{ maxHeight: "956px", scrollbarWidth: "none" }}>

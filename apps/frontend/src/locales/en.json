@@ -22,7 +22,7 @@
     "search": "Search market...",
     "filters": "Filters",
     "clearFilters": "Clear Filters",
-    "empty": "Nothing matches those filters.",
+    "empty": "No skins match your filters.",
     "filter": {
       "price": "Price",
       "rarity": "Rarity",
@@ -142,7 +142,6 @@
     "afterFee": " · after {{fee}}% fee",
     "feeShort": " · {{fee}}%",
     "minimum": "The lowest an item can be listed for is ${{amount}}.",
-    "recommended": "Recommended",
     "part": {
       "skin": "Skin",
       "stickers": "Stickers",
@@ -187,7 +186,16 @@
     "addsHere": "Adds here",
     "notPriced": "Not priced",
     "currentPrice": "Current price",
-    "addToCart": "Add to cart"
+    "recommended": "Recommended",
+    "charm": "Charm",
+    "rareStickers": "Rare stickers",
+    "basedOn": "Based on recent market sales and float value.",
+    "listingPrice": "Listing price",
+    "priceLabel": "Price",
+    "perDay": "{{count}}/day",
+    "buyNow": "BUY NOW",
+    "addToCart": "ADD TO CART",
+    "sellInstantlyFor": "SELL INSTANTLY FOR ${{amount}}"
   },
   "wear": {
     "Factory New": "Factory New",
