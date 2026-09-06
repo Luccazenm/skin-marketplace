@@ -1,6 +1,6 @@
 import {
-  BR, CN, CZ, DE, ES, FR, ID, IT, JP, KR,
-  NL, PL, RU, SE, TH, TR, UA, US, VN,
+  BR, CN, CZ, DE, ES, FR, IT, JP,
+  KR, NL, PL, RU, SE, TR, UA, US,
 } from 'country-flag-icons/react/3x2';
 
 /**
@@ -28,8 +28,8 @@ export type FlagCode = keyof typeof FLAGS;
 const FLAGS = {
   US, BR, ES, RU, CN,
   PL, TR, UA, DE,
-  FR, CZ, SE, ID,
-  VN, TH, JP, KR, IT, NL,
+  FR, CZ, SE,
+  JP, KR, IT, NL,
 } as const;
 
 /**
