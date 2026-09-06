@@ -5,13 +5,10 @@ import {
   ShoppingCart,
   Bell,
   X,
-  TrendingUp,
-  TrendingDown,
   ChevronDown,
   SlidersHorizontal,
   Zap,
   Star,
-  ArrowUpRight,
   ArrowRight,
   Package,
   User,
@@ -76,7 +73,6 @@ interface Skin {
   price: number;
   rarity: keyof typeof RARITY;
   float: number;
-  trend: number;
   discount: number;
   volume: number;
   stickers: number;
@@ -85,70 +81,70 @@ interface Skin {
 }
 
 const SKINS_RAW: Skin[] = [
-  { id: 1,  name: "Redline",         weapon: "AK-47",       wear: "Field-Tested",  price: 42.50,   rarity: "classified", float: 0.217, trend: +3.2,  discount: -8.4,  volume: 1240, stickers: 0, charms: false, statTrak: false },
-  { id: 2,  name: "Dragon Lore",     weapon: "AWP",         wear: "Factory New",   price: 8420.00, rarity: "covert",     float: 0.032, trend: +12.1, discount: +3.2,  volume: 18,   stickers: 4, charms: true,  statTrak: false },
-  { id: 3,  name: "Howl",            weapon: "M4A4",        wear: "Minimal Wear",  price: 3150.00, rarity: "covert",     float: 0.089, trend: -2.4,  discount: -12.7, volume: 34,   stickers: 0, charms: false, statTrak: true  },
-  { id: 4,  name: "Fade",            weapon: "Glock-18",    wear: "Factory New",   price: 380.00,  rarity: "restricted", float: 0.011, trend: +5.7,  discount: -5.1,  volume: 412,  stickers: 0, charms: true,  statTrak: false },
-  { id: 5,  name: "Blaze",           weapon: "Desert Eagle",wear: "Factory New",   price: 520.00,  rarity: "classified", float: 0.019, trend: +1.3,  discount: +7.8,  volume: 287,  stickers: 2, charms: false, statTrak: false },
-  { id: 6,  name: "Fade",            weapon: "Butterfly Knife", wear: "Factory New", price: 1890.00, rarity: "rare",    float: 0.008, trend: +8.9,  discount: -2.3,  volume: 56,   stickers: 0, charms: false, statTrak: false },
-  { id: 7,  name: "Fire Serpent",    weapon: "AK-47",       wear: "Field-Tested",  price: 890.00,  rarity: "covert",     float: 0.243, trend: -1.1,  discount: -18.5, volume: 98,   stickers: 3, charms: true,  statTrak: false },
-  { id: 8,  name: "Hyper Beast",     weapon: "M4A1-S",      wear: "Factory New",   price: 68.00,   rarity: "covert",     float: 0.034, trend: +0.4,  discount: +1.2,  volume: 892,  stickers: 0, charms: false, statTrak: false },
-  { id: 9,  name: "Kill Confirmed",  weapon: "USP-S",       wear: "Minimal Wear",  price: 145.00,  rarity: "covert",     float: 0.098, trend: +2.8,  discount: -6.9,  volume: 543,  stickers: 1, charms: false, statTrak: true  },
-  { id: 10, name: "Doppler",         weapon: "Karambit",    wear: "Factory New",   price: 2640.00, rarity: "rare",       float: 0.004, trend: +6.4,  discount: -4.4,  volume: 29,   stickers: 0, charms: true,  statTrak: false },
-  { id: 11, name: "Asiimov",         weapon: "AK-47",       wear: "Field-Tested",  price: 28.00,   rarity: "classified", float: 0.221, trend: -0.7,  discount: +5.3,  volume: 2341, stickers: 0, charms: false, statTrak: false },
-  { id: 12, name: "Neo-Noir",        weapon: "AWP",         wear: "Factory New",   price: 12.40,   rarity: "classified", float: 0.041, trend: +0.2,  discount: -1.8,  volume: 5621, stickers: 0, charms: false, statTrak: false },
-  { id: 13, name: "Printstream",     weapon: "M4A1-S",      wear: "Factory New",   price: 74.00,   rarity: "covert",     float: 0.006, trend: +4.1,  discount: -9.2,  volume: 689,  stickers: 0, charms: true,  statTrak: true  },
-  { id: 14, name: "Emerald",         weapon: "Desert Eagle",wear: "Factory New",   price: 98.00,   rarity: "covert",     float: 0.014, trend: +2.2,  discount: +2.6,  volume: 344,  stickers: 0, charms: false, statTrak: false },
-  { id: 15, name: "Icarus Fell",     weapon: "Karambit",    wear: "Factory New",   price: 3200.00, rarity: "rare",       float: 0.019, trend: +9.3,  discount: -7.1,  volume: 21,   stickers: 0, charms: false, statTrak: false },
-  { id: 16, name: "Chatterbox",      weapon: "Galil AR",    wear: "Factory New",   price: 12.40,   rarity: "restricted", float: 0.041, trend: +0.2,  discount: +4.0,  volume: 5621, stickers: 0, charms: false, statTrak: false },
+  { id: 1,  name: "Redline",         weapon: "AK-47",       wear: "Field-Tested",  price: 42.50,   rarity: "classified", float: 0.217, discount: -8.4,  volume: 1240, stickers: 0, charms: false, statTrak: false },
+  { id: 2,  name: "Dragon Lore",     weapon: "AWP",         wear: "Factory New",   price: 8420.00, rarity: "covert",     float: 0.032, discount: +3.2,  volume: 18,   stickers: 4, charms: true,  statTrak: false },
+  { id: 3,  name: "Howl",            weapon: "M4A4",        wear: "Minimal Wear",  price: 3150.00, rarity: "covert",     float: 0.089, discount: -12.7, volume: 34,   stickers: 0, charms: false, statTrak: true  },
+  { id: 4,  name: "Fade",            weapon: "Glock-18",    wear: "Factory New",   price: 380.00,  rarity: "restricted", float: 0.011, discount: -5.1,  volume: 412,  stickers: 0, charms: true,  statTrak: false },
+  { id: 5,  name: "Blaze",           weapon: "Desert Eagle",wear: "Factory New",   price: 520.00,  rarity: "classified", float: 0.019, discount: +7.8,  volume: 287,  stickers: 2, charms: false, statTrak: false },
+  { id: 6,  name: "Fade",            weapon: "Butterfly Knife", wear: "Factory New", price: 1890.00, rarity: "rare",    float: 0.008, discount: -2.3,  volume: 56,   stickers: 0, charms: false, statTrak: false },
+  { id: 7,  name: "Fire Serpent",    weapon: "AK-47",       wear: "Field-Tested",  price: 890.00,  rarity: "covert",     float: 0.243, discount: -18.5, volume: 98,   stickers: 3, charms: true,  statTrak: false },
+  { id: 8,  name: "Hyper Beast",     weapon: "M4A1-S",      wear: "Factory New",   price: 68.00,   rarity: "covert",     float: 0.034, discount: +1.2,  volume: 892,  stickers: 0, charms: false, statTrak: false },
+  { id: 9,  name: "Kill Confirmed",  weapon: "USP-S",       wear: "Minimal Wear",  price: 145.00,  rarity: "covert",     float: 0.098, discount: -6.9,  volume: 543,  stickers: 1, charms: false, statTrak: true  },
+  { id: 10, name: "Doppler",         weapon: "Karambit",    wear: "Factory New",   price: 2640.00, rarity: "rare",       float: 0.004, discount: -4.4,  volume: 29,   stickers: 0, charms: true,  statTrak: false },
+  { id: 11, name: "Asiimov",         weapon: "AK-47",       wear: "Field-Tested",  price: 28.00,   rarity: "classified", float: 0.221, discount: +5.3,  volume: 2341, stickers: 0, charms: false, statTrak: false },
+  { id: 12, name: "Neo-Noir",        weapon: "AWP",         wear: "Factory New",   price: 12.40,   rarity: "classified", float: 0.041, discount: -1.8,  volume: 5621, stickers: 0, charms: false, statTrak: false },
+  { id: 13, name: "Printstream",     weapon: "M4A1-S",      wear: "Factory New",   price: 74.00,   rarity: "covert",     float: 0.006, discount: -9.2,  volume: 689,  stickers: 0, charms: true,  statTrak: true  },
+  { id: 14, name: "Emerald",         weapon: "Desert Eagle",wear: "Factory New",   price: 98.00,   rarity: "covert",     float: 0.014, discount: +2.6,  volume: 344,  stickers: 0, charms: false, statTrak: false },
+  { id: 15, name: "Icarus Fell",     weapon: "Karambit",    wear: "Factory New",   price: 3200.00, rarity: "rare",       float: 0.019, discount: -7.1,  volume: 21,   stickers: 0, charms: false, statTrak: false },
+  { id: 16, name: "Chatterbox",      weapon: "Galil AR",    wear: "Factory New",   price: 12.40,   rarity: "restricted", float: 0.041, discount: +4.0,  volume: 5621, stickers: 0, charms: false, statTrak: false },
 
   // SMGs
-  { id: 17, name: "Neon Rider",      weapon: "MP9",         wear: "Factory New",   price: 18.50,   rarity: "covert",     float: 0.021, trend: +1.4,  discount: -3.2,  volume: 1820, stickers: 0, charms: false, statTrak: false },
-  { id: 18, name: "Killing Spree",   weapon: "MAC-10",      wear: "Factory New",   price: 7.80,    rarity: "classified", float: 0.044, trend: -0.5,  discount: +2.1,  volume: 3200, stickers: 0, charms: true,  statTrak: false },
-  { id: 19, name: "Bloodsport",      weapon: "MP5-SD",      wear: "Factory New",   price: 9.20,    rarity: "classified", float: 0.018, trend: +2.3,  discount: -5.8,  volume: 2410, stickers: 1, charms: false, statTrak: false },
-  { id: 20, name: "Phosphor",        weapon: "MP7",         wear: "Factory New",   price: 11.30,   rarity: "classified", float: 0.031, trend: +0.8,  discount: -1.9,  volume: 1980, stickers: 0, charms: false, statTrak: true  },
-  { id: 21, name: "Asiimov",         weapon: "P90",         wear: "Field-Tested",  price: 34.00,   rarity: "covert",     float: 0.198, trend: +3.1,  discount: -6.4,  volume: 890,  stickers: 0, charms: false, statTrak: false },
-  { id: 22, name: "Cobalt Halftone", weapon: "PP-Bizon",    wear: "Factory New",   price: 4.20,    rarity: "restricted", float: 0.062, trend: -0.3,  discount: +1.4,  volume: 4100, stickers: 0, charms: false, statTrak: false },
-  { id: 23, name: "Crime Scene",     weapon: "UMP-45",      wear: "Factory New",   price: 6.50,    rarity: "classified", float: 0.029, trend: +1.1,  discount: -2.7,  volume: 2750, stickers: 0, charms: true,  statTrak: false },
+  { id: 17, name: "Neon Rider",      weapon: "MP9",         wear: "Factory New",   price: 18.50,   rarity: "covert",     float: 0.021, discount: -3.2,  volume: 1820, stickers: 0, charms: false, statTrak: false },
+  { id: 18, name: "Killing Spree",   weapon: "MAC-10",      wear: "Factory New",   price: 7.80,    rarity: "classified", float: 0.044, discount: +2.1,  volume: 3200, stickers: 0, charms: true,  statTrak: false },
+  { id: 19, name: "Bloodsport",      weapon: "MP5-SD",      wear: "Factory New",   price: 9.20,    rarity: "classified", float: 0.018, discount: -5.8,  volume: 2410, stickers: 1, charms: false, statTrak: false },
+  { id: 20, name: "Phosphor",        weapon: "MP7",         wear: "Factory New",   price: 11.30,   rarity: "classified", float: 0.031, discount: -1.9,  volume: 1980, stickers: 0, charms: false, statTrak: true  },
+  { id: 21, name: "Asiimov",         weapon: "P90",         wear: "Field-Tested",  price: 34.00,   rarity: "covert",     float: 0.198, discount: -6.4,  volume: 890,  stickers: 0, charms: false, statTrak: false },
+  { id: 22, name: "Cobalt Halftone", weapon: "PP-Bizon",    wear: "Factory New",   price: 4.20,    rarity: "restricted", float: 0.062, discount: +1.4,  volume: 4100, stickers: 0, charms: false, statTrak: false },
+  { id: 23, name: "Crime Scene",     weapon: "UMP-45",      wear: "Factory New",   price: 6.50,    rarity: "classified", float: 0.029, discount: -2.7,  volume: 2750, stickers: 0, charms: true,  statTrak: false },
 
   // Heavy
-  { id: 24, name: "Bulldozer",       weapon: "Nova",        wear: "Factory New",   price: 5.10,    rarity: "milspec",    float: 0.055, trend: +0.4,  discount: +0.8,  volume: 3800, stickers: 0, charms: false, statTrak: false },
-  { id: 25, name: "Firecobra",       weapon: "Sawed-Off",   wear: "Factory New",   price: 3.80,    rarity: "restricted", float: 0.038, trend: -0.6,  discount: +3.2,  volume: 2900, stickers: 0, charms: false, statTrak: false },
-  { id: 26, name: "Urban Hazard",    weapon: "MAG-7",       wear: "Minimal Wear",  price: 8.90,    rarity: "classified", float: 0.091, trend: +1.8,  discount: -4.1,  volume: 1640, stickers: 0, charms: false, statTrak: false },
-  { id: 27, name: "Ambush",         weapon: "XM1014",      wear: "Factory New",   price: 4.60,    rarity: "restricted", float: 0.047, trend: +0.2,  discount: +2.3,  volume: 3100, stickers: 0, charms: false, statTrak: false },
-  { id: 28, name: "Tooth Fairy",     weapon: "M249",        wear: "Factory New",   price: 6.20,    rarity: "classified", float: 0.033, trend: +1.5,  discount: -3.8,  volume: 1890, stickers: 2, charms: false, statTrak: false },
-  { id: 29, name: "Ultralight",      weapon: "Negev",       wear: "Factory New",   price: 5.70,    rarity: "classified", float: 0.041, trend: -0.9,  discount: +1.6,  volume: 2200, stickers: 0, charms: false, statTrak: false },
+  { id: 24, name: "Bulldozer",       weapon: "Nova",        wear: "Factory New",   price: 5.10,    rarity: "milspec",    float: 0.055, discount: +0.8,  volume: 3800, stickers: 0, charms: false, statTrak: false },
+  { id: 25, name: "Firecobra",       weapon: "Sawed-Off",   wear: "Factory New",   price: 3.80,    rarity: "restricted", float: 0.038, discount: +3.2,  volume: 2900, stickers: 0, charms: false, statTrak: false },
+  { id: 26, name: "Urban Hazard",    weapon: "MAG-7",       wear: "Minimal Wear",  price: 8.90,    rarity: "classified", float: 0.091, discount: -4.1,  volume: 1640, stickers: 0, charms: false, statTrak: false },
+  { id: 27, name: "Ambush",         weapon: "XM1014",      wear: "Factory New",   price: 4.60,    rarity: "restricted", float: 0.047, discount: +2.3,  volume: 3100, stickers: 0, charms: false, statTrak: false },
+  { id: 28, name: "Tooth Fairy",     weapon: "M249",        wear: "Factory New",   price: 6.20,    rarity: "classified", float: 0.033, discount: -3.8,  volume: 1890, stickers: 2, charms: false, statTrak: false },
+  { id: 29, name: "Ultralight",      weapon: "Negev",       wear: "Factory New",   price: 5.70,    rarity: "classified", float: 0.041, discount: +1.6,  volume: 2200, stickers: 0, charms: false, statTrak: false },
 
   // More pistols
-  { id: 30, name: "Cyrex",           weapon: "Five-SeveN",  wear: "Factory New",   price: 22.00,   rarity: "classified", float: 0.014, trend: +2.6,  discount: -7.3,  volume: 1320, stickers: 0, charms: false, statTrak: false },
-  { id: 31, name: "Asiimov",         weapon: "P250",        wear: "Factory New",   price: 8.40,    rarity: "covert",     float: 0.026, trend: +1.2,  discount: -2.9,  volume: 2100, stickers: 0, charms: true,  statTrak: false },
-  { id: 32, name: "Howl",            weapon: "P2000",       wear: "Factory New",   price: 5.90,    rarity: "classified", float: 0.038, trend: +0.7,  discount: +1.8,  volume: 3400, stickers: 0, charms: false, statTrak: false },
-  { id: 33, name: "Crimson Web",     weapon: "Tec-9",       wear: "Minimal Wear",  price: 14.70,   rarity: "classified", float: 0.112, trend: +3.4,  discount: -5.6,  volume: 980,  stickers: 0, charms: false, statTrak: true  },
-  { id: 34, name: "Fade",            weapon: "R8 Revolver", wear: "Factory New",   price: 31.50,   rarity: "classified", float: 0.009, trend: +4.8,  discount: -9.1,  volume: 720,  stickers: 0, charms: false, statTrak: false },
-  { id: 35, name: "Orion",           weapon: "CZ75-Auto",   wear: "Factory New",   price: 11.20,   rarity: "classified", float: 0.022, trend: +1.9,  discount: -4.4,  volume: 1560, stickers: 0, charms: false, statTrak: false },
-  { id: 36, name: "Wasteland Rebel", weapon: "Dual Berettas",wear: "Factory New",  price: 6.80,    rarity: "classified", float: 0.051, trend: +0.6,  discount: +2.7,  volume: 2800, stickers: 0, charms: false, statTrak: false },
+  { id: 30, name: "Cyrex",           weapon: "Five-SeveN",  wear: "Factory New",   price: 22.00,   rarity: "classified", float: 0.014, discount: -7.3,  volume: 1320, stickers: 0, charms: false, statTrak: false },
+  { id: 31, name: "Asiimov",         weapon: "P250",        wear: "Factory New",   price: 8.40,    rarity: "covert",     float: 0.026, discount: -2.9,  volume: 2100, stickers: 0, charms: true,  statTrak: false },
+  { id: 32, name: "Howl",            weapon: "P2000",       wear: "Factory New",   price: 5.90,    rarity: "classified", float: 0.038, discount: +1.8,  volume: 3400, stickers: 0, charms: false, statTrak: false },
+  { id: 33, name: "Crimson Web",     weapon: "Tec-9",       wear: "Minimal Wear",  price: 14.70,   rarity: "classified", float: 0.112, discount: -5.6,  volume: 980,  stickers: 0, charms: false, statTrak: true  },
+  { id: 34, name: "Fade",            weapon: "R8 Revolver", wear: "Factory New",   price: 31.50,   rarity: "classified", float: 0.009, discount: -9.1,  volume: 720,  stickers: 0, charms: false, statTrak: false },
+  { id: 35, name: "Orion",           weapon: "CZ75-Auto",   wear: "Factory New",   price: 11.20,   rarity: "classified", float: 0.022, discount: -4.4,  volume: 1560, stickers: 0, charms: false, statTrak: false },
+  { id: 36, name: "Wasteland Rebel", weapon: "Dual Berettas",wear: "Factory New",  price: 6.80,    rarity: "classified", float: 0.051, discount: +2.7,  volume: 2800, stickers: 0, charms: false, statTrak: false },
 
   // More rifles
-  { id: 37, name: "Fever Dream",     weapon: "AUG",         wear: "Factory New",   price: 16.40,   rarity: "covert",     float: 0.027, trend: +2.1,  discount: -6.8,  volume: 1100, stickers: 0, charms: false, statTrak: false },
-  { id: 38, name: "Styx",            weapon: "FAMAS",       wear: "Factory New",   price: 7.30,    rarity: "classified", float: 0.036, trend: +0.9,  discount: -2.3,  volume: 2600, stickers: 0, charms: false, statTrak: false },
-  { id: 39, name: "Pulse",           weapon: "SG 553",      wear: "Factory New",   price: 9.80,    rarity: "classified", float: 0.019, trend: +1.7,  discount: -3.5,  volume: 1780, stickers: 1, charms: false, statTrak: false },
-  { id: 40, name: "Detour",          weapon: "SSG 08",      wear: "Field-Tested",  price: 12.60,   rarity: "covert",     float: 0.187, trend: +2.8,  discount: -4.9,  volume: 1240, stickers: 0, charms: false, statTrak: true  },
-  { id: 41, name: "Contractor",      weapon: "G3SG1",       wear: "Factory New",   price: 8.10,    rarity: "milspec",    float: 0.044, trend: +0.5,  discount: +1.2,  volume: 2300, stickers: 0, charms: false, statTrak: false },
-  { id: 42, name: "Hyper Beast",     weapon: "SCAR-20",     wear: "Factory New",   price: 14.90,   rarity: "covert",     float: 0.031, trend: +1.6,  discount: -5.2,  volume: 950,  stickers: 0, charms: true,  statTrak: false },
+  { id: 37, name: "Fever Dream",     weapon: "AUG",         wear: "Factory New",   price: 16.40,   rarity: "covert",     float: 0.027, discount: -6.8,  volume: 1100, stickers: 0, charms: false, statTrak: false },
+  { id: 38, name: "Styx",            weapon: "FAMAS",       wear: "Factory New",   price: 7.30,    rarity: "classified", float: 0.036, discount: -2.3,  volume: 2600, stickers: 0, charms: false, statTrak: false },
+  { id: 39, name: "Pulse",           weapon: "SG 553",      wear: "Factory New",   price: 9.80,    rarity: "classified", float: 0.019, discount: -3.5,  volume: 1780, stickers: 1, charms: false, statTrak: false },
+  { id: 40, name: "Detour",          weapon: "SSG 08",      wear: "Field-Tested",  price: 12.60,   rarity: "covert",     float: 0.187, discount: -4.9,  volume: 1240, stickers: 0, charms: false, statTrak: true  },
+  { id: 41, name: "Contractor",      weapon: "G3SG1",       wear: "Factory New",   price: 8.10,    rarity: "milspec",    float: 0.044, discount: +1.2,  volume: 2300, stickers: 0, charms: false, statTrak: false },
+  { id: 42, name: "Hyper Beast",     weapon: "SCAR-20",     wear: "Factory New",   price: 14.90,   rarity: "covert",     float: 0.031, discount: -5.2,  volume: 950,  stickers: 0, charms: true,  statTrak: false },
 
   // ST + 5 sticker examples
-  { id: 49, name: "Asiimov",         weapon: "AWP",         wear: "Factory New",   price: 210.00,  rarity: "covert",     float: 0.018, trend: +4.1,  discount: -11.2, volume: 312,  stickers: 5, charms: false, statTrak: true  },
-  { id: 50, name: "Redline",         weapon: "AK-47",       wear: "Field-Tested",  price: 68.00,   rarity: "classified", float: 0.224, trend: +2.3,  discount: -7.8,  volume: 890,  stickers: 5, charms: true,  statTrak: true  },
-  { id: 51, name: "Hyper Beast",     weapon: "M4A4",        wear: "Minimal Wear",  price: 95.00,   rarity: "covert",     float: 0.073, trend: +3.6,  discount: -9.1,  volume: 540,  stickers: 5, charms: false, statTrak: true  },
-  { id: 52, name: "Printstream",     weapon: "USP-S",       wear: "Factory New",   price: 185.00,  rarity: "covert",     float: 0.009, trend: +5.8,  discount: -6.4,  volume: 274,  stickers: 4, charms: false, statTrak: true  },
+  { id: 49, name: "Asiimov",         weapon: "AWP",         wear: "Factory New",   price: 210.00,  rarity: "covert",     float: 0.018, discount: -11.2, volume: 312,  stickers: 5, charms: false, statTrak: true  },
+  { id: 50, name: "Redline",         weapon: "AK-47",       wear: "Field-Tested",  price: 68.00,   rarity: "classified", float: 0.224, discount: -7.8,  volume: 890,  stickers: 5, charms: true,  statTrak: true  },
+  { id: 51, name: "Hyper Beast",     weapon: "M4A4",        wear: "Minimal Wear",  price: 95.00,   rarity: "covert",     float: 0.073, discount: -9.1,  volume: 540,  stickers: 5, charms: false, statTrak: true  },
+  { id: 52, name: "Printstream",     weapon: "USP-S",       wear: "Factory New",   price: 185.00,  rarity: "covert",     float: 0.009, discount: -6.4,  volume: 274,  stickers: 4, charms: false, statTrak: true  },
 
   // More knives & gloves
-  { id: 43, name: "Doppler",         weapon: "M9 Bayonet",  wear: "Factory New",   price: 890.00,  rarity: "rare",       float: 0.007, trend: +5.2,  discount: -3.8,  volume: 42,   stickers: 0, charms: false, statTrak: false },
-  { id: 44, name: "Marble Fade",     weapon: "Flip Knife",  wear: "Factory New",   price: 620.00,  rarity: "rare",       float: 0.011, trend: +4.1,  discount: -6.2,  volume: 67,   stickers: 0, charms: false, statTrak: false },
-  { id: 45, name: "Tiger Tooth",     weapon: "Bayonet",     wear: "Factory New",   price: 480.00,  rarity: "rare",       float: 0.003, trend: +3.7,  discount: -2.9,  volume: 88,   stickers: 0, charms: false, statTrak: false },
-  { id: 46, name: "Crimson Web",     weapon: "Gut Knife",   wear: "Minimal Wear",  price: 210.00,  rarity: "rare",       float: 0.082, trend: +2.4,  discount: -4.5,  volume: 134,  stickers: 0, charms: false, statTrak: false },
-  { id: 47, name: "Pandora's Box",   weapon: "Sport Gloves",wear: "Field-Tested",  price: 1240.00, rarity: "rare",       float: 0.231, trend: +7.8,  discount: -8.3,  volume: 24,   stickers: 0, charms: false, statTrak: false },
-  { id: 48, name: "Overtake",        weapon: "Driver Gloves",wear: "Minimal Wear", price: 680.00,  rarity: "rare",       float: 0.096, trend: +5.6,  discount: -5.1,  volume: 38,   stickers: 0, charms: false, statTrak: false },
+  { id: 43, name: "Doppler",         weapon: "M9 Bayonet",  wear: "Factory New",   price: 890.00,  rarity: "rare",       float: 0.007, discount: -3.8,  volume: 42,   stickers: 0, charms: false, statTrak: false },
+  { id: 44, name: "Marble Fade",     weapon: "Flip Knife",  wear: "Factory New",   price: 620.00,  rarity: "rare",       float: 0.011, discount: -6.2,  volume: 67,   stickers: 0, charms: false, statTrak: false },
+  { id: 45, name: "Tiger Tooth",     weapon: "Bayonet",     wear: "Factory New",   price: 480.00,  rarity: "rare",       float: 0.003, discount: -2.9,  volume: 88,   stickers: 0, charms: false, statTrak: false },
+  { id: 46, name: "Crimson Web",     weapon: "Gut Knife",   wear: "Minimal Wear",  price: 210.00,  rarity: "rare",       float: 0.082, discount: -4.5,  volume: 134,  stickers: 0, charms: false, statTrak: false },
+  { id: 47, name: "Pandora's Box",   weapon: "Sport Gloves",wear: "Field-Tested",  price: 1240.00, rarity: "rare",       float: 0.231, discount: -8.3,  volume: 24,   stickers: 0, charms: false, statTrak: false },
+  { id: 48, name: "Overtake",        weapon: "Driver Gloves",wear: "Minimal Wear", price: 680.00,  rarity: "rare",       float: 0.096, discount: -5.1,  volume: 38,   stickers: 0, charms: false, statTrak: false },
 ];
 
 // Deterministic shuffle so items from different categories are interleaved
@@ -165,15 +161,6 @@ const PRICE_HISTORY = [
   { d: "Jun 23", p: 40.3 },
   { d: "Jun 28", p: 43.7 },
   { d: "Jul 2",  p: 42.5 },
-];
-
-const RECENT_SALES = [
-  { name: "AK-47 | Redline FT",       price: 42.50,   user: "dk_vapor",     time: "2m" },
-  { name: "AWP | Asiimov FT",          price: 86.20,   user: "xX_sniper_Xx", time: "5m" },
-  { name: "Glock-18 | Fade FN",        price: 382.00,  user: "trademaster",  time: "8m" },
-  { name: "M4A4 | Howl MW",            price: 3148.50, user: "whale404",     time: "12m" },
-  { name: "USP-S | Kill Confirmed MW", price: 143.75,  user: "css_grinder",  time: "15m" },
-  { name: "Karambit | Doppler FN",     price: 2639.00, user: "knifetrader",  time: "19m" },
 ];
 
 /* ─── Weapon pattern SVGs ───────────────────────────────────────────── */
@@ -952,10 +939,10 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
               <div className="font-mono text-[9px] text-muted-foreground leading-relaxed">Based on recent market sales and float value.</div>
             </div>
 
-            {/* Price + trend */}
+            {/* Price */}
             <div className="px-5 py-4 flex-shrink-0">
               <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Current price</div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-4">
                 <span className="font-display text-2xl font-bold text-foreground">
                   ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </span>
@@ -963,9 +950,6 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
                   style={{ background: skin.discount <= 0 ? "rgba(74,222,128,0.12)" : "rgba(248,113,113,0.12)", color: skin.discount <= 0 ? "#4ade80" : "#f87171" }}>
                   {skin.discount <= 0 ? "" : "+"}{skin.discount}%
                 </span>
-              </div>
-              <div className="font-mono text-xs mb-4" style={{ color: skin.trend >= 0 ? "#4ade80" : "#f87171" }}>
-                {skin.trend >= 0 ? "▲" : "▼"} {Math.abs(skin.trend)}% past 7 days
               </div>
 
               {showSellInputs && (
@@ -3400,22 +3384,6 @@ export default function App() {
             )}
             </div>
 
-            {/* Market stats — fixed below filters */}
-            <div className="mt-4 p-3 rounded border flex-shrink-0" style={{ background: "#10121a", borderColor: "rgba(255,255,255,0.07)" }}>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Live Market</div>
-              <div className="space-y-2">
-                {[
-                  { label: "24h Volume",     val: "$1.4M",  up: true  },
-                  { label: "Active Listings", val: "48,392", up: false },
-                  { label: "Transactions",   val: "12,841", up: true  },
-                ].map(({ label, val, up }) => (
-                  <div key={label} className="flex justify-between items-center">
-                    <span className="font-mono text-[10px] text-muted-foreground">{label}</span>
-                    <span className="font-mono text-[10px] font-semibold" style={{ color: up ? "#4ade80" : "#e8eaf0" }}>{val}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </aside>
 
           {/* ── Main content ────────────────────────────────────── */}
@@ -3475,68 +3443,6 @@ export default function App() {
             )}
           </div>
 
-          {/* ── Right rail: activity ─────────────────────────────── */}
-          <aside className="hidden xl:flex flex-col gap-4 w-52 flex-shrink-0">
-            <div className="rounded-lg border overflow-hidden" style={{ background: "#10121a", borderColor: "rgba(255,255,255,0.07)" }}>
-              <div className="px-3 py-2.5 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-                <Zap className="w-3 h-3 text-yellow-400" />
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Live Sales</span>
-                <div className="ml-auto w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#4ade80" }} />
-              </div>
-              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-                {RECENT_SALES.map((s, i) => (
-                  <div key={i} className="px-3 py-2.5 hover:bg-white/[0.02] transition-colors">
-                    <div className="font-mono text-[10px] text-foreground leading-tight mb-0.5 truncate">{s.name}</div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-semibold" style={{ color: "#f0c040" }}>
-                        ${s.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                      </span>
-                      <span className="font-mono text-[9px] text-muted-foreground">{s.time} ago</span>
-                    </div>
-                    <div className="font-mono text-[9px] text-muted-foreground truncate">{s.user}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Trending */}
-            <div className="rounded-lg border overflow-hidden" style={{ background: "#10121a", borderColor: "rgba(255,255,255,0.07)" }}>
-              <div className="px-3 py-2.5 border-b flex items-center gap-2" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-                <TrendingUp className="w-3 h-3" style={{ color: "#4ade80" }} />
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Top Movers</span>
-              </div>
-              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-                {SKINS.sort((a, b) => b.trend - a.trend).slice(0, 5).map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setSelected(s)}
-                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/[0.02] transition-colors text-left"
-                  >
-                    <div>
-                      <div className="font-mono text-[10px] text-foreground leading-tight truncate max-w-[110px]">
-                        {s.weapon} | {s.name}
-                      </div>
-                      <div className="font-mono text-[9px] text-muted-foreground">${s.price.toFixed(2)}</div>
-                    </div>
-                    <div className="flex items-center gap-0.5 font-mono text-[10px] font-semibold" style={{ color: s.trend >= 0 ? "#4ade80" : "#f87171" }}>
-                      {s.trend >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-                      {s.trend > 0 ? "+" : ""}{s.trend}%
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sell CTA */}
-            <div className="rounded-lg p-4 border" style={{ background: "rgba(232,64,96,0.08)", borderColor: "rgba(232,64,96,0.2)" }}>
-              <Package className="w-5 h-5 mb-2" style={{ color: "#e84060" }} />
-              <div className="font-display text-sm font-bold text-foreground mb-1">List Your Skins</div>
-              <div className="font-mono text-[10px] text-muted-foreground mb-3 leading-relaxed">0% seller fees this week. Instant payouts.</div>
-              <button className="w-full py-2 rounded font-display font-bold text-xs tracking-wide hover:opacity-90 transition-opacity" style={{ background: "#e84060", color: "#fff" }}>
-                START SELLING
-              </button>
-            </div>
-          </aside>
         </div>
         )}
       </div>
