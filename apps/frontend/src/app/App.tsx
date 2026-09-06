@@ -632,8 +632,20 @@ function NavDropdown<T extends string>({
 
       {open && (
         <div
-          className="absolute top-full right-0 mt-1 z-50 rounded overflow-hidden"
-          style={{ background: "#10121a", border: "1px solid rgba(255,255,255,0.08)", minWidth: "160px", boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}
+          // Scrolls rather than growing: the language list is nineteen
+          // entries and a menu that runs off the bottom of the screen
+          // hides exactly the languages nobody thought to put first.
+          className="absolute top-full right-0 mt-1 z-50 rounded overflow-y-auto scrollbar-subtle"
+          style={{
+            background: "#10121a",
+            border: "1px solid rgba(255,255,255,0.08)",
+            // Wide enough for the longest name on one line — "Bahasa
+            // Indonesia" wrapped at 160 and a wrapped row is a row that
+            // reads as two entries.
+            minWidth: "196px",
+            maxHeight: "min(60vh, 420px)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          }}
         >
           {options.map((o) => (
             <button
@@ -665,17 +677,40 @@ function NavDropdown<T extends string>({
  * the two letters instead and the menu read "US", "BR", "ES". See
  * `Flag.tsx`.
  *
- * The country under each language is a choice, not a fact — English is
- * not the United States' alone. It is the convention users expect from
- * a picker this size, and changing it is a decision about the product
- * rather than about rendering.
+ * **`value` is the language, `code` is the country, and they differ more
+ * often than not.** Ukrainian is `uk` from `UA`, Czech `cs` from `CZ`,
+ * Swedish `sv` from `SE`, Japanese `ja` from `JP`, Korean `ko` from
+ * `KR`. Treating one as the other is the classic locale bug, so they are
+ * two fields rather than one clever string.
+ *
+ * The country under a language is a choice, not a fact — English is not
+ * the United States' alone, and most Spanish-speaking players are in
+ * Latin America rather than Spain. It is the convention a picker this
+ * size uses, and revisiting it is a product decision.
+ *
+ * Each name is written in its own language. A picker that lists
+ * "Japanese" to somebody who reads only Japanese has not helped them.
  */
 const LANGUAGES = [
-  { value: "EN", label: <Flag code="US" />, sub: "English"   },
-  { value: "PT", label: <Flag code="BR" />, sub: "Português" },
-  { value: "ES", label: <Flag code="ES" />, sub: "Español"   },
-  { value: "RU", label: <Flag code="RU" />, sub: "Русский"   },
-  { value: "ZH", label: <Flag code="CN" />, sub: "中文"       },
+  { value: "EN", label: <Flag code="US" />, sub: "English"           },
+  { value: "PT", label: <Flag code="BR" />, sub: "Português"         },
+  { value: "ES", label: <Flag code="ES" />, sub: "Español"           },
+  { value: "RU", label: <Flag code="RU" />, sub: "Русский"           },
+  { value: "ZH", label: <Flag code="CN" />, sub: "中文"               },
+  { value: "PL", label: <Flag code="PL" />, sub: "Polski"            },
+  { value: "TR", label: <Flag code="TR" />, sub: "Türkçe"            },
+  { value: "UK", label: <Flag code="UA" />, sub: "Українська"        },
+  { value: "DE", label: <Flag code="DE" />, sub: "Deutsch"           },
+  { value: "FR", label: <Flag code="FR" />, sub: "Français"          },
+  { value: "CS", label: <Flag code="CZ" />, sub: "Čeština"           },
+  { value: "SV", label: <Flag code="SE" />, sub: "Svenska"           },
+  { value: "ID", label: <Flag code="ID" />, sub: "Bahasa Indonesia"  },
+  { value: "VI", label: <Flag code="VN" />, sub: "Tiếng Việt"        },
+  { value: "TH", label: <Flag code="TH" />, sub: "ไทย"                },
+  { value: "JA", label: <Flag code="JP" />, sub: "日本語"              },
+  { value: "KO", label: <Flag code="KR" />, sub: "한국어"              },
+  { value: "IT", label: <Flag code="IT" />, sub: "Italiano"          },
+  { value: "NL", label: <Flag code="NL" />, sub: "Nederlands"        },
 ];
 
 const CURRENCIES = [

@@ -1,4 +1,7 @@
-import { BR, CN, ES, RU, US } from 'country-flag-icons/react/3x2';
+import {
+  BR, CN, CZ, DE, ES, FR, ID, IT, JP, KR,
+  NL, PL, RU, SE, TH, TR, UA, US, VN,
+} from 'country-flag-icons/react/3x2';
 
 /**
  * The flags in the language picker.
@@ -15,22 +18,26 @@ import { BR, CN, ES, RU, US } from 'country-flag-icons/react/3x2';
  * Invisible at 18px and wrong the moment a flag appears anywhere larger
  * — and a national symbol is exactly the thing somebody notices.
  *
- * The package exports one component per flag, so only the five imported
+ * The package exports one component per flag, so only the ones imported
  * above reach the bundle. The argument for hand-drawing them was that a
  * package would carry two hundred; it does not.
  */
 
-export type FlagCode = 'US' | 'BR' | 'ES' | 'RU' | 'CN';
+export type FlagCode = keyof typeof FLAGS;
 
-const FLAGS = { US, BR, ES, RU, CN } as const;
+const FLAGS = {
+  US, BR, ES, RU, CN,
+  PL, TR, UA, DE,
+  FR, CZ, SE, ID,
+  VN, TH, JP, KR, IT, NL,
+} as const;
 
 /**
- * One flag at 3:2, the ratio the package draws and four of these five
- * officially use.
+ * One flag at 3:2, the ratio the package draws.
  *
- * The hairline is not decoration: three of them are white at an edge,
- * and on a dark menu a white flag with no outline stops being a
- * rectangle.
+ * The hairline is not decoration: several of these are white at an edge
+ * — Japan most of all — and on a dark menu a white flag with no outline
+ * stops being a rectangle.
  */
 export function Flag({ code, size = 18 }: { code: FlagCode; size?: number }) {
   const Drawing = FLAGS[code];
