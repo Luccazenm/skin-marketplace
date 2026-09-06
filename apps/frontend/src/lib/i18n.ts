@@ -112,9 +112,35 @@ export function activeLanguage(): string {
   return baseOf(i18next.language || FALLBACK);
 }
 
+/**
+ * `?lang=` is a door, not a nameplate.
+ *
+ * It exists so a link can open the site in a given language, and so
+ * `?lang=pseudo` is reachable at all. It is *not* a record of the
+ * current language, and leaving it in place after somebody picks
+ * another one makes it exactly that — a stale one that outranks the
+ * real record: the parameter is first in the detection order, and the
+ * detector writes whatever it detects back to localStorage. Open
+ * `?lang=pt`, choose English, reload, and the URL puts you back on
+ * Portuguese *and* overwrites the stored "en".
+ *
+ * So once the choice is made by hand, the door has been walked through
+ * and the parameter goes. `replaceState` rather than `pushState`: the
+ * back button should return to the previous page, not to the previous
+ * spelling of this one.
+ */
+function forgetQuerystring(): void {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has('lang')) return;
+
+  url.searchParams.delete('lang');
+  window.history.replaceState(null, '', url);
+}
+
 export async function changeLanguage(code: string): Promise<void> {
   await loadLanguage(code);
   await i18next.changeLanguage(code);
+  forgetQuerystring();
 }
 
 void i18next
