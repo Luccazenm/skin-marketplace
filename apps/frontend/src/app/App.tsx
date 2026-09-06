@@ -2169,7 +2169,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
               ? "—"
               : myTotal === null
                 ? t("item.notPriced")
-                : usd(myTotal)
+                : money(myTotal)
           }
           totalMuted={myTotal === null}
           count={myItems.length}

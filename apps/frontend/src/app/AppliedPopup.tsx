@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMoney } from '@/lib/use-currency';
 import { createPortal } from 'react-dom';
 import type { AppliedItem } from '@/lib/api';
-import { usd } from '@/lib/money';
 
 /**
  * How long the pointer has to rest on a badge before the popup opens.
@@ -76,9 +76,9 @@ export interface AppliedValue {
    * not worked out a suggestion — the grid shows the badges long before
    * anybody opens one.
    *
-   * A number, not a formatted string: every other money figure on these
-   * screens goes through `usd`, and one that skipped it arrived without
-   * its dollar sign.
+   * A number, not a formatted string: the popup formats it in the
+   * reader's currency like every other figure, and one that arrived
+   * pre-formatted would be stuck in dollars.
    */
   adds: number | null;
 }
@@ -122,6 +122,7 @@ export function AppliedPopup({
   anchor: DOMRect;
 }) {
   const { t } = useTranslation();
+  const money = useMoney();
 
   // Read from context rather than passed in: the badges are three
   // components deep in two different screens, and threading a price map
@@ -187,7 +188,7 @@ export function AppliedPopup({
             className="font-mono text-xs font-semibold"
             style={{ color: own ? '#e8eaf0' : '#4a4f68' }}
           >
-            {own ? usd(own) : '—'}
+            {own ? money(own) : '—'}
           </span>
         </div>
 
@@ -201,7 +202,7 @@ export function AppliedPopup({
               {t('item.addsHere')}
             </span>
             <span className="font-mono text-xs font-semibold" style={{ color: '#4ade80' }}>
-              +{usd(adds)}
+              +{money(adds)}
             </span>
           </div>
         )}
