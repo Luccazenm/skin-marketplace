@@ -97,6 +97,21 @@ export async function loadLanguage(tag: string): Promise<void> {
   }
 }
 
+/**
+ * Which language the picker should show as chosen.
+ *
+ * **Not `resolvedLanguage`.** That reports the first language in the
+ * fallback chain that had resources at the moment it resolved, and our
+ * catalogues arrive after `init` — so a site correctly rendering
+ * Portuguese reported "en", and the picker put its tick on English.
+ *
+ * `language` is what was actually asked for, which is what the picker
+ * is asking about. Reduced to the base so "pt-BR" ticks "Português".
+ */
+export function activeLanguage(): string {
+  return baseOf(i18next.language || FALLBACK);
+}
+
 export async function changeLanguage(code: string): Promise<void> {
   await loadLanguage(code);
   await i18next.changeLanguage(code);

@@ -29,7 +29,7 @@ import { logout, startSteamLogin, type AppliedItem, type InventoryItem } from "@
 import { rarityStyle } from "@/lib/rarity";
 import { Flag, type FlagCode } from "./Flag";
 import { LANGUAGES } from "@/lib/languages";
-import { changeLanguage } from "@/lib/i18n";
+import { activeLanguage, changeLanguage } from "@/lib/i18n";
 import { usd } from "@/lib/money";
 import { usePrices } from "@/lib/use-prices";
 import { useSuggestions } from "@/lib/use-suggestions";
@@ -2876,9 +2876,9 @@ const WEAPON_GROUPS: { label: string; items: string[] }[] = [
 const SORTS    = ["Default", "Discount", "Highest Price", "Lowest Price", "Highest Float", "Lowest Float"];
 
 export default function App() {
-  // `t` looks a phrase up; `i18n` is how the picker reads which language
-  // is active. Both re-render this tree when the language changes.
-  const { t, i18n } = useTranslation();
+  // The hook is subscribed to the language changing, so `activeLanguage()`
+  // below is re-read on the same render that swaps the phrases.
+  const { t } = useTranslation();
 
   const [search, setSearch]         = useState("");
   const [rarityFilter, setRarity]   = useState<string[]>([]);
@@ -3041,7 +3041,7 @@ export default function App() {
               {/* Drives i18next directly. It used to set a state
                   nothing read, so the picker changed nothing at all. */}
               <NavDropdown
-                value={i18n.resolvedLanguage ?? "en"}
+                value={activeLanguage()}
                 onChange={(code) => void changeLanguage(code)}
                 options={LANGUAGES.map((l) => ({
                   value: l.code,
