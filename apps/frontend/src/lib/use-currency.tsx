@@ -22,13 +22,21 @@ import { BASE_CURRENCY, isSupported } from './currencies';
  * quietly converted a payout would be quoting a figure the ledger has
  * never heard of.
  *
- * **Market and Trade convert. Sell does not, and that is not an
- * oversight.** Sell is where a price gets set, in a field that sends
- * dollars to the API — so every figure on it exists to answer "what
- * dollar price do I put here". A recommended price in reais beside an
- * input in dollars is worse than no conversion at all: it is guidance
- * in the wrong unit. Market and Trade are read, not typed into, and
- * there the reader's own currency is simply easier to judge.
+ * **Market and Trade convert. Sell does not — for now.** Sell is where
+ * a price gets set, in a field that sends dollars to the API, so every
+ * figure on it exists to answer "what dollar price do I put here", and
+ * a recommended price in reais beside an input in dollars is guidance
+ * in the wrong unit. Half-converting that screen is worse than leaving
+ * it whole.
+ *
+ * **The agreed destination is the other whole: Sell converts too,
+ * including the input** — the seller types reais and we convert to
+ * dollars on the way to the API. Decided 2026-09-06 and deliberately
+ * deferred, because it turns a display concern into money entry: the
+ * rate has to be pinned at the moment of typing (otherwise the dollars
+ * sent are not the ones they saw), the rounding must not take a cent
+ * off the seller, and the $0.02 minimum and its error message have to
+ * convert with it. That wants its own tests, not a formatter.
  *
  * A context rather than props because the price appears at every depth
  * of both grids, the trade bar, three modals and a hover popup —
