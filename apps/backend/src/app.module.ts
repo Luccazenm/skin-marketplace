@@ -8,6 +8,7 @@ import { validateEnv } from './config/env.validation';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { CurrencyModule } from './currency/currency.module';
 import { DepositsModule } from './deposits/deposits.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PricingModule } from './pricing/pricing.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module';
     DepositsModule,
     PricingModule,
     CatalogModule,
+    CurrencyModule,
   ],
   controllers: [AppController, ConfigController],
   providers: [AppService],

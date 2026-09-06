@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, type ReactNode } from "react";
+import React, { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
 import {
@@ -55,6 +55,8 @@ import { SellPage } from "./SellPage";
 // up; the component itself is untouched.
 import { NotificationBell } from "./NotificationBell";
 import { MiniSortDropdown, SELL_SORTS, SORT_KEYS } from "./MiniSortDropdown";
+import { CURRENCIES } from "@/lib/currencies";
+import { useCurrency, useMoney } from "@/lib/use-currency";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
 const RARITY: Record<string, { label: string; color: string; glow: string; from: string; to: string }> = {
@@ -504,6 +506,7 @@ function FilterSection({
 
 /* ─── Skin card ─────────────────────────────────────────────────────── */
 function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
+  const money = useMoney();
   const { t } = useTranslation();
   const r = RARITY[skin.rarity];
   const [hovered, setHovered] = useState(false);
@@ -572,7 +575,7 @@ function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
         </div>
         <div className="flex items-center justify-between">
           <div className="font-mono font-semibold text-sm leading-none" style={{ color: "#f0f2f8" }}>
-            ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {money(skin.price)}
           </div>
           <div className="font-mono text-[11px] font-semibold" style={{ color: skin.discount <= 0 ? "#4ade80" : "#f87171" }}>
             {skin.discount <= 0 ? "" : "+"}{skin.discount}%
@@ -683,13 +686,17 @@ function NavDropdown<T extends string>({
 }
 
 
-const CURRENCIES = [
-  { value: "USD", label: "$",  sub: "USD" },
-  { value: "BRL", label: "R$", sub: "BRL" },
-  { value: "EUR", label: "€",  sub: "EUR" },
-  { value: "RUB", label: "₽",  sub: "RUB" },
-  { value: "CNY", label: "¥",  sub: "CNY" },
-] as const;
+/**
+ * The picker's rows, built from the shared list so the two cannot
+ * disagree about which currencies exist. A currency offered here but
+ * missing from the rate table would draw every price unconverted under
+ * the wrong symbol.
+ */
+const CURRENCY_OPTIONS = CURRENCIES.map((c) => ({
+  value: c.code,
+  label: c.symbol,
+  sub: c.code,
+}));
 
 /* ─── Sort dropdown ─────────────────────────────────────────────────── */
 function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) => void }) {
@@ -749,6 +756,7 @@ function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) =>
 
 /* ─── Detail modal ──────────────────────────────────────────────────── */
 function SkinDetail({ skin, onClose, ctaLabel, onCta, showSellInputs = false }: { skin: Skin; onClose: () => void; ctaLabel?: string; onCta?: (price: string) => void; showSellInputs?: boolean }) {
+  const money = useMoney();
   const { t } = useTranslation();
   const r = RARITY[skin.rarity];
   const [tab] = useState<"history">("history");
@@ -932,7 +940,7 @@ function SkinDetail({ skin, onClose, ctaLabel, onCta, showSellInputs = false }: 
               <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{t("item.currentPrice")}</div>
               <div className="flex items-center gap-2 mb-4">
                 <span className="font-display text-2xl font-bold text-foreground">
-                  ${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  {money(skin.price)}
                 </span>
                 <span className="font-mono text-xs px-1.5 py-0.5 rounded font-semibold"
                   style={{ background: skin.discount <= 0 ? "rgba(74,222,128,0.12)" : "rgba(248,113,113,0.12)", color: skin.discount <= 0 ? "#4ade80" : "#f87171" }}>
@@ -1147,6 +1155,7 @@ function TradeSkinCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const money = useMoney();
   const { t } = useTranslation();
   const r = RARITY[skin.rarity];
 
@@ -1157,7 +1166,7 @@ function TradeSkinCard({
       name={skin.name}
       exterior={WEAR_SHORT[skin.wear] ?? skin.wear}
       float={skin.float}
-      price={`$${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+      price={money(skin.price)}
       statTrak={skin.statTrak}
       // The mock has a count and a flag, not the items. Placeholders keep
       // the badges in their corners at the right size until this side
@@ -1731,6 +1740,7 @@ function TradeSide({
  * is how someone reads a bill as a refund.
  */
 function TradeDifference({ difference, canTrade }: { difference: number | null; canTrade: boolean }) {
+  const money = useMoney();
   const { t } = useTranslation();
   // Your side is valued now; the other one is the mock storefront, and
   // its prices are invented. Subtracting one from the other would give
@@ -1750,7 +1760,7 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
       : t("trade.balanceAfter");
 
   const value = priced
-    ? `${owed ? "" : "+"}$${Math.abs(difference as number).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    ? `${owed ? "" : "+"}${money(Math.abs(difference as number))}`
     : "—";
 
   // Neutral until there is a real figure. Amber is money you owe, green
@@ -1895,6 +1905,7 @@ function TradeInventoryNotice({ title, body }: { title: string; body: string }) 
 
 function TradePage({ signedIn }: { signedIn: boolean }) {
   const { t } = useTranslation();
+  const money = useMoney();
 
   // The left side is the user's real Steam inventory, read through the
   // same hook the Sell screen uses — same cache, same rate limiter, same
@@ -2000,10 +2011,10 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
   const myPriceLabel = (item: InventoryItem) => {
     const value = myPriceOf(item);
 
-    if (value === null) return { text: "Not priced", muted: true };
-    if (!myEligible(item)) return { text: "Cannot be traded", muted: true };
+    if (value === null) return { text: t("item.notPriced"), muted: true };
+    if (!myEligible(item)) return { text: t("trade.cannotTrade"), muted: true };
 
-    return { text: usd(value), muted: false };
+    return { text: money(value), muted: false };
   };
 
   /**
@@ -2506,7 +2517,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         >
           <TradeSide
             title={t("trade.youReceive")}
-            total={mktItems.length > 0 ? `$${mktTotal.toFixed(2)}` : "—"}
+            total={mktItems.length > 0 ? money(mktTotal) : "—"}
             totalMuted={mktItems.length === 0}
             count={mktItems.length}
             align="right"
@@ -2524,7 +2535,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                   name={s.name}
                   statTrak={s.statTrak}
                   meta={[WEAR_SHORT[s.wear] ?? s.wear, s.float.toFixed(4)].filter(Boolean).join(" / ")}
-                  price={`$${s.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  price={money(s.price)}
                   onRemove={() => toggleMkt(s.id)}
                 >
                   <div className="w-full h-full max-w-[110px]">
@@ -2970,18 +2981,22 @@ export default function App() {
   const [notificationsKey, setNotificationsKey] = useState(0);
   const [filtersOpen, setFilters]   = useState(false);
   const [activeNav, setActiveNav]   = useState("Market");
-  const [currency, setCurrency]     = useState("USD");
+  // Held by CurrencyProvider, not here: every screen formats prices
+  // with it, and a copy in this component could only be read by the
+  // header.
+  const { currency, setCurrency, applyAccountDefault } = useCurrency();
 
   // Who is logged in, straight from the backend. Nothing about the
   // account is kept locally: the balance and what the account may do
   // come from /api/auth/me on every load.
   const session = useSession();
 
-  // The backend owns the display currency, so once it answers, it wins
-  // over the local default.
+  // The account's saved currency is a default, not an override: it
+  // applies only when this browser has never picked one. The provider
+  // enforces that — see `applyAccountDefault`.
   useEffect(() => {
-    if (session.user) setCurrency(session.user.displayCurrency);
-  }, [session.user]);
+    if (session.user) applyAccountDefault(session.user.displayCurrency);
+  }, [session.user, applyAccountDefault]);
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -3112,7 +3127,7 @@ export default function App() {
                 }))}
                 compactTrigger
               />
-              <NavDropdown value={currency} onChange={setCurrency} options={[...CURRENCIES]} />
+              <NavDropdown value={currency} onChange={setCurrency} options={CURRENCY_OPTIONS} />
             </div>
             {/* Balance: shown only when there is a session, because there
                 is no such thing as a logged-out balance. It stays the

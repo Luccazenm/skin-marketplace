@@ -37,6 +37,13 @@ export const envSchema = z.object({
   // missing key should degrade the storefront rather than stop it.
   CS2SH_API_KEY: z.string().min(1).optional(),
 
+  // Exchange rates, for showing a price in the reader's currency. Only
+  // ever display: the ledger is USD and settlement is USD or crypto, so
+  // no rate from here touches what anybody is charged. Optional for the
+  // same reason as the key above — without it every price is drawn in
+  // dollars, which is what the site does today.
+  STEAMWEBAPI_KEY: z.string().min(1).optional(),
+
   // Signs the session tokens. No default on purpose: a default secret
   // that leaks into production lets anyone forge a session for any
   // account.

@@ -116,7 +116,8 @@
       "noSearchBody": "Clear the search to see everything you can offer.",
       "noneTitle": "Nothing here can be traded",
       "noneBody": "Items still under Valve's 7-day trade hold, and anything Steam marks untradable, cannot be offered."
-    }
+    },
+    "cannotTrade": "Cannot be traded"
   },
   "sell": {
     "sellable_one": "<n>{{count}}</n> sellable",

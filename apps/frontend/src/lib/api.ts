@@ -544,3 +544,22 @@ export interface PlatformConfig {
 export async function getPlatformConfig(): Promise<PlatformConfig> {
   return request<PlatformConfig>('/config');
 }
+
+/** Every rate is against USD: `rates.BRL = 5.12` means $1 buys R$5.12. */
+export interface RateTable {
+  base: 'USD';
+  rates: Record<string, number>;
+  /** When the provider was read, not when we were served from cache. */
+  fetchedAt: string;
+}
+
+/**
+ * Exchange rates, for drawing a price in the reader's currency.
+ *
+ * Asked of our backend rather than the rate provider: the provider's
+ * key is server-side, and a key shipped to the browser is a key given
+ * away. **Display only** — nothing here decides what anybody is paid.
+ */
+export async function getExchangeRates(): Promise<RateTable> {
+  return request<RateTable>('/currency/rates');
+}

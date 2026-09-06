@@ -116,7 +116,8 @@
       "noSearchBody": "Limpe a busca para ver tudo que você pode oferecer.",
       "noneTitle": "Nada aqui pode ser trocado",
       "noneBody": "Itens ainda na retenção de 7 dias da Valve, e tudo que a Steam marca como não trocável, não podem ser oferecidos."
-    }
+    },
+    "cannotTrade": "Não pode ser trocado"
   },
   "sell": {
     "sellable_one": "<n>{{count}}</n> vendível",
