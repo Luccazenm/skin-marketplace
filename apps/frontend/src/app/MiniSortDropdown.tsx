@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, SlidersHorizontal } from 'lucide-react';
 
 /**
@@ -23,6 +24,23 @@ export const SELL_SORTS = [
 
 export const TRADE_SORTS = [...SELL_SORTS, 'Discount'];
 
+/**
+ * The English name is the value; this is what to show instead.
+ *
+ * The sort is held as a string and compared as one — `value !== 'Default'`
+ * decides the trigger's colour, and the pages switch on it — so
+ * translating the array would change what the comparisons match. The
+ * label is looked up here and the value never moves.
+ */
+const SORT_KEYS: Record<string, string> = {
+  Default: 'sort.default',
+  'Highest Price': 'sort.highestPrice',
+  'Lowest Price': 'sort.lowestPrice',
+  'Highest Float': 'sort.highestFloat',
+  'Lowest Float': 'sort.lowestFloat',
+  Discount: 'sort.discount',
+};
+
 /** The compact sort control used beside a search field. */
 export function MiniSortDropdown({
   value,
@@ -33,6 +51,7 @@ export function MiniSortDropdown({
   onChange: (v: string) => void;
   options?: string[];
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -58,14 +77,14 @@ export function MiniSortDropdown({
           border: `1px solid ${open ? 'rgba(240,192,64,0.3)' : 'rgba(255,255,255,0.08)'}`,
           color: value !== 'Default' ? '#f0c040' : '#9da3c0',
         }}
-        title="Sort"
+        title={t('sort.label')}
       >
         <SlidersHorizontal className="w-3 h-3 flex-shrink-0" />
         {/* Naming the current sort rather than hiding it behind an icon:
             the order items appear in is not self-evident from looking at
             them, so without the label the only way to know what is
             applied is to open the menu. */}
-        {value}
+        {t(SORT_KEYS[value] ?? 'sort.default')}
         <ChevronDown
           className="w-2.5 h-2.5 flex-shrink-0"
           style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}
@@ -85,7 +104,7 @@ export function MiniSortDropdown({
               onMouseEnter={(e) => (e.currentTarget.style.background = value === s ? 'rgba(240,192,64,0.12)' : 'rgba(255,255,255,0.04)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = value === s ? 'rgba(240,192,64,0.08)' : 'transparent')}
             >
-              {s}
+              {t(SORT_KEYS[s] ?? 'sort.default')}
               {value === s && <Check className="w-3 h-3 flex-shrink-0" style={{ color: '#f0c040' }} />}
             </button>
           ))}

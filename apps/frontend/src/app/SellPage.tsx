@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Trans, useTranslation } from 'react-i18next';
 import { Package, Lock, X, RotateCw, Zap } from 'lucide-react';
 import {
   ApiError,
@@ -49,6 +50,7 @@ export function SellPage({
   /** Tells the header a notification may have arrived. */
   onDeposited: () => void;
 }) {
+  const { t } = useTranslation();
   const inventory = useInventory(signedIn);
 
   const [search, setSearch] = useState('');
@@ -256,7 +258,7 @@ export function SellPage({
       setSubmitError(
         cause instanceof ApiError
           ? cause.message
-          : 'We could not reach the server. Please try again.',
+          : t('sell.unreachable'),
       );
     } finally {
       setSubmitting(false);
@@ -264,11 +266,11 @@ export function SellPage({
   }
 
   if (!signedIn) {
-    return <Notice title="Sign in to sell" body="Your Steam inventory is read live, so we need to know who you are first." />;
+    return <Notice title={t('sell.failure.signedOutTitle')} body={t('sell.failure.signedOutBody')} />;
   }
 
   if (inventory.loading) {
-    return <Notice title="Reading your inventory…" body="This comes live from Steam." />;
+    return <Notice title={t('sell.failure.loadingTitle')} body={t('sell.failure.loadingBody')} />;
   }
 
   if (inventory.failure) {
@@ -293,13 +295,17 @@ export function SellPage({
             "9 sellable" to "177 sellable". */}
         <div className="grid items-center gap-3 mb-3 flex-shrink-0" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
           <span className="font-mono text-xs" style={{ color: '#9da3c0' }}>
-            <span className="font-semibold" style={{ color: '#e8eaf0' }}>{filtered.length}</span> sellable
+            <Trans
+              i18nKey="sell.sellable"
+              count={filtered.length}
+              components={{ n: <span className="font-semibold" style={{ color: '#e8eaf0' }} /> }}
+            />
           </span>
 
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search inventory..."
+            placeholder={t('sell.searchInventory')}
             className="w-[26rem] max-w-full px-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#e8eaf0' }}
           />
@@ -315,8 +321,8 @@ export function SellPage({
               disabled={inventory.refreshing}
               title={
                 inventory.fetchedAt
-                  ? `Read from Steam at ${inventory.fetchedAt.toLocaleTimeString()}`
-                  : 'Read from Steam again'
+                  ? t('sell.readAt', { time: inventory.fetchedAt.toLocaleTimeString() })
+                  : t('sell.readAgain')
               }
               className="flex items-center gap-1.5 px-2 py-1.5 rounded font-mono text-xs transition-colors disabled:opacity-40"
               style={{
@@ -328,7 +334,7 @@ export function SellPage({
               <RotateCw
                 className={`w-3 h-3 ${inventory.refreshing ? 'animate-spin' : ''}`}
               />
-              {inventory.refreshing ? 'Reading…' : 'Refresh'}
+              {inventory.refreshing ? t('sell.refreshing') : t('sell.refresh')}
             </button>
             <MiniSortDropdown value={sort} onChange={setSort} options={SELL_SORTS} />
           </div>
@@ -338,19 +344,24 @@ export function SellPage({
             inventory with no explanation reads as a bug. */}
         {inventory.data && inventory.data.blocked > 0 && (
           <div className="mb-3 font-mono text-[11px] flex-shrink-0" style={{ color: '#6c7290' }}>
-            {inventory.data.blocked} of {inventory.data.total} items cannot be
-            traded on Steam — medals, and anything still under a trade hold.
+            {t('sell.blocked', {
+              blocked: inventory.data.blocked,
+              total: inventory.data.total,
+            })}
           </div>
         )}
 
         {inventory.data?.stale && (
           <div className="mb-3 font-mono text-[11px] flex-shrink-0" style={{ color: '#f0c040' }}>
-            Steam is slow right now, so this list may be a few minutes old.
+            {t('sell.stale')}
           </div>
         )}
 
         {filtered.length === 0 ? (
-          <Notice title="Nothing to sell here" body={search ? 'No item matches that search.' : 'No item in this inventory can be traded on Steam.'} />
+          <Notice
+            title={t('sell.emptyTitle')}
+            body={search ? t('sell.emptySearch') : t('sell.emptyInventory')}
+          />
         ) : (
           // Pulled 8px into the column's own right padding so the
           // scrollbar sits there instead of taking width off the grid.
@@ -388,7 +399,7 @@ export function SellPage({
             minimumCents={minimumCents}
             isListed={selected.includes(item.assetId)}
             onList={() => { toggle(item.assetId); setDetailFor(null); }}
-            onInstantSell={() => setInstantNotice(INSTANT_SELL_NOT_OPEN)}
+            onInstantSell={() => setInstantNotice(t(INSTANT_SELL_NOT_OPEN))}
             instantSellNotice={instantNotice}
             onClose={() => { closeDetail(item.assetId); }}
           />
@@ -440,6 +451,7 @@ export function SellPage({
  * nested inside it is clipped at the edge.
  */
 function InstantSellMark() {
+  const { t } = useTranslation();
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const timer = useRef<number | null>(null);
 
@@ -458,7 +470,7 @@ function InstantSellMark() {
   return (
     <>
       <span
-        aria-label="Eligible for instant sell"
+        aria-label={t('sell.instantMark')}
         onMouseEnter={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           cancel();
@@ -489,6 +501,7 @@ function InstantSellMark() {
 
 /** One line, above the badge, kept on screen. */
 function InstantSellTip({ anchor }: { anchor: DOMRect }) {
+  const { t } = useTranslation();
   const WIDTH = 168;
   const GAP = 8;
 
@@ -519,7 +532,7 @@ function InstantSellTip({ anchor }: { anchor: DOMRect }) {
         boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
       }}
     >
-      This item can be sold instantly
+      {t('sell.instantTip')}
     </div>,
     document.body,
   );
@@ -531,10 +544,12 @@ function InstantSellTip({ anchor }: { anchor: DOMRect }) {
  * `apps/bot-service` is still empty. Said in full rather than left as a
  * dead button — a control that does nothing when pressed is worse than
  * one that explains itself.
+ *
+ * The key rather than the sentence: this is module scope, where there is
+ * no `t` and no language yet, and a constant built at import time would
+ * freeze whichever language happened to load first.
  */
-const INSTANT_SELL_NOT_OPEN =
-  'Instant sell is not open yet — the Trade Bots that collect the item ' +
-  'are not running. List it and it sells the same way.';
+const INSTANT_SELL_NOT_OPEN = 'sell.instantNotOpen';
 
 /**
  * Prices are strings all the way to the API — a JSON number is a float,
@@ -641,6 +656,7 @@ function AppliedStack({
  * price for an item that is not on sale yet.
  */
 function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpen }: { item: InventoryItem; selected: boolean; price: string | undefined; market: ItemPrice | undefined; /** The lowest price the backend will accept, in cents. */ minimumCents: number; onToggle: () => void; onOpen: () => void }) {
+  const { t } = useTranslation();
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
@@ -718,7 +734,7 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
             {/* Three quarters of a real inventory has no float and no
                 exterior. Each line appears only when it has something to
                 say, rather than leaving empty fields across the grid. */}
-            {item.exterior && <div className="font-mono text-[9px]" style={{ color: '#6c7290' }}>{item.exterior}</div>}
+            {item.exterior && <div className="font-mono text-[9px]" style={{ color: '#6c7290' }}>{t(`wear.${item.exterior}`, { defaultValue: item.exterior })}</div>}
             {item.float !== null && <div className="font-mono text-[9px]" style={{ color: r.color }}>{item.float.toFixed(4)}</div>}
           </div>
         </div>
@@ -743,7 +759,7 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
             </div>
           ) : (
             <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#4a4f68' }}>
-              Not priced
+              {t('item.notPriced')}
             </div>
           )}
 
@@ -791,7 +807,7 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
                 opacity: active ? 1 : 0,
               }}
             >
-              {selected ? 'REMOVE' : 'LIST ITEM'}
+              {selected ? t('sell.remove') : t('sell.listItem')}
             </div>
           </div>
         </div>
@@ -879,17 +895,19 @@ function SellPanel(props: {
   error: string | null;
   onSubmit: () => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <>
       <div className="px-5 mb-3 flex-shrink-0 flex items-center justify-between">
         <div>
-          <div className="font-display text-sm font-bold" style={{ color: '#e8eaf0' }}>Sell</div>
+          <div className="font-display text-sm font-bold" style={{ color: '#e8eaf0' }}>{t('sell.panelTitle')}</div>
           <div className="font-mono text-[10px]" style={{ color: '#6c7290' }}>
-            {props.items.length} selected
+            {t('sell.selected', { count: props.items.length })}
           </div>
         </div>
         <button onClick={props.onClear} className="font-mono text-[9px] px-2 py-1 rounded" style={{ background: 'rgba(255,255,255,0.05)', color: '#9da3c0', border: '1px solid rgba(255,255,255,0.08)' }}>
-          Clear
+          {t('sell.clear')}
         </button>
       </div>
 
@@ -930,7 +948,7 @@ function SellPanel(props: {
                       <div className="flex-1 min-w-0">
                         <div className="font-mono text-[9px] truncate" style={{ color: '#6c7290' }}>
                           {item.catalog?.weapon ?? item.typeLabel ?? ''}
-                          {item.exterior ? ` · ${item.exterior}` : ''}
+                          {item.exterior ? ` · ${t(`wear.${item.exterior}`, { defaultValue: item.exterior })}` : ''}
                         </div>
                         <div className="font-display text-xs font-semibold truncate" style={{ color: '#e8eaf0' }}>
                           {item.catalog?.skinName ?? item.marketHashName}
@@ -955,12 +973,12 @@ function SellPanel(props: {
                       {isStatTrak(item) && <Chip text="ST" accent />}
                       {item.float !== null && (
                         <span style={{ color: '#6c7290' }}>
-                          Float <span style={{ color: '#c0c4d8' }}>{item.float.toFixed(4)}</span>
+                          {t('item.float')} <span style={{ color: '#c0c4d8' }}>{item.float.toFixed(4)}</span>
                         </span>
                       )}
                       {item.paintSeed !== null && (
                         <span style={{ color: '#6c7290' }}>
-                          Pattern <span style={{ color: '#c0c4d8' }}>{item.paintSeed}</span>
+                          {t('item.pattern')} <span style={{ color: '#c0c4d8' }}>{item.paintSeed}</span>
                         </span>
                       )}
                     </div>
@@ -981,7 +999,7 @@ function SellPanel(props: {
                     should not need scrolling or arithmetic. */}
                 <div className="grid grid-cols-2 gap-2 px-2.5 pb-2.5">
                   <div className="flex flex-col gap-1">
-                    <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: '#6c7290' }}>Your price</span>
+                    <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: '#6c7290' }}>{t('sell.yourPrice')}</span>
                     <div className="relative">
                       <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[10px]" style={{ color: '#6c7290' }}>$</span>
                       <input
@@ -1001,9 +1019,9 @@ function SellPanel(props: {
 
                   <div className="flex flex-col gap-1 min-w-0">
                     <span className="font-mono text-[9px] uppercase tracking-wider truncate" style={{ color: '#6c7290' }}>
-                      You receive
+                      {t('sell.youReceive')}
                       {props.feePercent !== null && (
-                        <span style={{ color: '#4a4f68' }}> · {props.feePercent}%</span>
+                        <span style={{ color: '#4a4f68' }}>{t('sell.feeShort', { fee: props.feePercent })}</span>
                       )}
                     </span>
                     <div
@@ -1031,9 +1049,7 @@ function SellPanel(props: {
         <div className="flex items-start gap-1.5 font-mono text-[10px] leading-relaxed" style={{ color: '#6c7290' }}>
           <Lock className="w-3 h-3 mt-0.5 flex-shrink-0" />
           <span>
-            Valve locks traded items for 7 days. Your listing goes up
-            straight away, showing the days left; buyers choose knowing
-            that.
+            {t('sell.tradeLock')}
           </span>
         </div>
 
@@ -1042,8 +1058,7 @@ function SellPanel(props: {
             place that is not there is worse than not pointing. */}
         {!props.hasTradeUrl && (
           <div className="font-mono text-[10px]" style={{ color: '#f0c040' }}>
-            Your account has no trade URL yet — without it the Trade Bot
-            cannot send you the offer.
+            {t('sell.noTradeUrl')}
           </div>
         )}
 
@@ -1057,7 +1072,9 @@ function SellPanel(props: {
           className="w-full py-2 rounded font-display text-xs font-bold tracking-wide transition-opacity disabled:opacity-40"
           style={{ background: '#f0c040', color: '#08090d' }}
         >
-          {props.submitting ? 'SENDING…' : `SELL ${props.items.length} ITEM${props.items.length > 1 ? 'S' : ''}`}
+          {props.submitting
+            ? t('sell.sending')
+            : t('sell.submit', { count: props.items.length })}
         </button>
       </div>
     </>
@@ -1079,25 +1096,32 @@ function Notice({ title, body }: { title: string; body: string }) {
  * waiting through, and an outage is worth retrying.
  */
 function FailureNotice({ failure, message, onRetry }: { failure: InventoryFailure; message: string | null; onRetry: () => void }) {
+  const { t } = useTranslation();
+
+  // `message` is the server's own words when it sent any, and those
+  // arrive in English — the backend has no idea which language this
+  // browser is in. Only the fallbacks are translated; wiring the API's
+  // messages through here would need the locale sent with the request,
+  // which is its own change.
   const copy: Record<InventoryFailure, { title: string; body: string; retry: boolean }> = {
     signed_out: {
-      title: 'Sign in to sell',
-      body: 'Your Steam inventory is read live, so we need to know who you are first.',
+      title: t('sell.failure.signedOutTitle'),
+      body: t('sell.failure.signedOutBody'),
       retry: false,
     },
     private: {
-      title: 'Your Steam inventory is private',
-      body: message ?? 'Under Profile > Privacy on Steam, set "Inventory" to public, then try again.',
+      title: t('sell.failure.privateTitle'),
+      body: message ?? t('sell.failure.privateBody'),
       retry: true,
     },
     rate_limited: {
-      title: 'Steam is rate-limiting us',
-      body: 'Too many inventory reads at once. This clears on its own in a few minutes.',
+      title: t('sell.failure.rateLimitedTitle'),
+      body: t('sell.failure.rateLimitedBody'),
       retry: true,
     },
     unavailable: {
-      title: 'We could not read your inventory',
-      body: message ?? 'Steam did not answer. This is usually brief.',
+      title: t('sell.failure.unavailableTitle'),
+      body: message ?? t('sell.failure.unavailableBody'),
       retry: true,
     },
   };
@@ -1110,7 +1134,7 @@ function FailureNotice({ failure, message, onRetry }: { failure: InventoryFailur
       <div className="font-mono text-[11px] max-w-sm" style={{ color: '#6c7290' }}>{body}</div>
       {retry && (
         <button onClick={onRetry} className="px-4 py-1.5 rounded font-display text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.07)', color: '#e8eaf0', border: '1px solid rgba(255,255,255,0.12)' }}>
-          TRY AGAIN
+          {t('sell.tryAgain')}
         </button>
       )}
     </div>

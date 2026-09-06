@@ -1,4 +1,5 @@
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { X, Package } from 'lucide-react';
 import type { InventoryItem, ItemPrice } from '@/lib/api';
 import {
@@ -65,6 +66,7 @@ export function SellDetail({
   onList: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
@@ -149,7 +151,7 @@ export function SellDetail({
                 : item.marketHashName}
               {item.exterior && (
                 <span className="font-mono text-sm font-normal ml-2" style={{ color: '#6c7290' }}>
-                  ({item.exterior})
+                  ({t(`wear.${item.exterior}`, { defaultValue: item.exterior })})
                 </span>
               )}
             </h2>
@@ -174,7 +176,7 @@ export function SellDetail({
             {applied.length > 0 && (
               <div className="px-5 pb-5">
                 <div className="font-mono text-[12px] uppercase tracking-wider mb-2" style={{ color: r.color }}>
-                  Applied
+                  {t('item.applied')}
                 </div>
                 {/* No names here: five copies of one sticker would be
                     five identical lines of truncated text, and the image
@@ -204,7 +206,7 @@ export function SellDetail({
                             the line is absent rather than empty. */}
                         {piece.wear !== null && (
                           <div className="font-mono text-[11px] font-semibold" style={{ color: '#f0c040' }}>
-                            {piece.wear === 0 ? 'Untouched' : `${Math.round(piece.wear * 100)}%`}
+                            {piece.wear === 0 ? t('item.untouched') : `${Math.round(piece.wear * 100)}%`}
                           </div>
                         )}
                         {/* What this piece sells for by itself. A dash
@@ -237,10 +239,10 @@ export function SellDetail({
 
             <div className="px-5 pb-5">
               <div className="font-mono text-[12px] uppercase tracking-wider mb-1" style={{ color: r.color }}>
-                History
+                {t('item.history')}
               </div>
               <div className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: '#6c7290' }}>
-                30-day price history
+                {t('item.priceHistory')}
               </div>
               {/* The frame, with nothing in it yet. Every price read on
                   this screen is being stored, so the series is being
@@ -258,7 +260,7 @@ export function SellDetail({
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="font-mono text-[12px]" style={{ color: '#4a4f68' }}>
-                    Building the series — not enough days yet
+                    {t('item.buildingSeries')}
                   </span>
                 </div>
               </div>
@@ -296,7 +298,7 @@ export function SellDetail({
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>Float</span>
+                  <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>{t('item.float')}</span>
                   {/* All ten decimals: this is the number that separates
                       one copy of a skin from another, and rounding it
                       loses exactly what makes it worth more. */}
@@ -308,17 +310,30 @@ export function SellDetail({
             )}
 
             <div className="px-5 py-4 border-b flex flex-col gap-2" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-              <Row label="Rarity" value={item.rarity ?? '—'} color={r.color} />
-              {item.exterior && <Row label="Wear" value={item.exterior} />}
+              <Row
+                label={t('item.rarity')}
+                value={
+                  item.rarity
+                    ? t(`rarity.${rarityKeyForItem(item)}`, { defaultValue: item.rarity })
+                    : '—'
+                }
+                color={r.color}
+              />
+              {item.exterior && (
+                <Row
+                  label={t('item.wear')}
+                  value={t(`wear.${item.exterior}`, { defaultValue: item.exterior })}
+                />
+              )}
               {/* The real paint seed. The storefront derives a "pattern"
                   from the float, which is not what a pattern is — this
                   one comes from Steam. */}
-              {item.paintSeed !== null && <Row label="Pattern" value={String(item.paintSeed)} />}
+              {item.paintSeed !== null && <Row label={t('item.pattern')} value={String(item.paintSeed)} />}
             </div>
 
             <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
               <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>Recommended</span>
+                <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>{t('sell.recommended')}</span>
                 <span
                   className="font-mono text-base font-semibold"
                   style={{ color: breakdown ? '#e8eaf0' : '#4a4f68' }}
@@ -340,15 +355,15 @@ export function SellDetail({
                   arithmetic is checkable. */}
               {breakdown && !breakdown.atMinimum && applied.length > 0 && (
                 <div className="flex flex-col gap-1 mb-3">
-                  <Part label="Skin" value={usd(Number(breakdown.base))} />
+                  <Part label={t('sell.part.skin')} value={usd(Number(breakdown.base))} />
                   {Number(breakdown.stickers) > 0 && (
                     <Part
-                      label="Stickers"
+                      label={t('sell.part.stickers')}
                       value={`+${usd(Number(breakdown.stickers))}`}
                     />
                   )}
                   {Number(breakdown.charms) > 0 && (
-                    <Part label="Charm" value={`+${usd(Number(breakdown.charms))}`} />
+                    <Part label={t('sell.part.charm')} value={`+${usd(Number(breakdown.charms))}`} />
                   )}
                 </div>
               )}
@@ -361,8 +376,7 @@ export function SellDetail({
                 />
               ) : (
                 <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
-                  No market carries this one, so there is nothing to
-                  compare against. The price is yours to decide.
+                  {t('sell.noMarket')}
                 </div>
               )}
             </div>
@@ -370,7 +384,7 @@ export function SellDetail({
             <div className="px-5 py-4 flex flex-col gap-3">
               <div>
                 <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
-                  Your price
+                  {t('sell.yourPrice')}
                 </div>
                 <div className="relative">
                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-sm" style={{ color: '#6c7290' }}>$</span>
@@ -399,17 +413,16 @@ export function SellDetail({
 
                 {tooLow && (
                   <div className="font-mono text-[11px] leading-relaxed mt-1.5" style={{ color: '#e84060' }}>
-                    The lowest an item can be listed for is $
-                    {fromCents(minimumCents)}.
+                    {t('sell.minimum', { amount: fromCents(minimumCents) })}
                   </div>
                 )}
               </div>
 
               <div>
                 <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
-                  You receive
+                  {t('sell.youReceive')}
                   {feePercent !== null && (
-                    <span style={{ color: '#4a4f68' }}> · after {feePercent}% fee</span>
+                    <span style={{ color: '#4a4f68' }}>{t('sell.afterFee', { fee: feePercent })}</span>
                   )}
                 </div>
                 <div
@@ -432,7 +445,7 @@ export function SellDetail({
                   color: isListed ? '#e8eaf0' : '#08090d',
                 }}
               >
-                {isListed ? 'REMOVE FROM LIST' : 'LIST ITEM'}
+                {isListed ? t('sell.removeFromList') : t('sell.listItem')}
               </button>
             </div>
           </div>
@@ -469,6 +482,8 @@ function InstantSell({
   /** Why pressing it did nothing, once it has been pressed. */
   notice: string | null;
 }) {
+  const { t } = useTranslation();
+
   // No bid says nothing at all: the absent button is the whole message,
   // and the grid already leaves the bolt off this card.
   if (buyout.amount === null) {
@@ -476,8 +491,7 @@ function InstantSell({
 
     return (
       <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
-        This one trades too slowly for us to buy outright. Listing it is
-        the way to sell it.
+        {t('sell.tooSlow')}
       </div>
     );
   }
@@ -493,7 +507,7 @@ function InstantSell({
         className="w-full py-2.5 rounded font-display text-[13px] font-bold tracking-wide cursor-pointer transition-all duration-150 hover:brightness-110 hover:shadow-[0_0_18px_rgba(74,222,128,0.35)] active:translate-y-px active:brightness-95"
         style={{ background: '#4ade80', color: '#08090d' }}
       >
-        SELL INSTANTLY · ${buyout.amount}
+        {t('sell.instantSell', { amount: buyout.amount })}
       </button>
 
       {notice && (
