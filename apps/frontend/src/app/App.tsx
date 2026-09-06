@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import {
   Search,
   ShoppingCart,
@@ -26,7 +27,9 @@ import {
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { logout, startSteamLogin, type AppliedItem, type InventoryItem } from "@/lib/api";
 import { rarityStyle } from "@/lib/rarity";
-import { Flag } from "./Flag";
+import { Flag, type FlagCode } from "./Flag";
+import { LANGUAGES } from "@/lib/languages";
+import { changeLanguage } from "@/lib/i18n";
 import { usd } from "@/lib/money";
 import { usePrices } from "@/lib/use-prices";
 import { useSuggestions } from "@/lib/use-suggestions";
@@ -593,7 +596,11 @@ function NavDropdown<T extends string>({
 }) {
   const [open, setOpen] = useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
-  const current = options.find((o) => o.value === value)!;
+  // Falls back rather than asserting. The active value is not always in
+  // the list: the pseudo-localisation locale is deliberately absent from
+  // the picker, and a stored choice can outlive the option it named. The
+  // `!` here crashed the whole header the first time either happened.
+  const current = options.find((o) => o.value === value) ?? options[0];
 
   React.useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -656,46 +663,6 @@ function NavDropdown<T extends string>({
   );
 }
 
-/**
- * The label is a drawing, not a character.
- *
- * These were emoji flags, and on Windows an emoji flag is not a flag:
- * the platform ships no glyph for a regional indicator pair, so it draws
- * the two letters instead and the menu read "US", "BR", "ES". See
- * `Flag.tsx`.
- *
- * **`value` is the language, `code` is the country, and they differ more
- * often than not.** Ukrainian is `uk` from `UA`, Czech `cs` from `CZ`,
- * Swedish `sv` from `SE`, Japanese `ja` from `JP`, Korean `ko` from
- * `KR`. Treating one as the other is the classic locale bug, so they are
- * two fields rather than one clever string.
- *
- * The country under a language is a choice, not a fact — English is not
- * the United States' alone, and most Spanish-speaking players are in
- * Latin America rather than Spain. It is the convention a picker this
- * size uses, and revisiting it is a product decision.
- *
- * Each name is written in its own language. A picker that lists
- * "Japanese" to somebody who reads only Japanese has not helped them.
- */
-const LANGUAGES = [
-  { value: "EN", label: <Flag code="US" />, sub: "English"           },
-  { value: "PT", label: <Flag code="BR" />, sub: "Português"         },
-  { value: "ES", label: <Flag code="ES" />, sub: "Español"           },
-  { value: "RU", label: <Flag code="RU" />, sub: "Русский"           },
-  { value: "ZH", label: <Flag code="CN" />, sub: "中文"               },
-  { value: "PL", label: <Flag code="PL" />, sub: "Polski"            },
-  { value: "TR", label: <Flag code="TR" />, sub: "Türkçe"            },
-  { value: "UK", label: <Flag code="UA" />, sub: "Українська"        },
-  { value: "DE", label: <Flag code="DE" />, sub: "Deutsch"           },
-  { value: "FR", label: <Flag code="FR" />, sub: "Français"          },
-  { value: "CS", label: <Flag code="CZ" />, sub: "Čeština"           },
-  { value: "SV", label: <Flag code="SE" />, sub: "Svenska"           },
-  { value: "JA", label: <Flag code="JP" />, sub: "日本語"              },
-  { value: "KO", label: <Flag code="KR" />, sub: "한국어"              },
-  { value: "IT", label: <Flag code="IT" />, sub: "Italiano"          },
-  { value: "NL", label: <Flag code="NL" />, sub: "Nederlands"        },
-];
 
 const CURRENCIES = [
   { value: "USD", label: "$",  sub: "USD" },
@@ -1786,10 +1753,11 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
  */
 const ACCOUNT_SCREENS: Record<
   string,
-  { label: string; icon: typeof User; title: string; body: string[] }
+  { label: string; labelKey: string; icon: typeof User; title: string; body: string[] }
 > = {
   Account: {
     label: "My account",
+    labelKey: "menu.account",
     icon: User,
     title: "My account",
     body: [
@@ -1799,6 +1767,7 @@ const ACCOUNT_SCREENS: Record<
   },
   Items: {
     label: "Item status",
+    labelKey: "menu.items",
     icon: Package,
     title: "Item status",
     body: [
@@ -1808,6 +1777,7 @@ const ACCOUNT_SCREENS: Record<
   },
   Bots: {
     label: "Trade Bots",
+    labelKey: "menu.bots",
     icon: Bot,
     title: "Our Trade Bots",
     body: [
@@ -1818,6 +1788,7 @@ const ACCOUNT_SCREENS: Record<
   },
   FAQ: {
     label: "FAQ",
+    labelKey: "menu.faq",
     icon: HelpCircle,
     title: "Frequently asked questions",
     body: [
@@ -1826,6 +1797,7 @@ const ACCOUNT_SCREENS: Record<
   },
   Support: {
     label: "Support",
+    labelKey: "menu.support",
     icon: LifeBuoy,
     title: "Support",
     body: [
@@ -2899,6 +2871,10 @@ const WEAPON_GROUPS: { label: string; items: string[] }[] = [
 const SORTS    = ["Default", "Discount", "Highest Price", "Lowest Price", "Highest Float", "Lowest Float"];
 
 export default function App() {
+  // `t` looks a phrase up; `i18n` is how the picker reads which language
+  // is active. Both re-render this tree when the language changes.
+  const { t, i18n } = useTranslation();
+
   const [search, setSearch]         = useState("");
   const [rarityFilter, setRarity]   = useState<string[]>([]);
   const [weaponFilter, setWeapon]   = useState<string[]>([]);
@@ -2927,7 +2903,6 @@ export default function App() {
   const [notificationsKey, setNotificationsKey] = useState(0);
   const [filtersOpen, setFilters]   = useState(false);
   const [activeNav, setActiveNav]   = useState("Market");
-  const [language, setLanguage]     = useState("EN");
   const [currency, setCurrency]     = useState("USD");
 
   // Who is logged in, straight from the backend. Nothing about the
@@ -3026,17 +3001,24 @@ export default function App() {
 
           {/* Nav links */}
           <div className="hidden md:flex items-center gap-1 ml-4">
-            {["Market", "Trade", "Sell"].map((n) => (
+            {/* The id routes, the key labels. `activeNav` is compared
+                against "Market", "Trade" and "Sell" throughout this
+                file, so translating the label must not touch it. */}
+            {([
+              ["Market", "nav.market"],
+              ["Trade", "nav.trade"],
+              ["Sell", "nav.sell"],
+            ] as const).map(([id, key]) => (
               <button
-                key={n}
-                onClick={() => setActiveNav(n)}
-                className="px-3 py-1.5 rounded font-display text-sm font-semibold tracking-wide transition-colors"
+                key={id}
+                onClick={() => setActiveNav(id)}
+                className="px-3 py-1.5 rounded font-display text-sm font-semibold tracking-wide transition-colors cursor-pointer"
                 style={{
-                  color: activeNav === n ? "#f0c040" : "#9da3c0",
-                  background: activeNav === n ? "rgba(240,192,64,0.1)" : "transparent",
+                  color: activeNav === id ? "#f0c040" : "#9da3c0",
+                  background: activeNav === id ? "rgba(240,192,64,0.1)" : "transparent",
                 }}
               >
-                {n}
+                {t(key)}
               </button>
             ))}
           </div>
@@ -3051,7 +3033,18 @@ export default function App() {
           {/* Right controls */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="hidden sm:flex items-center gap-2">
-              <NavDropdown value={language} onChange={setLanguage} options={LANGUAGES} compactTrigger />
+              {/* Drives i18next directly. It used to set a state
+                  nothing read, so the picker changed nothing at all. */}
+              <NavDropdown
+                value={i18n.resolvedLanguage ?? "en"}
+                onChange={(code) => void changeLanguage(code)}
+                options={LANGUAGES.map((l) => ({
+                  value: l.code,
+                  label: <Flag code={l.country as FlagCode} />,
+                  sub: l.name,
+                }))}
+                compactTrigger
+              />
               <NavDropdown value={currency} onChange={setCurrency} options={[...CURRENCIES]} />
             </div>
             {/* Balance: shown only when there is a session, because there
@@ -3093,7 +3086,7 @@ export default function App() {
                 <button
                   onClick={() => setUserMenuOpen((open) => !open)}
                   title={session.user.username}
-                  aria-label={`Account: ${session.user.username}`}
+                  aria-label={t("nav.account", { name: session.user.username })}
                   aria-expanded={userMenuOpen}
                   className="block rounded-full"
                 >
@@ -3168,7 +3161,7 @@ export default function App() {
                               style={{ color: activeNav === id ? "#f0c040" : "#c0c4d8" }}
                             >
                               <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                              {screen.label}
+                              {t(screen.labelKey)}
                             </button>
                           );
                         })}
@@ -3180,7 +3173,7 @@ export default function App() {
                         className="w-full text-left px-3 py-2 font-display text-xs font-semibold tracking-wide transition-colors hover:bg-white/5 disabled:opacity-50 border-t"
                         style={{ color: "#e84060", borderColor: "rgba(255,255,255,0.07)" }}
                       >
-                        {signingOut ? "SIGNING OUT…" : "SIGN OUT"}
+                        {signingOut ? t("nav.signingOut") : t("nav.signOut")}
                       </button>
                     </div>
                   </>
@@ -3197,7 +3190,7 @@ export default function App() {
                 className="px-3 py-1.5 rounded font-display text-xs font-semibold tracking-wide cursor-pointer transition-all duration-150 hover:brightness-110 hover:shadow-[0_0_18px_rgba(240,192,64,0.35)] active:translate-y-px active:brightness-95"
                 style={{ background: "#f0c040", color: "#08090d" }}
               >
-                SIGN IN WITH STEAM
+                {t("nav.signIn")}
               </button>
             )}
           </div>

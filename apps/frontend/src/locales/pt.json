@@ -1,0 +1,74 @@
+{
+  "nav": {
+    "market": "Mercado",
+    "trade": "Trocar",
+    "sell": "Vender",
+    "signIn": "Entrar com a Steam",
+    "signOut": "Sair",
+    "signingOut": "Saindo…",
+    "notifications": "Notificações",
+    "account": "Conta: {{name}}"
+  },
+
+  "menu": {
+    "account": "Minha conta",
+    "items": "Status dos itens",
+    "bots": "Trade Bots",
+    "faq": "Perguntas frequentes",
+    "support": "Suporte"
+  },
+
+  "market": {
+    "listings_one": "{{count}} anúncio",
+    "listings_other": "{{count}} anúncios",
+    "search": "Buscar no mercado...",
+    "filters": "Filtros",
+    "clearFilters": "Limpar filtros",
+    "empty": "Nada corresponde a esses filtros.",
+    "filter": {
+      "price": "Preço",
+      "rarity": "Raridade",
+      "exterior": "Exterior",
+      "type": "Tipo",
+      "float": "Float",
+      "others": "Outros",
+      "min": "MÍN",
+      "max": "MÁX",
+      "from": "DE",
+      "to": "ATÉ",
+      "with": "Com",
+      "without": "Sem",
+      "statTrak": "StatTrak™",
+      "stickers": "Adesivos",
+      "charms": "Chaveiros"
+    }
+  },
+
+  "sort": {
+    "default": "Padrão",
+    "highestPrice": "Maior preço",
+    "lowestPrice": "Menor preço",
+    "highestFloat": "Maior float",
+    "lowestFloat": "Menor float",
+    "discount": "Desconto"
+  },
+
+  "item": {
+    "float": "Float",
+    "rarity": "Raridade",
+    "wear": "Desgaste",
+    "pattern": "Padrão",
+    "volume": "Volume",
+    "applied": "Aplicados",
+    "history": "Histórico",
+    "priceHistory": "Preço nos últimos 30 dias",
+    "buildingSeries": "Montando a série — ainda faltam dias",
+    "untouched": "Intacto",
+    "scraped": "Raspado",
+    "value": "Valor",
+    "addsHere": "Soma aqui",
+    "notPriced": "Sem preço",
+    "currentPrice": "Preço atual",
+    "addToCart": "Adicionar ao carrinho"
+  }
+}

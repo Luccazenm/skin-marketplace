@@ -12,6 +12,14 @@
 interface ImportMetaEnv {
   /** Where the API lives. Defaults to http://localhost:3000 in development. */
   readonly VITE_API_URL?: string;
+
+  /**
+   * Vite's own flag, true under `vite dev` and false in a build. Used to
+   * keep the pseudo-localisation locale out of production — it is a
+   * layout tool, and shipping it would put a language nobody reads in
+   * the picker.
+   */
+  readonly DEV: boolean;
 }
 
 interface ImportMeta {

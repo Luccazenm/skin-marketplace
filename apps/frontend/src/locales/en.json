@@ -1,0 +1,74 @@
+{
+  "nav": {
+    "market": "Market",
+    "trade": "Trade",
+    "sell": "Sell",
+    "signIn": "Sign in with Steam",
+    "signOut": "Sign out",
+    "signingOut": "Signing out…",
+    "notifications": "Notifications",
+    "account": "Account: {{name}}"
+  },
+
+  "menu": {
+    "account": "My account",
+    "items": "Item status",
+    "bots": "Trade Bots",
+    "faq": "FAQ",
+    "support": "Support"
+  },
+
+  "market": {
+    "listings_one": "{{count}} listing",
+    "listings_other": "{{count}} listings",
+    "search": "Search market...",
+    "filters": "Filters",
+    "clearFilters": "Clear Filters",
+    "empty": "Nothing matches those filters.",
+    "filter": {
+      "price": "Price",
+      "rarity": "Rarity",
+      "exterior": "Exterior",
+      "type": "Type",
+      "float": "Float",
+      "others": "Others",
+      "min": "MIN",
+      "max": "MAX",
+      "from": "FROM",
+      "to": "TO",
+      "with": "With",
+      "without": "Without",
+      "statTrak": "StatTrak™",
+      "stickers": "Stickers",
+      "charms": "Charms"
+    }
+  },
+
+  "sort": {
+    "default": "Default",
+    "highestPrice": "Highest Price",
+    "lowestPrice": "Lowest Price",
+    "highestFloat": "Highest Float",
+    "lowestFloat": "Lowest Float",
+    "discount": "Discount"
+  },
+
+  "item": {
+    "float": "Float",
+    "rarity": "Rarity",
+    "wear": "Wear",
+    "pattern": "Pattern",
+    "volume": "Volume",
+    "applied": "Applied",
+    "history": "History",
+    "priceHistory": "30-day price history",
+    "buildingSeries": "Building the series — not enough days yet",
+    "untouched": "Untouched",
+    "scraped": "Scraped",
+    "value": "Value",
+    "addsHere": "Adds here",
+    "notPriced": "Not priced",
+    "currentPrice": "Current price",
+    "addToCart": "Add to cart"
+  }
+}
