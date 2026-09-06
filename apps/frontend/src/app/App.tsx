@@ -341,12 +341,23 @@ function DualRangeSlider({
 }
 
 /* ─── Weapon group (collapsible) ───────────────────────────────────── */
+/**
+ * The row's label with the group's own word taken off the end.
+ *
+ * Display only — the full name is still what the filter matches on, so
+ * the row that reads "Bowie" is looking for "Bowie Knife" in the
+ * listing, and nothing downstream sees the short form.
+ */
+function shorten(name: string, strip?: string): string {
+  return strip && name.endsWith(strip) ? name.slice(0, -strip.length) : name;
+}
+
 function WeaponGroup({
   group,
   weaponFilter,
   onToggle,
 }: {
-  group: { key: string; items: string[] };
+  group: { key: string; items: string[]; strip?: string };
   weaponFilter: string[];
   onToggle: (w: string) => void;
 }) {
@@ -391,12 +402,13 @@ function WeaponGroup({
               active={weaponFilter.includes(w)}
               onClick={() => onToggle(w)}
             >
-              {/* Falls back to the name itself, which is the point: a row
-                  is translated only when the catalogue names it. Weapons
-                  are deliberately absent, so "AK-47" and "Karambit" pass
-                  through untouched, while "Stickers" under Miscellany —
-                  a category, not a weapon — becomes "Adesivos". */}
-              <span className="font-mono text-sm" style={{ color: weaponFilter.includes(w) ? "#e8eaf0" : "#6b7194" }}>{t(`weaponGroup.item.${w}`, { defaultValue: w })}</span>
+              {/* Falls back to the shortened name, which is the point: a
+                  row is translated only when the catalogue names it.
+                  Weapons are deliberately absent, so "AK-47" and
+                  "Karambit" pass through untouched, while "Stickers"
+                  under Miscellany — a category, not a weapon — becomes
+                  "Adesivos". */}
+              <span className="font-mono text-sm" style={{ color: weaponFilter.includes(w) ? "#e8eaf0" : "#6b7194" }}>{t(`weaponGroup.item.${w}`, { defaultValue: shorten(w, group.strip) })}</span>
               {weaponFilter.includes(w) && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
             </FilterOption>
           ))}
@@ -2874,10 +2886,18 @@ const RARITIES = ["All", "Covert", "Classified", "Restricted", "Mil-Spec", "Rare
  * place. `key` names the heading, which is ours: "Knives" is a drawer we
  * built, not the name of anything in CS2, so it reads "Facas" in
  * Portuguese while the Karambit inside stays a Karambit.
+ *
+ * `strip` drops a suffix the heading already said. Under Knives, every
+ * row ending in "Knife" repeats the word eighteen times down a narrow
+ * column; "Bowie, Butterfly, Falchion" reads as a list, "Bowie Knife,
+ * Butterfly Knife, Falchion Knife" reads as noise. It only removes what
+ * is actually there, so Bayonet, Karambit and Shadow Daggers — which
+ * never carried the word — are left alone, and so are Hand Wraps, which
+ * are not gloves.
  */
-const WEAPON_GROUPS: { key: string; items: string[] }[] = [
-  { key: "knives", items: ["Bayonet", "Bowie Knife", "Butterfly Knife", "Falchion Knife", "Flip Knife", "Gut Knife", "Huntsman Knife", "Karambit", "M9 Bayonet", "Navaja Knife", "Nomad Knife", "Paracord Knife", "Shadow Daggers", "Skeleton Knife", "Stiletto Knife", "Survival Knife", "Talon Knife", "Ursus Knife"] },
-  { key: "gloves", items: ["Bloodhound Gloves", "Broken Fang Gloves", "Driver Gloves", "Hand Wraps", "Hydra Gloves", "Moto Gloves", "Specialist Gloves", "Sport Gloves"] },
+const WEAPON_GROUPS: { key: string; items: string[]; strip?: string }[] = [
+  { key: "knives", strip: " Knife", items: ["Bayonet", "Bowie Knife", "Butterfly Knife", "Falchion Knife", "Flip Knife", "Gut Knife", "Huntsman Knife", "Karambit", "M9 Bayonet", "Navaja Knife", "Nomad Knife", "Paracord Knife", "Shadow Daggers", "Skeleton Knife", "Stiletto Knife", "Survival Knife", "Talon Knife", "Ursus Knife"] },
+  { key: "gloves", strip: " Gloves", items: ["Bloodhound Gloves", "Broken Fang Gloves", "Driver Gloves", "Hand Wraps", "Hydra Gloves", "Moto Gloves", "Specialist Gloves", "Sport Gloves"] },
   { key: "pistols", items: ["CZ75-Auto", "Desert Eagle", "Dual Berettas", "Five-SeveN", "Glock-18", "P2000", "P250", "R8 Revolver", "Tec-9", "USP-S"] },
   { key: "smg", items: ["MAC-10", "MP5-SD", "MP7", "MP9", "P90", "PP-Bizon", "UMP-45"] },
   { key: "rifles", items: ["AK-47", "AUG", "AWP", "FAMAS", "G3SG1", "Galil AR", "M4A1-S", "M4A4", "SCAR-20", "SG 553", "SSG 08"] },
