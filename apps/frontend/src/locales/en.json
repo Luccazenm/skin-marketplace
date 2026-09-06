@@ -9,7 +9,6 @@
     "notifications": "Notifications",
     "account": "Account: {{name}}"
   },
-
   "menu": {
     "account": "My account",
     "items": "Item status",
@@ -17,10 +16,9 @@
     "faq": "FAQ",
     "support": "Support"
   },
-
   "market": {
-    "listings_one": "{{count}} listing",
-    "listings_other": "{{count}} listings",
+    "listings_one": "<n>{{count}}</n> listing",
+    "listings_other": "<n>{{count}}</n> listings",
     "search": "Search market...",
     "filters": "Filters",
     "clearFilters": "Clear Filters",
@@ -43,7 +41,6 @@
       "charms": "Charms"
     }
   },
-
   "sort": {
     "default": "Default",
     "highestPrice": "Highest Price",
@@ -52,7 +49,6 @@
     "lowestFloat": "Lowest Float",
     "discount": "Discount"
   },
-
   "item": {
     "float": "Float",
     "rarity": "Rarity",
@@ -70,5 +66,21 @@
     "notPriced": "Not priced",
     "currentPrice": "Current price",
     "addToCart": "Add to cart"
+  },
+  "wear": {
+    "Factory New": "Factory New",
+    "Minimal Wear": "Minimal Wear",
+    "Field-Tested": "Field-Tested",
+    "Well-Worn": "Well-Worn",
+    "Battle-Scarred": "Battle-Scarred"
+  },
+  "rarity": {
+    "consumer": "Consumer",
+    "industrial": "Industrial",
+    "milspec": "Mil-Spec",
+    "restricted": "Restricted",
+    "classified": "Classified",
+    "covert": "Covert",
+    "rare": "★ Knife/Glove"
   }
 }

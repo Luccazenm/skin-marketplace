@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import {
   Search,
   ShoppingCart,
@@ -486,6 +486,7 @@ function FilterSection({
 
 /* ─── Skin card ─────────────────────────────────────────────────────── */
 function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
+  const { t } = useTranslation();
   const r = RARITY[skin.rarity];
   const [hovered, setHovered] = useState(false);
 
@@ -547,7 +548,7 @@ function SkinCard({ skin, onClick }: { skin: Skin; onClick: () => void }) {
             <div className="font-display text-sm font-semibold text-foreground leading-tight truncate">{skin.name}</div>
           </div>
           <div className="text-right flex-shrink-0">
-            <div className="font-mono text-[9px] text-muted-foreground">{skin.wear}</div>
+            <div className="font-mono text-[9px] text-muted-foreground">{t(`wear.${skin.wear}`)}</div>
             <div className="font-mono text-[9px]" style={{ color: r.color }}>{skin.float.toFixed(4)}</div>
           </div>
         </div>
@@ -729,6 +730,7 @@ function SortDropdown({ sort, setSort }: { sort: string; setSort: (s: string) =>
 
 /* ─── Detail modal ──────────────────────────────────────────────────── */
 function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellInputs = false }: { skin: Skin; onClose: () => void; ctaLabel?: string; onCta?: (price: string) => void; showSellInputs?: boolean }) {
+  const { t } = useTranslation();
   const r = RARITY[skin.rarity];
   const [tab] = useState<"history">("history");
   const [listingPrice, setListingPrice] = useState(skin.price.toFixed(2));
@@ -766,7 +768,7 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
             )}
             <h2 className="font-display text-lg font-bold text-foreground truncate">
               {skin.weapon} | {skin.name}
-              <span className="font-mono text-sm font-normal text-muted-foreground ml-2">({skin.wear})</span>
+              <span className="font-mono text-sm font-normal text-muted-foreground ml-2">({t(`wear.${skin.wear}`)})</span>
             </h2>
           </div>
           <button onClick={onClose} className="flex-shrink-0 ml-4 p-1.5 rounded transition-colors hover:bg-white/5 text-muted-foreground hover:text-foreground">
@@ -873,10 +875,10 @@ function SkinDetail({ skin, onClose, ctaLabel = "ADD TO CART", onCta, showSellIn
             {/* Attributes */}
             <div className="px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
               {[
-                ["Rarity", r.label, r.color],
-                ["Wear", skin.wear, null],
-                ["Pattern", String(Math.floor(skin.float * 1000) % 1000), null],
-                ["Volume", `${skin.volume}/day`, null],
+                [t("item.rarity"), t(`rarity.${skin.rarity}`), r.color],
+                [t("item.wear"), t(`wear.${skin.wear}`), null],
+                [t("item.pattern"), String(Math.floor(skin.float * 1000) % 1000), null],
+                [t("item.volume"), `${skin.volume}/day`, null],
               ].map(([label, val, color]) => (
                 <div key={label} className="flex items-center justify-between py-1.5">
                   <span className="font-mono text-[11px] text-muted-foreground">{label}</span>
@@ -1126,6 +1128,7 @@ function TradeSkinCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const r = RARITY[skin.rarity];
 
   return (
@@ -1133,7 +1136,7 @@ function TradeSkinCard({
       rarity={r}
       category={skin.weapon}
       name={skin.name}
-      exterior={skin.wear}
+      exterior={t(`wear.${skin.wear}`)}
       float={skin.float}
       price={`$${skin.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
       statTrak={skin.statTrak}
@@ -2366,7 +2369,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                 <FilterOption key={key} active={mktRarity.includes(r.label)} onClick={() => toggleMR(r.label)} accentColor={r.color}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: r.color }} />
-                    <span className="font-mono text-xs truncate" style={{ color: mktRarity.includes(r.label) ? r.color : "#6b7194" }}>{r.label}</span>
+                    <span className="font-mono text-xs truncate" style={{ color: mktRarity.includes(r.label) ? r.color : "#6b7194" }}>{t(`rarity.${key}`)}</span>
                   </div>
                   {mktRarity.includes(r.label) && <Check className="w-2.5 h-2.5 flex-shrink-0" style={{ color: r.color }} />}
                 </FilterOption>
@@ -2379,7 +2382,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             <div className="space-y-0.5 pt-1">
               {["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"].map((w) => (
                 <FilterOption key={w} active={mktExterior.includes(w)} onClick={() => toggleME(w)}>
-                  <span className="font-mono text-xs" style={{ color: mktExterior.includes(w) ? "#e8eaf0" : "#6b7194" }}>{w}</span>
+                  <span className="font-mono text-xs" style={{ color: mktExterior.includes(w) ? "#e8eaf0" : "#6b7194" }}>{t(`wear.${w}`)}</span>
                   {mktExterior.includes(w) && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
                 </FilterOption>
               ))}
@@ -3285,7 +3288,7 @@ export default function App() {
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
                       <span className="font-mono text-sm truncate" style={{ color: rarityFilter.includes(r.label) ? r.color : "#6b7194" }}>
-                        {r.label}
+                        {t(`rarity.${key}`)}
                       </span>
                     </div>
                     {rarityFilter.includes(r.label) && <Check className="w-2.5 h-2.5 flex-shrink-0" style={{ color: r.color }} />}
@@ -3303,7 +3306,7 @@ export default function App() {
                     active={exteriorFilter.includes(wear)}
                     onClick={() => toggle(setExterior, wear)}
                   >
-                    <span className="font-mono text-sm" style={{ color: exteriorFilter.includes(wear) ? "#e8eaf0" : "#6b7194" }}>{wear}</span>
+                    <span className="font-mono text-sm" style={{ color: exteriorFilter.includes(wear) ? "#e8eaf0" : "#6b7194" }}>{t(`wear.${wear}`)}</span>
                     {exteriorFilter.includes(wear) && <Check className="w-2.5 h-2.5" style={{ color: "#f0c040" }} />}
                   </FilterOption>
                 ))}
@@ -3399,10 +3402,14 @@ export default function App() {
                   style={{ borderColor: "rgba(255,255,255,0.08)", color: "#9da3c0" }}
                 >
                   <SlidersHorizontal className="w-3 h-3" />
-                  Filters
+                  {t("market.filters")}
                 </button>
                 <div className="font-mono text-sm text-muted-foreground whitespace-nowrap">
-                  <span className="text-foreground font-semibold">{filtered.length}</span> listings
+                  <Trans
+                    i18nKey="market.listings"
+                    count={filtered.length}
+                    components={{ n: <span className="text-foreground font-semibold" /> }}
+                  />
                 </div>
               </div>
 
@@ -3412,7 +3419,7 @@ export default function App() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search market..."
+                placeholder={t("market.search")}
                 className="w-[26rem] max-w-full px-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
                 style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#e8eaf0" }}
               />

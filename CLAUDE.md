@@ -332,6 +332,36 @@ transferring between Trade Bots is the source bot sending. Details in
 - A comment explains **why**, not what the code does.
 - An error message says **what to do**, not only what failed.
 
+### What gets translated, and what stays in English
+
+The site is offered in sixteen languages. **Two kinds of words appear on
+these screens and they are handled differently.**
+
+**Translated: our own vocabulary.** Everything the site says in its own
+voice — Price, Rarity, Filters, Sell, the buttons, the explanations, the
+error messages.
+
+**Translated: wear and rarity.** "Factory New" becomes "Nova de
+Fábrica", "Covert" becomes "Oculto". Decided 2026-09-06, on the ground
+that Valve localises these in the CS2 client itself: a Brazilian player
+reads "Nova de Fábrica" in their own inventory, and reading English here
+would be the odd one out rather than the professional one.
+
+**Not translated: Valve's proper nouns.** Weapon names (AK-47, Karambit,
+M4A1-S), skin names (Dragon Lore, Fade), StatTrak™, Float, the
+tournaments and the sticker names. These are the same in every client
+and every market, they are how somebody searches, and translating them
+marks a marketplace as amateur.
+
+The line between the two is not obvious from a string alone, so a
+translator cannot be left to draw it. **A key that must not be
+translated does not become a key at all** — it stays a literal in the
+code, where there is nothing for a catalogue to override.
+
+`market_hash_name` is never translated anywhere, in any language. It is
+Steam's identifier, it is what our price lookups are keyed by, and a
+translated one matches nothing.
+
 ### "Trade Bot", never just "Bot"
 
 In **everything the user reads** — the Steam profile name, the group, the

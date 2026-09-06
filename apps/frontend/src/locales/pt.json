@@ -9,7 +9,6 @@
     "notifications": "Notificações",
     "account": "Conta: {{name}}"
   },
-
   "menu": {
     "account": "Minha conta",
     "items": "Status dos itens",
@@ -17,10 +16,9 @@
     "faq": "Perguntas frequentes",
     "support": "Suporte"
   },
-
   "market": {
-    "listings_one": "{{count}} anúncio",
-    "listings_other": "{{count}} anúncios",
+    "listings_one": "<n>{{count}}</n> anúncio",
+    "listings_other": "<n>{{count}}</n> anúncios",
     "search": "Buscar no mercado...",
     "filters": "Filtros",
     "clearFilters": "Limpar filtros",
@@ -43,7 +41,6 @@
       "charms": "Chaveiros"
     }
   },
-
   "sort": {
     "default": "Padrão",
     "highestPrice": "Maior preço",
@@ -52,7 +49,6 @@
     "lowestFloat": "Menor float",
     "discount": "Desconto"
   },
-
   "item": {
     "float": "Float",
     "rarity": "Raridade",
@@ -70,5 +66,21 @@
     "notPriced": "Sem preço",
     "currentPrice": "Preço atual",
     "addToCart": "Adicionar ao carrinho"
+  },
+  "wear": {
+    "Factory New": "Nova de Fábrica",
+    "Minimal Wear": "Pouco Usada",
+    "Field-Tested": "Testada em Campo",
+    "Well-Worn": "Bem Desgastada",
+    "Battle-Scarred": "Veterana de Guerra"
+  },
+  "rarity": {
+    "consumer": "Comum",
+    "industrial": "Industrial",
+    "milspec": "Militar",
+    "restricted": "Restrito",
+    "classified": "Secreto",
+    "covert": "Oculto",
+    "rare": "★ Faca/Luva"
   }
 }
