@@ -305,7 +305,7 @@ export function SellPage({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('sell.searchInventory')}
+            placeholder={t('inventory.search')}
             className="w-[26rem] max-w-full px-3 py-2 rounded-lg font-mono text-xs focus:outline-none"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#e8eaf0' }}
           />
@@ -321,8 +321,8 @@ export function SellPage({
               disabled={inventory.refreshing}
               title={
                 inventory.fetchedAt
-                  ? t('sell.readAt', { time: inventory.fetchedAt.toLocaleTimeString() })
-                  : t('sell.readAgain')
+                  ? t('inventory.readAt', { time: inventory.fetchedAt.toLocaleTimeString() })
+                  : t('inventory.readAgain')
               }
               className="flex items-center gap-1.5 px-2 py-1.5 rounded font-mono text-xs transition-colors disabled:opacity-40"
               style={{
@@ -334,7 +334,7 @@ export function SellPage({
               <RotateCw
                 className={`w-3 h-3 ${inventory.refreshing ? 'animate-spin' : ''}`}
               />
-              {inventory.refreshing ? t('sell.refreshing') : t('sell.refresh')}
+              {inventory.refreshing ? t('inventory.refreshing') : t('inventory.refresh')}
             </button>
             <MiniSortDropdown value={sort} onChange={setSort} options={SELL_SORTS} />
           </div>

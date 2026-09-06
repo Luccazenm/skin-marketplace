@@ -1161,8 +1161,8 @@ function TradeSkinCard({
       // The mock has a count and a flag, not the items. Placeholders keep
       // the badges in their corners at the right size until this side
       // becomes real stock.
-      charms={placeholderApplied("CHARM", skin.charms ? 1 : 0)}
-      stickers={placeholderApplied("STICKER", skin.stickers)}
+      charms={placeholderApplied("CHARM", skin.charms ? 1 : 0, t("trade.charm"))}
+      stickers={placeholderApplied("STICKER", skin.stickers, t("trade.sticker"))}
       selected={selected}
       onClick={onClick}
     >
@@ -1236,6 +1236,7 @@ function TradeGridCard({
   /** The artwork: a Steam image on one side, a drawn weapon on the other. */
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   const r = rarity;
   const [hovered, setHovered] = useState(false);
   const active = selected || hovered;
@@ -1324,7 +1325,7 @@ function TradeGridCard({
                 color: selected ? "#e8eaf0" : "#08090d",
                 opacity: active && !disabled ? 1 : 0,
               }}>
-              {selected ? "DESELECT" : "SELECT"}
+              {selected ? t("trade.deselect") : t("trade.select")}
             </div>
           </div>
         </div>
@@ -1349,6 +1350,7 @@ function TradeInventoryCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const r = rarityStyle(rarityKeyForItem(item));
 
   return (
@@ -1356,7 +1358,11 @@ function TradeInventoryCard({
       rarity={r}
       category={item.catalog?.weapon ?? item.typeLabel ?? ""}
       name={item.catalog?.skinName ?? item.marketHashName}
-      exterior={item.exterior}
+      exterior={
+        item.exterior
+          ? t(`wear.${item.exterior}`, { defaultValue: item.exterior })
+          : null
+      }
       float={item.float}
       // What a trade credits for it, not what it would list for: less
       // than the suggestion, because the item becomes our stock and we
@@ -1388,10 +1394,16 @@ function TradeInventoryCard({
  * fall back to the dashed circle the real ones use when Steam has no
  * image either.
  */
-function placeholderApplied(kind: AppliedItem["kind"], count: number): AppliedItem[] {
+function placeholderApplied(
+  kind: AppliedItem["kind"],
+  count: number,
+  // Passed in rather than chosen here: this is a plain function with no
+  // `t` in scope, and the name it carries ends up in the hover popup.
+  name: string,
+): AppliedItem[] {
   return Array.from({ length: count }, (_, i) => ({
     kind,
-    name: kind === "CHARM" ? "Charm" : "Sticker",
+    name,
     // Deliberately not a real market name: these are placeholders, and
     // one that resolved would put a price on a piece nobody owns.
     marketHashName: "",
@@ -1516,6 +1528,7 @@ function TradeCartCard({
   onRemove: () => void;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   const hover = useAppliedHover();
 
   return (
@@ -1576,7 +1589,7 @@ function TradeCartCard({
         onClick={onRemove}
         className="w-full py-1 flex items-center justify-center transition-colors flex-shrink-0"
         style={{ background: "rgba(232,64,96,0.12)", borderTop: "1px solid rgba(232,64,96,0.2)" }}
-        aria-label="Remove from trade"
+        aria-label={t("trade.removeFromTrade")}
       >
         <Trash2 className="w-3 h-3" style={{ color: "#e84060" }} />
       </button>
@@ -1709,6 +1722,7 @@ function TradeSide({
  * is how someone reads a bill as a refund.
  */
 function TradeDifference({ difference, canTrade }: { difference: number | null; canTrade: boolean }) {
+  const { t } = useTranslation();
   // Your side is valued now; the other one is the mock storefront, and
   // its prices are invented. Subtracting one from the other would give
   // a real-looking figure that is half fiction, so an unknown stays
@@ -1721,10 +1735,10 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
   // changed shape three ways depending on state — and the one shape that
   // matters, the number, was the one you saw least.
   const label = !priced
-    ? "Difference"
+    ? t("trade.difference")
     : owed
-      ? "Amount to add to trade"
-      : "Balance after trade";
+      ? t("trade.amountToAdd")
+      : t("trade.balanceAfter");
 
   const value = priced
     ? `${owed ? "" : "+"}$${Math.abs(difference as number).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -1752,8 +1766,8 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
       {!priced && (
         <span className="font-mono text-[9px] text-center leading-relaxed" style={{ color: "#4a4f68" }}>
           {canTrade
-            ? "The market side is not priced yet"
-            : "Pick from both sides"}
+            ? t("trade.marketNotPriced")
+            : t("trade.pickBothSides")}
         </span>
       )}
     </div>
@@ -2126,7 +2140,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           style={{ borderColor: "rgba(255,255,255,0.07)", background: CART_TINT, height: offerHeight }}
         >
         <TradeSide
-          title="Your offer"
+          title={t("trade.yourOffer")}
           // The sum of the cards beneath it, and "Not priced" the moment
           // one of them has no figure — the total always agrees with its
           // parts rather than quietly leaving one out.
@@ -2134,7 +2148,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             myItems.length === 0
               ? "—"
               : myTotal === null
-                ? "Not priced"
+                ? t("item.notPriced")
                 : usd(myTotal)
           }
           totalMuted={myTotal === null}
@@ -2142,7 +2156,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           align="left"
           collapsed={offerCollapsed}
           onToggleCollapse={() => setOfferCollapsed((c) => !c)}
-          empty="Pick from your inventory"
+          empty={t("trade.pickFromInventory")}
         >
           {myItems.map((item) => {
             const rs = rarityStyle(rarityKeyForItem(item));
@@ -2177,10 +2191,17 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         {/* Header */}
         <div className="px-2 py-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="font-display text-sm font-bold tracking-wide text-foreground">Your Inventory</div>
+            <div className="font-display text-sm font-bold tracking-wide text-foreground">{t("trade.yourInventory")}</div>
             <div className="font-mono text-[10px] text-muted-foreground">
-              {inventory.loading ? "reading Steam…" : `${myTradable.length} tradable`}
-              {mySelected.length > 0 && <span style={{ color: "#f0c040" }}> · {mySelected.length} selected</span>}
+              {inventory.loading
+                ? t("trade.readingSteam")
+                : t("trade.tradable", { count: myTradable.length })}
+              {mySelected.length > 0 && (
+                <span style={{ color: "#f0c040" }}>
+                  {" · "}
+                  {t("trade.selected", { count: mySelected.length })}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -2189,12 +2210,12 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             <button
               onClick={() => void inventory.refresh()}
               disabled={inventory.refreshing}
-              title={inventory.fetchedAt ? `Read from Steam at ${inventory.fetchedAt.toLocaleTimeString()}` : "Read from Steam again"}
+              title={inventory.fetchedAt ? t("inventory.readAt", { time: inventory.fetchedAt.toLocaleTimeString() }) : t("inventory.readAgain")}
               className="font-mono text-[9px] px-2 py-1 rounded transition-colors flex items-center gap-1 disabled:opacity-40"
               style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
             >
               <RotateCw className={`w-2.5 h-2.5 ${inventory.refreshing ? "animate-spin" : ""}`} />
-              {inventory.refreshing ? "Reading…" : "Refresh"}
+              {inventory.refreshing ? t("inventory.refreshing") : t("inventory.refresh")}
             </button>
             {mySelected.length > 0 && mySelected.length < myFiltered.length && (
               <button
@@ -2202,7 +2223,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                 className="font-mono text-[9px] px-2 py-1 rounded transition-colors"
                 style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
               >
-                Clear
+                {t("trade.clear")}
               </button>
             )}
             {/* Select All takes what is on screen, not the whole
@@ -2222,7 +2243,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                     border: `1px solid ${allShown ? "rgba(240,192,64,0.3)" : "rgba(255,255,255,0.08)"}`,
                   }}
                 >
-                  {allShown ? "Deselect All" : "Select All"}
+                  {allShown ? t("trade.deselectAll") : t("trade.selectAll")}
                 </button>
               );
             })()}
@@ -2243,7 +2264,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             <input
               value={mySearch}
               onChange={(e) => setMySearch(e.target.value)}
-              placeholder="Search inventory..."
+              placeholder={t("inventory.search")}
               className="w-full pl-7 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none"
               style={inputStyle}
             />
@@ -2259,24 +2280,20 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         <div className="flex-1 min-h-0 overflow-y-auto pl-2 pr-0 scrollbar-subtle">
           {!signedIn ? (
             <TradeInventoryNotice
-              title="Sign in to trade"
-              body="Your Steam inventory is what you offer, so we need to know whose it is."
+              title={t("trade.notice.signInTitle")}
+              body={t("trade.notice.signInBody")}
             />
           ) : inventory.loading ? (
-            <TradeInventoryNotice title="Reading your inventory…" body="This comes from Steam, so it can take a moment." />
+            <TradeInventoryNotice title={t("trade.notice.loadingTitle")} body={t("trade.notice.loadingBody")} />
           ) : inventory.failure ? (
             <TradeInventoryNotice
-              title="Could not read your inventory"
-              body={inventory.failureMessage ?? "Try again in a moment."}
+              title={t("trade.notice.failureTitle")}
+              body={inventory.failureMessage ?? t("trade.notice.failureBody")}
             />
           ) : myFiltered.length === 0 ? (
             <TradeInventoryNotice
-              title={mySearch ? "Nothing matches that search" : "Nothing here can be traded"}
-              body={
-                mySearch
-                  ? "Clear the search to see everything you can offer."
-                  : "Items still under Valve's 7-day trade hold, and anything Steam marks untradable, cannot be offered."
-              }
+              title={mySearch ? t("trade.notice.noSearchTitle") : t("trade.notice.noneTitle")}
+              body={mySearch ? t("trade.notice.noSearchBody") : t("trade.notice.noneBody")}
             />
           ) : (
             // auto-fill rather than a fixed six: the column shares the
@@ -2331,7 +2348,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
               boxShadow: canTrade ? "0 0 20px rgba(240,192,64,0.25)" : "none",
             }}
           >
-            {canTrade ? "TRADE" : "SELECT ITEMS"}
+            {canTrade ? t("trade.trade") : t("trade.selectItems")}
           </button>
 
           <TradeDifference difference={difference} canTrade={canTrade} />
@@ -2347,7 +2364,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         <div className="px-3 py-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="font-display text-sm font-bold tracking-wide text-foreground">{t("market.filters")}</div>
-            <div className="font-mono text-[10px] text-muted-foreground">Applied to market</div>
+            <div className="font-mono text-[10px] text-muted-foreground">{t("trade.appliedToMarket")}</div>
           </div>
           {(mktRarity.length > 0 || mktExterior.length > 0 || mktWeapon.length > 0 || mktPriceMin || mktPriceMax || mktFloatMin > 0 || mktFloatMax < 1 || mktStatTrak || mktStickers || mktCharms) && (
             <button
@@ -2355,7 +2372,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
               className="font-mono text-[9px] px-2 py-1 rounded transition-colors flex-shrink-0"
               style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
             >
-              Clear
+              {t("trade.clear")}
             </button>
           )}
         </div>
@@ -2477,14 +2494,14 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
           style={{ borderColor: "rgba(255,255,255,0.07)", background: CART_TINT, height: receiveHeight }}
         >
           <TradeSide
-            title="You receive"
+            title={t("trade.youReceive")}
             total={mktItems.length > 0 ? `$${mktTotal.toFixed(2)}` : "—"}
             totalMuted={mktItems.length === 0}
             count={mktItems.length}
             align="right"
             collapsed={receiveCollapsed}
             onToggleCollapse={() => setReceiveCollapsed((c) => !c)}
-            empty="Pick from the market"
+            empty={t("trade.pickFromMarket")}
           >
             {mktItems.map((s) => {
               const rs = RARITY[s.rarity];
@@ -2511,12 +2528,12 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
         {/* Header */}
         <div className="px-2 py-2.5 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="font-display text-sm font-bold tracking-wide text-foreground">Market</div>
+            <div className="font-display text-sm font-bold tracking-wide text-foreground">{t("trade.market")}</div>
             {/* How many listings exist is not the shopper's business,
                 and it is a number that only ever flatters or embarrasses
                 us. What is selected still matters. */}
             <div className="font-mono text-[10px] text-muted-foreground">
-              {mktSelected.length > 0 ? <span style={{ color: "#f0c040" }}>{mktSelected.length} selected</span> : " "}
+              {mktSelected.length > 0 ? <span style={{ color: "#f0c040" }}>{t("trade.selected", { count: mktSelected.length })}</span> : " "}
             </div>
           </div>
           {mktSelected.length > 0 && (
@@ -2525,7 +2542,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
               className="font-mono text-[9px] px-2 py-1 rounded transition-colors flex-shrink-0"
               style={{ background: "rgba(255,255,255,0.05)", color: "#9da3c0", border: "1px solid rgba(255,255,255,0.08)" }}
             >
-              Clear
+              {t("trade.clear")}
             </button>
           )}
         </div>
@@ -2542,7 +2559,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             <input
               value={mktSearch}
               onChange={(e) => setMktSearch(e.target.value)}
-              placeholder="Search market..."
+              placeholder={t("market.search")}
               className="w-full pl-7 pr-2 py-1.5 rounded font-mono text-xs focus:outline-none"
               style={inputStyle}
             />

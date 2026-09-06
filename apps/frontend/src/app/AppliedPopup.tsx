@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import type { AppliedItem } from '@/lib/api';
 import { usd } from '@/lib/money';
@@ -120,6 +121,8 @@ export function AppliedPopup({
   /** The badge's rect, in viewport coordinates. */
   anchor: DOMRect;
 }) {
+  const { t } = useTranslation();
+
   // Read from context rather than passed in: the badges are three
   // components deep in two different screens, and threading a price map
   // through `AppliedBadges` and `AppliedRow` would put a money argument
@@ -178,7 +181,7 @@ export function AppliedPopup({
             and an unknown one look the same to whoever is reading. */}
         <div className="flex items-center justify-between gap-3">
           <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
-            Value
+            {t('item.value')}
           </span>
           <span
             className="font-mono text-xs font-semibold"
@@ -195,7 +198,7 @@ export function AppliedPopup({
         {adds != null && (
           <div className="flex items-center justify-between gap-3">
             <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
-              Adds here
+              {t('item.addsHere')}
             </span>
             <span className="font-mono text-xs font-semibold" style={{ color: '#4ade80' }}>
               +{usd(adds)}
@@ -210,13 +213,13 @@ export function AppliedPopup({
         {applied.wear !== null && (
           <div className="flex items-center justify-between gap-3">
             <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
-              Scraped
+              {t('item.scraped')}
             </span>
             <span
               className="font-mono text-xs font-semibold"
               style={{ color: '#f0c040' }}
             >
-              {applied.wear === 0 ? 'Untouched' : `${Math.round(applied.wear * 100)}%`}
+              {applied.wear === 0 ? t('item.untouched') : `${Math.round(applied.wear * 100)}%`}
             </span>
           </div>
         )}
