@@ -148,7 +148,6 @@
       "charm": "Chaveiro"
     },
     "noMarket": "Nenhum mercado tem este item, então não há com o que comparar. O preço é você quem decide.",
-    "tooSlow": "Este item tem giro lento demais para comprarmos direto. Anunciar é o jeito de vendê-lo.",
     "instantSell": "VENDER NA HORA · ${{amount}}",
     "tradeLock": "A Valve trava itens trocados por 7 dias. Seu anúncio entra no ar na hora, mostrando os dias restantes; o comprador escolhe sabendo disso.",
     "noTradeUrl": "Sua conta ainda não tem URL de troca — sem ela o Trade Bot não consegue te enviar a oferta.",

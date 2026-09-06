@@ -484,17 +484,12 @@ function InstantSell({
 }) {
   const { t } = useTranslation();
 
-  // No bid says nothing at all: the absent button is the whole message,
-  // and the grid already leaves the bolt off this card.
-  if (buyout.amount === null) {
-    if (buyout.reason === 'no_bid') return null;
-
-    return (
-      <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
-        {t('sell.tooSlow')}
-      </div>
-    );
-  }
+  // No offer says nothing at all, whatever the reason for it — the
+  // absent button is the whole message, and the grid already leaves the
+  // bolt off this card. It used to explain a slow-trading item in a
+  // sentence, which drew attention to something the seller cannot act
+  // on and made an ordinary item look like a rejected one.
+  if (buyout.amount === null) return null;
 
   return (
     <>

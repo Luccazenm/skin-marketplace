@@ -148,7 +148,6 @@
       "charm": "Charm"
     },
     "noMarket": "No market carries this one, so there is nothing to compare against. The price is yours to decide.",
-    "tooSlow": "This one trades too slowly for us to buy outright. Listing it is the way to sell it.",
     "instantSell": "SELL INSTANTLY · ${{amount}}",
     "tradeLock": "Valve locks traded items for 7 days. Your listing goes up straight away, showing the days left; buyers choose knowing that.",
     "noTradeUrl": "Your account has no trade URL yet — without it the Trade Bot cannot send you the offer.",
