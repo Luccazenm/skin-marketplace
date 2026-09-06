@@ -29,6 +29,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { logout, startSteamLogin, type AppliedItem, type InventoryItem } from "@/lib/api";
 import { rarityStyle } from "@/lib/rarity";
+import { Flag } from "./Flag";
 import { usd } from "@/lib/money";
 import { usePrices } from "@/lib/use-prices";
 import { useSuggestions } from "@/lib/use-suggestions";
@@ -599,7 +600,8 @@ function NavDropdown<T extends string>({
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: { value: T; label: string; sub: string }[];
+  /** `label` is a node: currencies pass "$", languages pass a flag. */
+  options: { value: T; label: ReactNode; sub: string }[];
   compactTrigger?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -655,13 +657,26 @@ function NavDropdown<T extends string>({
   );
 }
 
+/**
+ * The label is a drawing, not a character.
+ *
+ * These were emoji flags, and on Windows an emoji flag is not a flag:
+ * the platform ships no glyph for a regional indicator pair, so it draws
+ * the two letters instead and the menu read "US", "BR", "ES". See
+ * `Flag.tsx`.
+ *
+ * The country under each language is a choice, not a fact — English is
+ * not the United States' alone. It is the convention users expect from
+ * a picker this size, and changing it is a decision about the product
+ * rather than about rendering.
+ */
 const LANGUAGES = [
-  { value: "EN", label: "🇺🇸", sub: "English"    },
-  { value: "PT", label: "🇧🇷", sub: "Português"   },
-  { value: "ES", label: "🇪🇸", sub: "Español"     },
-  { value: "RU", label: "🇷🇺", sub: "Русский"     },
-  { value: "ZH", label: "🇨🇳", sub: "中文"         },
-] as const;
+  { value: "EN", label: <Flag code="US" />, sub: "English"   },
+  { value: "PT", label: <Flag code="BR" />, sub: "Português" },
+  { value: "ES", label: <Flag code="ES" />, sub: "Español"   },
+  { value: "RU", label: <Flag code="RU" />, sub: "Русский"   },
+  { value: "ZH", label: <Flag code="CN" />, sub: "中文"       },
+];
 
 const CURRENCIES = [
   { value: "USD", label: "$",  sub: "USD" },
@@ -3020,8 +3035,8 @@ export default function App() {
           {/* Right controls */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="hidden sm:flex items-center gap-2">
-              <NavDropdown value={language} onChange={setLanguage} options={LANGUAGES as unknown as { value: string; label: string; sub: string }[]} compactTrigger />
-              <NavDropdown value={currency} onChange={setCurrency} options={CURRENCIES as unknown as { value: string; label: string; sub: string }[]} />
+              <NavDropdown value={language} onChange={setLanguage} options={LANGUAGES} compactTrigger />
+              <NavDropdown value={currency} onChange={setCurrency} options={[...CURRENCIES]} />
             </div>
             {/* Balance: shown only when there is a session, because there
                 is no such thing as a logged-out balance. It stays the
