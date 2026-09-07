@@ -64,7 +64,7 @@ function Profile({ user }: { user: CurrentUser }) {
               className="w-full h-full object-cover"
             />
           ) : (
-            <UserIcon className="w-8 h-8" style={{ color: '#6c7290' }} />
+            <UserIcon className="w-8 h-8" style={{ color: '#8b92b0' }} />
           )}
         </div>
 
@@ -76,7 +76,7 @@ function Profile({ user }: { user: CurrentUser }) {
             {user.username}
           </div>
 
-          <div className="font-mono text-xs" style={{ color: '#6c7290' }}>
+          <div className="font-mono text-xs" style={{ color: '#8b92b0' }}>
             Member since {formatDate(user.createdAt)}
           </div>
 
@@ -180,7 +180,7 @@ function ConsentRow({
     >
       <div
         className="font-mono text-[11px] uppercase tracking-wider"
-        style={{ color: '#6c7290' }}
+        style={{ color: '#8b92b0' }}
       >
         Permissions
       </div>
@@ -235,7 +235,7 @@ function CookieRow() {
     >
       <div
         className="font-mono text-[11px] uppercase tracking-wider"
-        style={{ color: '#6c7290' }}
+        style={{ color: '#8b92b0' }}
       >
         Cookies we set
       </div>
@@ -252,7 +252,7 @@ function CookieRow() {
 
       <div
         className="font-mono text-xs leading-relaxed"
-        style={{ color: '#6c7290' }}
+        style={{ color: '#8b92b0' }}
       >
         We set no advertising or tracking cookies. If that ever changes, the
         switch above governs it — and it is already off unless you turned it
@@ -261,7 +261,7 @@ function CookieRow() {
 
       <div
         className="font-mono text-xs leading-relaxed"
-        style={{ color: '#6c7290' }}
+        style={{ color: '#8b92b0' }}
       >
         We never hold your Steam session. Signing in happens on Steam's own
         page and gives us your Steam ID, nothing that could act as you.
@@ -298,7 +298,7 @@ function ReadOnlyRow({
     <div className="px-5 py-4 flex items-baseline justify-between gap-4">
       <span
         className="font-mono text-[11px] uppercase tracking-wider flex-shrink-0"
-        style={{ color: '#6c7290' }}
+        style={{ color: '#8b92b0' }}
       >
         {label}
       </span>
@@ -369,7 +369,7 @@ function EditableRow({
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
         <span
           className="font-mono text-[11px] uppercase tracking-wider"
-          style={{ color: '#6c7290' }}
+          style={{ color: '#8b92b0' }}
         >
           {label}
         </span>
@@ -412,7 +412,7 @@ function EditableRow({
       </div>
 
       {!initial && !error && (
-        <div className="font-mono text-xs" style={{ color: '#6c7290' }}>
+        <div className="font-mono text-xs" style={{ color: '#8b92b0' }}>
           {empty}
         </div>
       )}
@@ -420,7 +420,7 @@ function EditableRow({
       {badge && !error && (
         <div
           className="font-mono text-xs"
-          style={{ color: badge.tone === 'good' ? '#4ade80' : '#6c7290' }}
+          style={{ color: badge.tone === 'good' ? '#4ade80' : '#8b92b0' }}
         >
           {badge.text}
         </div>
@@ -502,7 +502,7 @@ function Toggle({
           style={{
             width: 16,
             height: 16,
-            background: checked ? '#4ade80' : '#6c7290',
+            background: checked ? '#4ade80' : '#8b92b0',
             transform: checked ? 'translateX(16px)' : 'translateX(0)',
           }}
         />
@@ -531,7 +531,7 @@ function Toggle({
         {/* When, not just whether. An undated "they agreed" answers
             nothing the day someone asks. */}
         {since && (
-          <span className="font-mono text-xs" style={{ color: '#4a4f68' }}>
+          <span className="font-mono text-xs" style={{ color: '#7d84a3' }}>
             {checked ? 'Agreed' : 'Withdrawn'} {formatDate(since)}
           </span>
         )}

@@ -181,12 +181,12 @@ export function AppliedPopup({
             screens that never asked for prices, because an absent number
             and an unknown one look the same to whoever is reading. */}
         <div className="flex items-center justify-between gap-3">
-          <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
+          <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#8b92b0' }}>
             {t('item.value')}
           </span>
           <span
             className="font-mono text-xs font-semibold"
-            style={{ color: own ? '#e8eaf0' : '#4a4f68' }}
+            style={{ color: own ? '#e8eaf0' : '#7d84a3' }}
           >
             {own ? money(own) : '—'}
           </span>
@@ -198,7 +198,7 @@ export function AppliedPopup({
             and it needs no sentence. */}
         {adds != null && (
           <div className="flex items-center justify-between gap-3">
-            <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
+            <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#8b92b0' }}>
               {t('item.addsHere')}
             </span>
             <span className="font-mono text-xs font-semibold" style={{ color: '#4ade80' }}>
@@ -213,7 +213,7 @@ export function AppliedPopup({
             moves the price. */}
         {applied.wear !== null && (
           <div className="flex items-center justify-between gap-3">
-            <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>
+            <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#8b92b0' }}>
               {t('item.scraped')}
             </span>
             <span

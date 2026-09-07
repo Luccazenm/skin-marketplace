@@ -187,7 +187,7 @@ export function SellDetail({
                 ? `${item.catalog.weapon} | ${item.catalog.skinName ?? ''}`
                 : item.marketHashName}
               {item.exterior && (
-                <span className="font-mono text-sm font-normal ml-2" style={{ color: '#6c7290' }}>
+                <span className="font-mono text-sm font-normal ml-2" style={{ color: '#8b92b0' }}>
                   ({t(`wear.${item.exterior}`, { defaultValue: item.exterior })})
                 </span>
               )}
@@ -252,7 +252,7 @@ export function SellDetail({
                             worthless rather than as unlisted. */}
                         <div
                           className="font-mono text-[11px] font-semibold"
-                          style={{ color: part?.own ? '#e8eaf0' : '#4a4f68' }}
+                          style={{ color: part?.own ? '#e8eaf0' : '#7d84a3' }}
                         >
                           {part?.own ? money.formatUsdCents(Math.round(Number(part.own) * 100)) : '—'}
                         </div>
@@ -300,7 +300,7 @@ export function SellDetail({
                       aria-pressed={active === name}
                       disabled={!hasDescription}
                       className="font-mono text-[12px] uppercase tracking-wider transition-colors enabled:cursor-pointer"
-                      style={{ color: active === name ? r.color : '#4a4f68' }}
+                      style={{ color: active === name ? r.color : '#7d84a3' }}
                     >
                       {t(`item.${name}`)}
                     </button>
@@ -310,7 +310,7 @@ export function SellDetail({
 
               {active === 'history' ? (
                 <>
-                  <div className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: '#6c7290' }}>
+                  <div className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: '#8b92b0' }}>
                     {t('item.priceHistory')}
                   </div>
                   {/* The frame, with nothing in it yet. Every price read on
@@ -328,7 +328,7 @@ export function SellDetail({
                       </LineChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="font-mono text-[12px]" style={{ color: '#4a4f68' }}>
+                      <span className="font-mono text-[12px]" style={{ color: '#7d84a3' }}>
                         {t('item.buildingSeries')}
                       </span>
                     </div>
@@ -371,7 +371,7 @@ export function SellDetail({
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>Float</span>
+                  <span className="font-mono text-[13px]" style={{ color: '#8b92b0' }}>Float</span>
                   {/* All ten decimals: this is the number that separates
                       one copy of a skin from another, and rounding it
                       loses exactly what makes it worth more. */}
@@ -406,10 +406,10 @@ export function SellDetail({
 
             <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
               <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>{t('item.recommended')}</span>
+                <span className="font-mono text-[13px]" style={{ color: '#8b92b0' }}>{t('item.recommended')}</span>
                 <span
                   className="font-mono text-base font-semibold"
-                  style={{ color: breakdown ? '#e8eaf0' : '#4a4f68' }}
+                  style={{ color: breakdown ? '#e8eaf0' : '#7d84a3' }}
                 >
                   {breakdown ? money.formatUsdCents(Math.round(Number(breakdown.suggested) * 100)) : '—'}
                 </span>
@@ -448,7 +448,7 @@ export function SellDetail({
                   notice={instantSellNotice}
                 />
               ) : (
-                <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
+                <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#7d84a3' }}>
                   {t('sell.noMarket')}
                 </div>
               )}
@@ -456,7 +456,7 @@ export function SellDetail({
 
             <div className="px-5 py-4 flex flex-col gap-3">
               <div>
-                <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
+                <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#8b92b0' }}>
                   {t('sell.yourPrice')}
                 </div>
                 {/* The symbol sits beside the field rather than on
@@ -477,7 +477,7 @@ export function SellDetail({
                     border: `1px solid ${price && !priced ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
                   }}
                 >
-                  <span className="font-mono text-sm flex-shrink-0" style={{ color: '#6c7290' }}>
+                  <span className="font-mono text-sm flex-shrink-0" style={{ color: '#8b92b0' }}>
                     {symbolFor(money.currency)}
                   </span>
                   <input
@@ -507,15 +507,15 @@ export function SellDetail({
               </div>
 
               <div>
-                <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
+                <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#8b92b0' }}>
                   {t('sell.youReceive')}
                   {feePercent !== null && (
-                    <span style={{ color: '#4a4f68' }}>{t('sell.afterFee', { fee: feePercent })}</span>
+                    <span style={{ color: '#7d84a3' }}>{t('sell.afterFee', { fee: feePercent })}</span>
                   )}
                 </div>
                 <div
                   className="w-full px-2.5 py-2 rounded font-mono text-base font-semibold"
-                  style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: payout ? '#4ade80' : '#4a4f68' }}
+                  style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: payout ? '#4ade80' : '#7d84a3' }}
                 >
                   {payout ?? '—'}
                 </div>
@@ -641,7 +641,7 @@ function Description({
         </p>
       )}
       {flavor && (
-        <p className="font-mono text-[12px] italic leading-relaxed" style={{ color: '#6c7290' }}>
+        <p className="font-mono text-[12px] italic leading-relaxed" style={{ color: '#8b92b0' }}>
           {flavor}
         </p>
       )}
@@ -653,7 +653,7 @@ function Description({
 function Part({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="font-mono text-[12px]" style={{ color: '#6c7290' }}>
+      <span className="font-mono text-[12px]" style={{ color: '#8b92b0' }}>
         {label}
       </span>
       <span className="font-mono text-[12px] font-semibold" style={{ color: '#9da3c0' }}>
@@ -666,10 +666,10 @@ function Part({ label, value }: { label: string; value: string }) {
 function Row({ label, value, color, muted }: { label: string; value: string; color?: string; muted?: boolean }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="font-mono text-[13px]" style={{ color: '#6c7290' }}>{label}</span>
+      <span className="font-mono text-[13px]" style={{ color: '#8b92b0' }}>{label}</span>
       <span
         className="font-mono text-[13px] font-semibold"
-        style={{ color: muted ? '#4a4f68' : (color ?? '#e8eaf0') }}
+        style={{ color: muted ? '#7d84a3' : (color ?? '#e8eaf0') }}
       >
         {value}
       </span>

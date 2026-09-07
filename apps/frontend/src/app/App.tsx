@@ -1309,7 +1309,7 @@ function TradeGridCard({
           {name}
         </div>
         <div className="flex items-baseline justify-between gap-1 font-mono text-[9px] min-w-0">
-          <span className="truncate" style={{ color: "#6c7290" }}>{exterior ?? ""}</span>
+          <span className="truncate" style={{ color: "#8b92b0" }}>{exterior ?? ""}</span>
           {float !== null && (
             <span className="flex-shrink-0" style={{ color: r.color }}>{float.toFixed(4)}</span>
           )}
@@ -1318,7 +1318,7 @@ function TradeGridCard({
         {/* The value line always renders, priced or not, so the card does
             not change height when a price source lands — only the string
             does. Muted when it is a placeholder rather than a figure. */}
-        <div className="font-mono font-semibold text-xs leading-none pt-0.5" style={{ color: priceMuted ? "#4a4f68" : "#f0f2f8" }}>
+        <div className="font-mono font-semibold text-xs leading-none pt-0.5" style={{ color: priceMuted ? "#7d84a3" : "#f0f2f8" }}>
           {price}
         </div>
       </div>
@@ -1595,8 +1595,8 @@ function TradeCartCard({
       <div className="px-2 py-1.5 flex flex-col gap-0.5 min-w-0 flex-shrink-0">
         <div className="text-[9px] font-mono uppercase tracking-wider leading-none truncate" style={{ color: rarity.color }}>{category}</div>
         <div className="font-display text-xs font-semibold text-foreground leading-tight truncate">{name}</div>
-        <div className="font-mono text-[9px] truncate" style={{ color: "#6c7290" }}>{meta}</div>
-        <div className="font-mono text-xs font-semibold leading-none pt-0.5 truncate" style={{ color: priceMuted ? "#4a4f68" : "#f0f2f8" }}>
+        <div className="font-mono text-[9px] truncate" style={{ color: "#8b92b0" }}>{meta}</div>
+        <div className="font-mono text-xs font-semibold leading-none pt-0.5 truncate" style={{ color: priceMuted ? "#7d84a3" : "#f0f2f8" }}>
           {price}
         </div>
       </div>
@@ -1671,7 +1671,7 @@ function TradeSide({
   // that is money-then-count; on the right it is the other way round.
   const totalNode = (
     <div className={`flex items-center gap-1.5 flex-shrink-0 ${align === "right" ? "flex-row-reverse" : ""}`}>
-      <span className="font-mono text-xs font-semibold" style={{ color: totalMuted ? "#6c7290" : "#f0f2f8" }}>{total}</span>
+      <span className="font-mono text-xs font-semibold" style={{ color: totalMuted ? "#8b92b0" : "#f0f2f8" }}>{total}</span>
       {/* A circle, so a fixed size rather than padding around the digit:
           horizontal padding makes "4" a narrow oval and "12" a wide one.
           Equal width and height keeps it round at any count. */}
@@ -1681,7 +1681,7 @@ function TradeSide({
           width: 18,
           height: 18,
           background: count > 0 ? "rgba(240,192,64,0.15)" : "rgba(255,255,255,0.05)",
-          color: count > 0 ? "#f0c040" : "#6c7290",
+          color: count > 0 ? "#f0c040" : "#8b92b0",
         }}
       >
         {count}
@@ -1720,7 +1720,7 @@ function TradeSide({
           style={{ minHeight: 224 }}
         >
           {count === 0 ? (
-            <span className="font-mono text-sm italic text-center" style={{ color: "#4a4f68" }}>{empty}</span>
+            <span className="font-mono text-sm italic text-center" style={{ color: "#7d84a3" }}>{empty}</span>
           ) : (
             children
           )}
@@ -1765,7 +1765,7 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
 
   // Neutral until there is a real figure. Amber is money you owe, green
   // is money coming back; neither should be implied by a placeholder.
-  const tone = !priced ? "#4a4f68" : owed ? "#f0c040" : "#4ade80";
+  const tone = !priced ? "#7d84a3" : owed ? "#f0c040" : "#4ade80";
 
   return (
     <div className="w-full flex flex-col items-center gap-1.5">
@@ -1773,7 +1773,7 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
         className="w-full rounded-lg px-2 py-2 flex flex-col items-center gap-1"
         style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
       >
-        <span className="font-mono text-[9px] uppercase tracking-wider text-center leading-tight" style={{ color: "#6c7290" }}>
+        <span className="font-mono text-[9px] uppercase tracking-wider text-center leading-tight" style={{ color: "#8b92b0" }}>
           {label}
         </span>
         <span className="font-display text-base font-bold leading-none" style={{ color: tone }}>
@@ -1783,7 +1783,7 @@ function TradeDifference({ difference, canTrade }: { difference: number | null; 
 
       {/* Why the box is empty, under it rather than instead of it. */}
       {!priced && (
-        <span className="font-mono text-[9px] text-center leading-relaxed" style={{ color: "#4a4f68" }}>
+        <span className="font-mono text-[9px] text-center leading-relaxed" style={{ color: "#7d84a3" }}>
           {canTrade
             ? t("trade.marketNotPriced")
             : t("trade.pickBothSides")}
@@ -1876,7 +1876,7 @@ function StubScreen({ screen }: { screen: (typeof ACCOUNT_SCREENS)[string] }) {
         </div>
         <div>
           <h1 className="font-display text-xl font-bold" style={{ color: "#e8eaf0" }}>{screen.title}</h1>
-          <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "#6c7290" }}>
+          <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "#8b92b0" }}>
             Not built yet
           </div>
         </div>
@@ -1898,7 +1898,7 @@ function TradeInventoryNotice({ title, body }: { title: string; body: string }) 
   return (
     <div className="h-full flex flex-col items-center justify-center gap-1.5 px-6 text-center">
       <div className="font-display text-xs font-bold" style={{ color: "#e8eaf0" }}>{title}</div>
-      <div className="font-mono text-[10px] leading-relaxed max-w-xs" style={{ color: "#6c7290" }}>{body}</div>
+      <div className="font-mono text-[10px] leading-relaxed max-w-xs" style={{ color: "#8b92b0" }}>{body}</div>
     </div>
   );
 }
@@ -2365,7 +2365,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
             style={{
               background: canTrade ? "#f0c040" : "rgba(255,255,255,0.05)",
               border: canTrade ? "1px solid transparent" : "1px solid rgba(255,255,255,0.08)",
-              color: canTrade ? "#08090d" : "#6c7290",
+              color: canTrade ? "#08090d" : "#8b92b0",
               cursor: canTrade ? "pointer" : "not-allowed",
               boxShadow: canTrade ? "0 0 20px rgba(240,192,64,0.25)" : "none",
             }}
@@ -3219,7 +3219,7 @@ export default function App() {
                         <div className="font-mono text-xs truncate" style={{ color: "#e8eaf0" }}>
                           {session.user.username}
                         </div>
-                        <div className="font-mono text-[10px] mt-0.5" style={{ color: "#6c7290" }}>
+                        <div className="font-mono text-[10px] mt-0.5" style={{ color: "#8b92b0" }}>
                           {session.user.steamId}
                         </div>
                       </div>

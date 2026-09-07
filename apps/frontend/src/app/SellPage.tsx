@@ -387,7 +387,7 @@ export function SellPage({
         {/* Said out loud rather than hidden: an item missing from your own
             inventory with no explanation reads as a bug. */}
         {inventory.data && inventory.data.blocked > 0 && (
-          <div className="mb-3 font-mono text-[11px] flex-shrink-0" style={{ color: '#6c7290' }}>
+          <div className="mb-3 font-mono text-[11px] flex-shrink-0" style={{ color: '#8b92b0' }}>
             {t('sell.blocked', {
               blocked: inventory.data.blocked,
               total: inventory.data.total,
@@ -767,7 +767,7 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
             {/* Three quarters of a real inventory has no float and no
                 exterior. Each line appears only when it has something to
                 say, rather than leaving empty fields across the grid. */}
-            {item.exterior && <div className="font-mono text-[9px]" style={{ color: '#6c7290' }}>{t(`wear.${item.exterior}`, { defaultValue: item.exterior })}</div>}
+            {item.exterior && <div className="font-mono text-[9px]" style={{ color: '#8b92b0' }}>{t(`wear.${item.exterior}`, { defaultValue: item.exterior })}</div>}
             {item.float !== null && <div className="font-mono text-[9px]" style={{ color: r.color }}>{item.float.toFixed(4)}</div>}
           </div>
         </div>
@@ -793,7 +793,7 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
               {money.formatUsdCents(Math.round(market.ask * 100))}
             </div>
           ) : (
-            <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#4a4f68' }}>
+            <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#7d84a3' }}>
               {t('item.notPriced')}
             </div>
           )}
@@ -938,7 +938,7 @@ function SellPanel(props: {
       <div className="px-5 mb-3 flex-shrink-0 flex items-center justify-between">
         <div>
           <div className="font-display text-sm font-bold" style={{ color: '#e8eaf0' }}>{t('sell.panelTitle')}</div>
-          <div className="font-mono text-[10px]" style={{ color: '#6c7290' }}>
+          <div className="font-mono text-[10px]" style={{ color: '#8b92b0' }}>
             {t('sell.selected', { count: props.items.length })}
           </div>
         </div>
@@ -989,7 +989,7 @@ function SellPanel(props: {
                   <div className="flex-1 min-w-0 flex flex-col gap-1">
                     <div className="flex items-start gap-1.5">
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono text-[10px] truncate" style={{ color: '#6c7290' }}>
+                        <div className="font-mono text-[10px] truncate" style={{ color: '#8b92b0' }}>
                           {item.catalog?.weapon ?? item.typeLabel ?? ''}
                           {item.exterior ? ` · ${t(`wear.${item.exterior}`, { defaultValue: item.exterior })}` : ''}
                         </div>
@@ -1015,12 +1015,12 @@ function SellPanel(props: {
                     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[10px]">
                       {isStatTrak(item) && <Chip text="ST" accent />}
                       {item.float !== null && (
-                        <span style={{ color: '#6c7290' }}>
+                        <span style={{ color: '#8b92b0' }}>
                           Float <span style={{ color: '#c0c4d8' }}>{item.float.toFixed(4)}</span>
                         </span>
                       )}
                       {item.paintSeed !== null && (
-                        <span style={{ color: '#6c7290' }}>
+                        <span style={{ color: '#8b92b0' }}>
                           Pattern <span style={{ color: '#c0c4d8' }}>{item.paintSeed}</span>
                         </span>
                       )}
@@ -1042,7 +1042,7 @@ function SellPanel(props: {
                     should not need scrolling or arithmetic. */}
                 <div className="grid grid-cols-2 gap-2 px-2.5 pb-2.5">
                   <div className="flex flex-col gap-1">
-                    <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>{t('sell.yourPrice')}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#8b92b0' }}>{t('sell.yourPrice')}</span>
                     {/* A row rather than a symbol laid over a padded
                         field: the padding only ever fits one symbol, and
                         `R$` and `zł` ran into the number. Same treatment
@@ -1054,7 +1054,7 @@ function SellPanel(props: {
                         border: `1px solid ${price && !valid ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
                       }}
                     >
-                      <span className="font-mono text-[11px] flex-shrink-0" style={{ color: '#6c7290' }}>
+                      <span className="font-mono text-[11px] flex-shrink-0" style={{ color: '#8b92b0' }}>
                         {symbolFor(money.currency)}
                       </span>
                       <input
@@ -1078,10 +1078,10 @@ function SellPanel(props: {
                   </div>
 
                   <div className="flex flex-col gap-1 min-w-0">
-                    <span className="font-mono text-[10px] uppercase tracking-wider truncate" style={{ color: '#6c7290' }}>
+                    <span className="font-mono text-[10px] uppercase tracking-wider truncate" style={{ color: '#8b92b0' }}>
                       {t('sell.youReceive')}
                       {props.feePercent !== null && (
-                        <span style={{ color: '#4a4f68' }}>{t('sell.feeShort', { fee: props.feePercent })}</span>
+                        <span style={{ color: '#7d84a3' }}>{t('sell.feeShort', { fee: props.feePercent })}</span>
                       )}
                     </span>
                     <div
@@ -1089,7 +1089,7 @@ function SellPanel(props: {
                       style={{
                         background: 'rgba(74,222,128,0.08)',
                         border: '1px solid rgba(74,222,128,0.2)',
-                        color: payout ? '#4ade80' : '#4a4f68',
+                        color: payout ? '#4ade80' : '#7d84a3',
                       }}
                     >
                       {payout ?? '—'}
@@ -1106,7 +1106,7 @@ function SellPanel(props: {
         {/* The lock is not a warning, it is a fact about what happens
             next: Valve holds the item for 7 days after the bot receives
             it, and the buyer sees that countdown on the listing. */}
-        <div className="flex items-start gap-1.5 font-mono text-[10px] leading-relaxed" style={{ color: '#6c7290' }}>
+        <div className="flex items-start gap-1.5 font-mono text-[10px] leading-relaxed" style={{ color: '#8b92b0' }}>
           <Lock className="w-3 h-3 mt-0.5 flex-shrink-0" />
           <span>
             {t('sell.tradeLock')}
@@ -1145,7 +1145,7 @@ function Notice({ title, body }: { title: string; body: string }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-2 py-16 text-center">
       <div className="font-display text-sm font-bold" style={{ color: '#e8eaf0' }}>{title}</div>
-      <div className="font-mono text-[11px] max-w-sm" style={{ color: '#6c7290' }}>{body}</div>
+      <div className="font-mono text-[11px] max-w-sm" style={{ color: '#8b92b0' }}>{body}</div>
     </div>
   );
 }
@@ -1191,7 +1191,7 @@ function FailureNotice({ failure, message, onRetry }: { failure: InventoryFailur
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-center">
       <div className="font-display text-sm font-bold" style={{ color: '#e8eaf0' }}>{title}</div>
-      <div className="font-mono text-[11px] max-w-sm" style={{ color: '#6c7290' }}>{body}</div>
+      <div className="font-mono text-[11px] max-w-sm" style={{ color: '#8b92b0' }}>{body}</div>
       {retry && (
         <button onClick={onRetry} className="px-4 py-1.5 rounded font-display text-xs font-semibold" style={{ background: 'rgba(255,255,255,0.07)', color: '#e8eaf0', border: '1px solid rgba(255,255,255,0.12)' }}>
           {t('sell.tryAgain')}

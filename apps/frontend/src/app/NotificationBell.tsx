@@ -116,7 +116,7 @@ export function NotificationBell({ reloadKey }: { reloadKey: number }) {
             </div>
 
             {items.length === 0 ? (
-              <div className="px-3 py-4 font-mono text-[11px]" style={{ color: '#6c7290' }}>
+              <div className="px-3 py-4 font-mono text-[11px]" style={{ color: '#8b92b0' }}>
                 Nothing yet.
               </div>
             ) : (
@@ -132,7 +132,7 @@ export function NotificationBell({ reloadKey }: { reloadKey: number }) {
                     </div>
                     <div
                       className="font-mono text-[9px] mt-1"
-                      style={{ color: '#6c7290' }}
+                      style={{ color: '#8b92b0' }}
                       title={new Date(n.createdAt).toLocaleString()}
                     >
                       {ago(n.createdAt)}
