@@ -9,34 +9,34 @@ import {
   type ReactNode,
 } from 'react';
 import { getExchangeRates } from './api';
+import {
+  fromUsdCents,
+  minimumMinor,
+  minorDigits,
+  minorToPlain,
+  parseMinor,
+  toUsdCents,
+} from './currency-math';
 import { activeLanguage } from './i18n';
 import { BASE_CURRENCY, isSupported } from './currencies';
 
 /**
  * Which currency prices are read in, and how to draw one.
  *
- * **This converts what an item is worth, never what someone is paid.**
- * Listings are priced in USD and settlement is USD or crypto; a number
- * that leaves or enters a balance stays in dollars and is formatted
- * without going through here. The split is deliberate: a screen that
- * quietly converted a payout would be quoting a figure the ledger has
- * never heard of.
+ * **Every figure on screen is in the reader's currency. Everything
+ * stored is in dollars.** The ledger is USD and settlement is USD or
+ * crypto, so the conversion happens at the edge — on the way to the
+ * screen, and on the way back from a field somebody typed into — and
+ * nowhere in between. A rate never reaches the database.
  *
- * **Market and Trade convert. Sell does not — for now.** Sell is where
- * a price gets set, in a field that sends dollars to the API, so every
- * figure on it exists to answer "what dollar price do I put here", and
- * a recommended price in reais beside an input in dollars is guidance
- * in the wrong unit. Half-converting that screen is worse than leaving
- * it whole.
+ * Two hooks, because they carry different risk. `useMoney` decorates a
+ * number that already exists and cannot be wrong by more than a
+ * rounding; `useMoneyEntry` decides what a seller is paid, and every
+ * function behind it has a test in `currency-math.spec.ts`.
  *
- * **The agreed destination is the other whole: Sell converts too,
- * including the input** — the seller types reais and we convert to
- * dollars on the way to the API. Decided 2026-09-06 and deliberately
- * deferred, because it turns a display concern into money entry: the
- * rate has to be pinned at the moment of typing (otherwise the dollars
- * sent are not the ones they saw), the rounding must not take a cent
- * off the seller, and the $0.02 minimum and its error message have to
- * convert with it. That wants its own tests, not a formatter.
+ * The rate is read once per session and held: it cannot move between
+ * somebody typing a price and that price being sent, which is the one
+ * way this could quote a figure and store another.
  *
  * A context rather than props because the price appears at every depth
  * of both grids, the trade bar, three modals and a hover popup —
@@ -53,6 +53,12 @@ interface CurrencyState {
   applyAccountDefault: (code: string) => void;
   /** USD -> selected. 1 while the rates are in flight, or for USD. */
   rate: number;
+  /**
+   * USD -> any currency, for the one job that needs a rate other than
+   * the current one: re-expressing a price already typed when the
+   * reader switches currency.
+   */
+  rateOf: (code: string) => number;
   /** True until the table has arrived, so a caller can hold a skeleton. */
   loading: boolean;
   /** A market price, drawn in the reader's currency and locale. */
@@ -66,6 +72,7 @@ const CurrencyContext = createContext<CurrencyState>({
   setCurrency: () => {},
   applyAccountDefault: () => {},
   rate: 1,
+  rateOf: () => 1,
   loading: false,
   money: (usd) => formatMoney(usd, BASE_CURRENCY, 'en'),
 });
@@ -190,11 +197,15 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     // reads `US$ 1.234,50`.
     const locale = activeLanguage();
 
+    const rateOf = (code: string) =>
+      code === BASE_CURRENCY ? 1 : (rates?.[code] ?? 1);
+
     return {
       currency,
       setCurrency,
       applyAccountDefault,
       rate,
+      rateOf,
       loading: rates === null,
       money: (usd: number) => formatMoney(usd * rate, currency, locale),
     };
@@ -209,6 +220,123 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
 export function useCurrency(): CurrencyState {
   return useContext(CurrencyContext);
+}
+
+/**
+ * A price already typed, restated in another currency.
+ *
+ * Used when the reader switches the picker with prices on the page.
+ * Leaving the text alone would turn a `100` meaning R$100 into a `100`
+ * meaning $100 the moment the label changed — a listing at five times
+ * its intended price, from a click that looked like a display setting.
+ *
+ * Through dollars, because that is the only scale the two share, and
+ * the drift that costs is bounded and tested in `currency-math.spec`.
+ */
+export function repriceText(
+  text: string,
+  from: string,
+  to: string,
+  rateOf: (code: string) => number,
+): string | null {
+  const fromDigits = minorDigits(from);
+  const minor = parseMinor(text, fromDigits);
+  if (minor === null) return null;
+
+  const cents = toUsdCents(minor, fromDigits, rateOf(from));
+  const toDigits = minorDigits(to);
+
+  return minorToPlain(fromUsdCents(cents, toDigits, rateOf(to)), toDigits);
+}
+
+/**
+ * Everything a price field needs to work in the reader's currency and
+ * still hand the API dollars.
+ *
+ * Kept apart from `useMoney` because these are different jobs with
+ * different stakes. That one decorates a number that already exists;
+ * this one decides what a seller is paid, and every function here has
+ * a test behind it in `currency-math.spec.ts`.
+ */
+export function useMoneyEntry() {
+  const { currency, rate, rateOf, loading } = useCurrency();
+  const locale = activeLanguage();
+
+  // Memoised because callers put it in dependency arrays. A fresh
+  // object every render would make the Sell page re-sort its whole
+  // inventory on every keystroke.
+  return useMemo(() => {
+    const digits = minorDigits(currency);
+
+    return {
+    currency,
+    rateOf,
+    digits,
+
+    /**
+     * False until the rate table has arrived. A field that accepted a
+     * price at a rate of 1 would convert R$100 into $100 — so the entry
+     * waits rather than guessing, and only for the first moment of the
+     * session.
+     */
+    ready: !loading,
+
+    /** What was typed, as US cents. Null when it is not a price. */
+    toUsdCents(text: string): number | null {
+      const minor = parseMinor(text, digits);
+
+      return minor === null ? null : toUsdCents(minor, digits, rate);
+    },
+
+    /** What was typed, as the API wants it: a USD decimal string. */
+    toUsdString(text: string): string | null {
+      const cents = this.toUsdCents(text);
+
+      return cents === null ? null : minorToPlain(cents, 2);
+    },
+
+    /**
+     * A price the seller typed, drawn back.
+     *
+     * From their own text, never through dollars: R$100 stored as
+     * $19.50 comes back as R$99.98, and a field that corrects what
+     * somebody just typed by two centavos is the screen arguing with
+     * them.
+     */
+    formatTyped(text: string): string | null {
+      const minor = parseMinor(text, digits);
+
+      return minor === null
+        ? null
+        : formatMoney(minor / 10 ** digits, currency, locale);
+    },
+
+    /** A figure we hold in dollars — a payout, a market price. */
+    formatUsdCents(cents: number): string {
+      return formatMoney(
+        fromUsdCents(cents, digits, rate) / 10 ** digits,
+        currency,
+        locale,
+      );
+    },
+
+    /** The floor, in this currency, as the reader would type it. */
+    minimum(minUsdCents: number): string {
+      return formatMoney(
+        minimumMinor(minUsdCents, digits, rate) / 10 ** digits,
+        currency,
+        locale,
+      );
+    },
+
+    /** Whether what was typed clears the platform's floor. */
+      meetsMinimum(text: string, minUsdCents: number): boolean {
+        const cents = this.toUsdCents(text);
+
+        return cents !== null && cents >= minUsdCents;
+      },
+    };
+  }, [currency, rate, rateOf, loading, locale]);
 }
 
 /** Just the formatter, for the many places that only draw a price. */

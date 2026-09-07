@@ -141,14 +141,14 @@
     "youReceive": "You receive",
     "afterFee": " · after {{fee}}% fee",
     "feeShort": " · {{fee}}%",
-    "minimum": "The lowest an item can be listed for is ${{amount}}.",
+    "minimum": "The lowest an item can be listed for is {{amount}}.",
     "part": {
       "skin": "Skin",
       "stickers": "Stickers",
       "charm": "Charm"
     },
     "noMarket": "No market carries this one, so there is nothing to compare against. The price is yours to decide.",
-    "instantSell": "SELL INSTANTLY · ${{amount}}",
+    "instantSell": "SELL INSTANTLY · {{amount}}",
     "tradeLock": "Valve locks traded items for 7 days. Your listing goes up straight away, showing the days left; buyers choose knowing that.",
     "noTradeUrl": "Your account has no trade URL yet — without it the Trade Bot cannot send you the offer.",
     "sending": "SENDING…",

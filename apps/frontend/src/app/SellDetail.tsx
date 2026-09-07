@@ -9,7 +9,9 @@ import {
   useAppliedHover,
   type AppliedValue,
 } from './AppliedPopup';
-import { fromCents, payoutAfterFee, toCents, usd } from '@/lib/money';
+import { payoutCentsAfterFee } from '@/lib/money';
+import { useMoneyEntry } from '@/lib/use-currency';
+import { symbolFor } from '@/lib/currencies';
 import { rarityStyle } from '@/lib/rarity';
 import { useSuggestion } from '@/lib/use-suggestion';
 import {
@@ -68,6 +70,7 @@ export function SellDetail({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const money = useMoneyEntry();
 
   // Starts on the history, which is the slot the design has always had
   // here. The description is the other half of the same panel rather
@@ -135,7 +138,10 @@ export function SellDetail({
 
   const hover = useAppliedHover();
 
-  const cents = toCents(price);
+  // The field is in the reader's currency; `cents` is what it converts
+  // to, and every rule below is stated in dollars because that is what
+  // the backend enforces.
+  const cents = money.toUsdCents(price);
   const priced = cents !== null && cents >= minimumCents;
 
   /**
@@ -147,7 +153,9 @@ export function SellDetail({
   const tooLow = cents !== null && cents > 0 && cents < minimumCents;
 
   const payout =
-    priced && feePercent !== null ? payoutAfterFee(price, feePercent) : null;
+    priced && cents !== null && feePercent !== null
+      ? money.formatUsdCents(payoutCentsAfterFee(cents, feePercent))
+      : null;
 
   return (
     <AppliedValueProvider value={valueOf}>
@@ -246,7 +254,7 @@ export function SellDetail({
                           className="font-mono text-[11px] font-semibold"
                           style={{ color: part?.own ? '#e8eaf0' : '#4a4f68' }}
                         >
-                          {part?.own ? usd(Number(part.own)) : '—'}
+                          {part?.own ? money.formatUsdCents(Math.round(Number(part.own) * 100)) : '—'}
                         </div>
 
                         {/* And what it actually adds to this weapon,
@@ -256,7 +264,7 @@ export function SellDetail({
                             transfer rates could. */}
                         {part && (
                           <div className="font-mono text-[11px] font-semibold" style={{ color: '#4ade80' }}>
-                            +{usd(Number(part.adds))}
+                            +{money.formatUsdCents(Math.round(Number(part.adds) * 100))}
                           </div>
                         )}
                       </div>
@@ -403,7 +411,7 @@ export function SellDetail({
                   className="font-mono text-base font-semibold"
                   style={{ color: breakdown ? '#e8eaf0' : '#4a4f68' }}
                 >
-                  {breakdown ? usd(Number(breakdown.suggested)) : '—'}
+                  {breakdown ? money.formatUsdCents(Math.round(Number(breakdown.suggested) * 100)) : '—'}
                 </span>
               </div>
 
@@ -420,15 +428,15 @@ export function SellDetail({
                   arithmetic is checkable. */}
               {breakdown && !breakdown.atMinimum && applied.length > 0 && (
                 <div className="flex flex-col gap-1 mb-3">
-                  <Part label={t('sell.part.skin')} value={usd(Number(breakdown.base))} />
+                  <Part label={t('sell.part.skin')} value={money.formatUsdCents(Math.round(Number(breakdown.base) * 100))} />
                   {Number(breakdown.stickers) > 0 && (
                     <Part
                       label={t('sell.part.stickers')}
-                      value={`+${usd(Number(breakdown.stickers))}`}
+                      value={`+${money.formatUsdCents(Math.round(Number(breakdown.stickers) * 100))}`}
                     />
                   )}
                   {Number(breakdown.charms) > 0 && (
-                    <Part label={t('sell.part.charm')} value={`+${usd(Number(breakdown.charms))}`} />
+                    <Part label={t('sell.part.charm')} value={`+${money.formatUsdCents(Math.round(Number(breakdown.charms) * 100))}`} />
                   )}
                 </div>
               )}
@@ -452,7 +460,7 @@ export function SellDetail({
                   {t('sell.yourPrice')}
                 </div>
                 <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-sm" style={{ color: '#6c7290' }}>$</span>
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-sm" style={{ color: '#6c7290' }}>{symbolFor(money.currency)}</span>
                   {/* The border is set inline and changes colour on an
                       invalid price, so hover and focus are a ring
                       instead — a separate shadow that composes with it
@@ -465,7 +473,8 @@ export function SellDetail({
                     value={price}
                     onChange={(e) => onPriceChange(e.target.value)}
                     inputMode="decimal"
-                    placeholder="0.00"
+                    placeholder={money.digits === 0 ? '0' : '0.00'}
+                    disabled={!money.ready}
                     autoFocus
                     className="w-full pl-6 pr-2 py-2 rounded font-mono text-base font-semibold transition-shadow focus:outline-none hover:ring-1 hover:ring-white/20 focus:ring-2 focus:ring-[#f0c040]/50"
                     style={{
@@ -478,7 +487,7 @@ export function SellDetail({
 
                 {tooLow && (
                   <div className="font-mono text-[11px] leading-relaxed mt-1.5" style={{ color: '#e84060' }}>
-                    {t('sell.minimum', { amount: fromCents(minimumCents) })}
+                    {t('sell.minimum', { amount: money.minimum(minimumCents) })}
                   </div>
                 )}
               </div>
@@ -494,7 +503,7 @@ export function SellDetail({
                   className="w-full px-2.5 py-2 rounded font-mono text-base font-semibold"
                   style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: payout ? '#4ade80' : '#4a4f68' }}
                 >
-                  {payout ? `$${payout}` : '—'}
+                  {payout ?? '—'}
                 </div>
               </div>
 
@@ -548,6 +557,7 @@ function InstantSell({
   notice: string | null;
 }) {
   const { t } = useTranslation();
+  const money = useMoneyEntry();
 
   // No offer says nothing at all, whatever the reason for it — the
   // absent button is the whole message, and the grid already leaves the
@@ -567,7 +577,9 @@ function InstantSell({
         className="w-full py-2.5 rounded font-display text-[13px] font-bold tracking-wide cursor-pointer transition-all duration-150 hover:brightness-110 hover:shadow-[0_0_18px_rgba(74,222,128,0.35)] active:translate-y-px active:brightness-95"
         style={{ background: '#4ade80', color: '#08090d' }}
       >
-        {t('sell.instantSell', { amount: buyout.amount })}
+        {t('sell.instantSell', {
+          amount: money.formatUsdCents(Math.round(Number(buyout.amount) * 100)),
+        })}
       </button>
 
       {notice && (

@@ -72,10 +72,26 @@ export function payoutAfterFee(
   const cents = toCents(price);
   if (cents === null) return null;
 
+  return fromCents(payoutCentsAfterFee(cents, feePercent));
+}
+
+/**
+ * The same rule, in cents both ways.
+ *
+ * The screen holds a price in whatever currency it was typed in, so it
+ * arrives here already converted to US cents rather than as a string —
+ * and the answer has to go back out as cents to be converted again for
+ * display. Formatting it to `"18.53"` in between only to parse it back
+ * would be two conversions doing nothing.
+ */
+export function payoutCentsAfterFee(
+  cents: number,
+  feePercent: number,
+): number {
   const fee = Math.max(
     MINIMUM_FEE_CENTS,
     Math.floor((cents * feePercent) / 100),
   );
 
-  return fromCents(cents - fee);
+  return cents - fee;
 }

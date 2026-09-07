@@ -42,3 +42,15 @@ export const BASE_CURRENCY = 'USD';
 export function isSupported(code: string): boolean {
   return CURRENCIES.some((c) => c.code === code);
 }
+
+/**
+ * The symbol to sit inside a price field.
+ *
+ * The field cannot be formatted by `Intl` while somebody is typing in
+ * it, so the symbol is drawn beside it and this is where it comes from.
+ * Falls back to the code, which is what `Intl` itself does for a
+ * currency with no short form.
+ */
+export function symbolFor(code: string): string {
+  return CURRENCIES.find((c) => c.code === code)?.symbol ?? code;
+}

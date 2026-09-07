@@ -11,7 +11,9 @@ import {
   type ItemPrice,
   type PlatformConfig,
 } from '@/lib/api';
-import { fromCents, payoutAfterFee, toCents } from '@/lib/money';
+import { payoutCentsAfterFee, toCents } from '@/lib/money';
+import { repriceText, useMoneyEntry } from '@/lib/use-currency';
+import { symbolFor } from '@/lib/currencies';
 import { rarityStyle } from '@/lib/rarity';
 import { usePrices } from '@/lib/use-prices';
 import {
@@ -51,6 +53,12 @@ export function SellPage({
   onDeposited: () => void;
 }) {
   const { t } = useTranslation();
+
+  // Prices are typed and shown in the reader's currency; the API is
+  // handed dollars. Everything that crosses that seam goes through
+  // here, which is the only place that knows the rate.
+  const money = useMoneyEntry();
+
   const inventory = useInventory(signedIn);
 
   const [search, setSearch] = useState('');
@@ -60,6 +68,36 @@ export function SellPage({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [detailFor, setDetailFor] = useState<string | null>(null);
+
+  /**
+   * Re-expresses every typed price when the currency changes.
+   *
+   * The field holds what the seller typed, in the currency they typed
+   * it in — so switching from reais to dollars without this would leave
+   * a `100` meaning R$100 sitting in a field now labelled `$`, and a
+   * listing a hundred times its intended price. Converted through
+   * dollars, which is the only scale both sides share.
+   *
+   * Skipped on the first run: there is nothing typed yet, and the rate
+   * table may not have arrived.
+   */
+  const lastCurrency = useRef(money.currency);
+
+  useEffect(() => {
+    const from = lastCurrency.current;
+    if (from === money.currency || !money.ready) return;
+
+    lastCurrency.current = money.currency;
+
+    setPrices((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).map(([assetId, text]) => [
+          assetId,
+          repriceText(text, from, money.currency, money.rateOf) ?? text,
+        ]),
+      ),
+    );
+  }, [money]);
 
   // Why the instant-sell button did nothing. Lives here rather than in
   // the modal because the reason is a fact about the platform, not about
@@ -159,8 +197,12 @@ export function SellPage({
     // typed would leave "Highest Price" ordering the two items you had
     // already priced and calling the other two hundred a tie.
     const priceOf = (i: InventoryItem) => {
-      const p = prices[i.assetId];
-      if (isValidPrice(p, minimumCents)) return Number(p);
+      const typed = money.toUsdCents(prices[i.assetId] ?? '');
+
+      // In dollars, always: an order that mixed the typed figure in
+      // reais with the market's in dollars would put a R$5 sticker
+      // above a $600 knife.
+      if (typed !== null && typed >= minimumCents) return typed / 100;
 
       return market.prices[i.marketHashName]?.ask ?? null;
     };
@@ -228,7 +270,7 @@ export function SellPage({
 
   /** Every selected item needs a price above zero before this can go. */
   const priced = selectedItems.every((i) =>
-    isValidPrice(prices[i.assetId], minimumCents),
+    money.meetsMinimum(prices[i.assetId] ?? '', minimumCents),
   );
   const canSubmit =
     hasTradeUrl && selectedItems.length > 0 && priced && !submitting;
@@ -238,10 +280,12 @@ export function SellPage({
     setSubmitError(null);
 
     try {
+      // Converted here and nowhere else. The API takes USD, the field
+      // held reais, and this is the last point where both are in view.
       await requestDeposit(
         selectedItems.map((i) => ({
           assetId: i.assetId,
-          price: prices[i.assetId],
+          price: money.toUsdString(prices[i.assetId] ?? '') ?? '0',
         })),
       );
 
@@ -552,25 +596,6 @@ function InstantSellTip({ anchor }: { anchor: DOMRect }) {
 const INSTANT_SELL_NOT_OPEN = 'sell.instantNotOpen';
 
 /**
- * Prices are strings all the way to the API — a JSON number is a float,
- * and this is money. Up to two decimals, and at least the minimum the
- * backend will accept.
- *
- * The minimum is passed in rather than fixed here: it is derived from
- * the commission and served on GET /api/config, and a copy in this file
- * would let the screen accept a price the server refuses.
- */
-function isValidPrice(
-  value: string | undefined,
-  minimumCents: number,
-): boolean {
-  if (!value || !/^\d+(\.\d{1,2})?$/.test(value)) return false;
-
-  const cents = toCents(value);
-  return cents !== null && cents >= minimumCents;
-}
-
-/**
  * A column of applied items — stickers on one side, a charm on the
  * other.
  *
@@ -657,6 +682,14 @@ function AppliedStack({
  */
 function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpen }: { item: InventoryItem; selected: boolean; price: string | undefined; market: ItemPrice | undefined; /** The lowest price the backend will accept, in cents. */ minimumCents: number; onToggle: () => void; onOpen: () => void }) {
   const { t } = useTranslation();
+  const money = useMoneyEntry();
+
+  // The asking price the seller set, if it clears the floor. Null keeps
+  // the card on the market's figure, like every unpriced card near it.
+  const typed = money.meetsMinimum(price ?? '', minimumCents)
+    ? money.formatTyped(price ?? '')
+    : null;
+
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
@@ -745,17 +778,19 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
               the price with it, so a card never keeps a number whose
               origin has scrolled out of the story.
 
-              Shown through cents rather than as typed, so the column
-              reads as prices: "5" becomes 5.00, "42.5" becomes 42.50,
-              and "0100" becomes 100.00 instead of $0100. The stored
-              value stays exactly what was typed — this is display. */}
-          {isValidPrice(price, minimumCents) ? (
+              Formatted rather than shown as typed, so the column reads
+              as prices: "5" becomes 5.00, "42,5" becomes 42,50. Drawn
+              from the seller's own text and never back through dollars
+              — R$100 stored as $19.50 returns as R$99.98, and a card
+              that corrects what somebody typed by two centavos is the
+              screen arguing with them. */}
+          {typed ? (
             <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#f0f2f8' }}>
-              ${fromCents(toCents(price)!)}
+              {typed}
             </div>
           ) : market ? (
             <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#9da3c0' }}>
-              ${market.ask.toFixed(2)}
+              {money.formatUsdCents(Math.round(market.ask * 100))}
             </div>
           ) : (
             <div className="font-mono font-semibold text-sm leading-none" style={{ color: '#4a4f68' }}>
@@ -896,6 +931,7 @@ function SellPanel(props: {
   onSubmit: () => void;
 }) {
   const { t } = useTranslation();
+  const money = useMoneyEntry();
 
   return (
     <>
@@ -919,10 +955,17 @@ function SellPanel(props: {
             const r = rarityStyle(rarityKeyForItem(item));
             const price = props.prices[item.assetId] ?? '';
 
-            const valid = isValidPrice(price, props.minimumCents);
+            const cents = money.toUsdCents(price);
+            const valid = cents !== null && cents >= props.minimumCents;
+
+            // Through dollars on purpose: the payout is ours to compute,
+            // the commission is a rule in cents, and the reader sees the
+            // answer back in their own currency.
             const payout =
               valid && props.feePercent !== null
-                ? payoutAfterFee(price, props.feePercent)
+                ? money.formatUsdCents(
+                    payoutCentsAfterFee(cents, props.feePercent),
+                  )
                 : null;
 
             return (
@@ -1001,12 +1044,12 @@ function SellPanel(props: {
                   <div className="flex flex-col gap-1">
                     <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: '#6c7290' }}>{t('sell.yourPrice')}</span>
                     <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[10px]" style={{ color: '#6c7290' }}>$</span>
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[10px]" style={{ color: '#6c7290' }}>{symbolFor(money.currency)}</span>
                       <input
                         value={price}
                         onChange={(e) => props.setPrice(item.assetId, e.target.value)}
                         inputMode="decimal"
-                        placeholder="0.00"
+                        placeholder={money.digits === 0 ? '0' : '0.00'}
                         className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs font-semibold focus:outline-none"
                         style={{
                           background: 'rgba(255,255,255,0.06)',
@@ -1032,7 +1075,7 @@ function SellPanel(props: {
                         color: payout ? '#4ade80' : '#4a4f68',
                       }}
                     >
-                      {payout ? `$${payout}` : '—'}
+                      {payout ?? '—'}
                     </div>
                   </div>
                 </div>

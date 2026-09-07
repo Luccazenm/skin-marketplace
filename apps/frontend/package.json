@@ -6,7 +6,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -76,7 +77,8 @@
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
     "typescript": "^5.9.3",
-    "vite": "6.3.5"
+    "vite": "6.3.5",
+    "vitest": "^3.2.7"
   },
   "peerDependencies": {
     "react": "18.3.1",
