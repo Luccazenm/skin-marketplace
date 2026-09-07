@@ -483,6 +483,13 @@ export function SellDetail({
                   <input
                     value={price}
                     onChange={(e) => onPriceChange(e.target.value)}
+                    // Settled when the field is left, not while it is
+                    // being typed in: R$100 is stored as $19.50, which
+                    // is R$99.98, and the field showing R$100 would be
+                    // the last place still quoting a figure we did not
+                    // keep. Rewriting between keystrokes would make it
+                    // unusable, so it waits for blur.
+                    onBlur={() => onPriceChange(money.settle(price) ?? price)}
                     inputMode="decimal"
                     placeholder={money.digits === 0 ? '0' : '0.00'}
                     disabled={!money.ready}

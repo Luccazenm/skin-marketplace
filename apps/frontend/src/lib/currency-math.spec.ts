@@ -127,8 +127,12 @@ describe('fromUsdCents', () => {
   /**
     * Note the two centavos. R$100 becomes $19.50 becomes R$99.98: the
     * dollar has only two decimals, so it cannot carry every real back.
-    * This is why a price the seller typed is never redrawn through
-    * dollars — the field's own text is what the screen shows.
+    *
+    * **R$99.98 is what the screen shows**, including in the field once
+    * it is left. The listing is $19.50 and $19.50 is R$99.98; showing
+    * the R$100 that was typed would quote a figure we did not keep,
+    * and those two centavos would come back as a support ticket the
+    * first time a seller checked.
     */
   it('shows a dollar figure in reais, losing what the cent cannot hold', () => {
     expect(fromUsdCents(1950, 2, BRL)).toBe(9998);
@@ -140,17 +144,19 @@ describe('fromUsdCents', () => {
 });
 
 /**
- * How far a round trip can drift, and why the screen never shows it.
+ * How far a round trip drifts, and why the screen shows it rather than
+ * hiding it.
  *
  * Storing in dollars means the cent is the resolution: at 5.13 reais to
  * the dollar, one cent is five centavos, and no amount of care recovers
  * what falls between. The bound is half a cent's worth of local
  * currency from the first rounding plus half a unit from the second.
  *
- * The UI is built so this never reaches a reader: the price a seller
- * typed is displayed from their own text, and only figures we compute
- * — the payout — come back through dollars. These tests pin the size of
- * the gap so that stops being an assumption.
+ * The rounding cannot be removed, so it is disclosed: every figure the
+ * seller reads is the converted-back value, the field included. Two
+ * centavos explained on screen cost nothing; two centavos discovered
+ * later cost a support ticket and some trust. These tests pin the size
+ * of the gap so it stops being an assumption.
  */
 describe('round trip', () => {
   it.each([

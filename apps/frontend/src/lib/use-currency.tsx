@@ -296,19 +296,37 @@ export function useMoneyEntry() {
     },
 
     /**
-     * A price the seller typed, drawn back.
+     * What a typed price will actually be, drawn back.
      *
-     * From their own text, never through dollars: R$100 stored as
-     * $19.50 comes back as R$99.98, and a field that corrects what
-     * somebody just typed by two centavos is the screen arguing with
-     * them.
+     * **Through dollars, on purpose.** R$100 is stored as $19.50, and
+     * $19.50 is R$99.98 — so R$99.98 is what the listing is worth and
+     * what the seller should see. Showing the R$100 they typed would
+     * be the screen quoting a figure we did not keep, and the two
+     * centavos would turn up later as a support ticket.
+     *
+     * The cent is the resolution and nothing recovers what falls
+     * between; the honest answer is to show the result rather than
+     * hide the rounding.
      */
     formatTyped(text: string): string | null {
-      const minor = parseMinor(text, digits);
+      const cents = this.toUsdCents(text);
 
-      return minor === null
-        ? null
-        : formatMoney(minor / 10 ** digits, currency, locale);
+      return cents === null ? null : this.formatUsdCents(cents);
+    },
+
+    /**
+     * The same value as the field should hold it: what was typed,
+     * settled into what will be stored.
+     *
+     * Applied when the field is left, not while it is being typed in —
+     * rewriting `10` to `9.98` between two keystrokes would make the
+     * field unusable.
+     */
+    settle(text: string): string | null {
+      const cents = this.toUsdCents(text);
+      if (cents === null) return null;
+
+      return minorToPlain(fromUsdCents(cents, digits, rate), digits);
     },
 
     /** A figure we hold in dollars — a payout, a market price. */

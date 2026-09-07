@@ -1060,6 +1060,15 @@ function SellPanel(props: {
                       <input
                         value={price}
                         onChange={(e) => props.setPrice(item.assetId, e.target.value)}
+                        // See the detail modal's field: the typed
+                        // figure settles into what will actually be
+                        // stored once the field is left.
+                        onBlur={() =>
+                          props.setPrice(
+                            item.assetId,
+                            money.settle(price) ?? price,
+                          )
+                        }
                         inputMode="decimal"
                         placeholder={money.digits === 0 ? '0' : '0.00'}
                         className="w-full min-w-0 bg-transparent border-0 p-0 font-mono text-xs font-semibold focus:outline-none"
