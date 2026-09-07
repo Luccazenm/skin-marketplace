@@ -80,20 +80,27 @@ describe('InventoryService', () => {
     // this suite needs is created here, matching the real shape — weapon
     // and float range included, because the CHECK constraints require
     // them for a skinned weapon.
+    // The same fields on both sides, rather than `update: {}`. A row
+    // left over from an earlier run would otherwise keep whatever shape
+    // it had then, and a field added to this seed would never reach the
+    // database — the suite failing on a value it appears to set right
+    // here, which is exactly what happened when `flavorText` arrived.
+    const template = {
+      rarity: 'Classified',
+      category: ItemCategory.RIFLE,
+      weapon: 'AK-47',
+      skinName: 'Redline',
+      collections: ['The Phoenix Collection'],
+      description: 'It has been custom painted with a hot rod flame job.',
+      flavorText: 'Custom paint, custom problems',
+      minFloat: 0.1,
+      maxFloat: 0.7,
+    };
+
     await prisma.skinTemplate.upsert({
       where: { marketHashName: fakeItem.marketHashName },
-      update: {},
-      create: {
-        marketHashName: fakeItem.marketHashName,
-        rarity: 'Classified',
-        category: ItemCategory.RIFLE,
-        weapon: 'AK-47',
-        skinName: 'Redline',
-        collections: ['The Phoenix Collection'],
-        description: 'It has been custom painted with a hot rod flame job.',
-        minFloat: 0.1,
-        maxFloat: 0.7,
-      },
+      update: template,
+      create: { marketHashName: fakeItem.marketHashName, ...template },
     });
   });
 
@@ -230,6 +237,7 @@ describe('InventoryService', () => {
         skinName: 'Redline',
         collections: ['The Phoenix Collection'],
         description: 'It has been custom painted with a hot rod flame job.',
+        flavorText: 'Custom paint, custom problems',
       });
     });
 

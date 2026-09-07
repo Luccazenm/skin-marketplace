@@ -219,6 +219,8 @@ export interface CatalogFacts {
   skinName: string | null;
   collections: string[];
   description: string | null;
+  /** Valve's closing line, in italics. Absent on about half the catalog. */
+  flavorText: string | null;
 }
 
 /** One item in the user's Steam inventory. */

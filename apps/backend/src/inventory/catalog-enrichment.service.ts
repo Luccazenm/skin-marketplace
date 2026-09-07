@@ -12,6 +12,16 @@ export interface CatalogFacts {
   collections: string[];
   /** The model's description, without HTML. */
   description: string | null;
+  /**
+   * The italic line Valve closes the description with — "That's one way
+   * to get their attention…".
+   *
+   * Kept apart from `description` rather than glued to the end of it,
+   * because it is flavour and not information: the screen sets it in
+   * italics and can leave it out, and only about half the catalog has
+   * one.
+   */
+  flavorText: string | null;
 }
 
 /** An inventory item with whatever the catalog could add to it. */
@@ -59,6 +69,7 @@ export class CatalogEnrichmentService {
         skinName: true,
         collections: true,
         description: true,
+        flavorText: true,
       },
     });
 
@@ -80,6 +91,7 @@ export class CatalogEnrichmentService {
               skinName: template.skinName,
               collections: template.collections,
               description: template.description,
+              flavorText: template.flavorText,
             }
           : null,
       };

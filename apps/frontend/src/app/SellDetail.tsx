@@ -1,3 +1,4 @@
+import { Fragment, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { X, Package } from 'lucide-react';
@@ -67,6 +68,13 @@ export function SellDetail({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+
+  // Starts on the history, which is the slot the design has always had
+  // here. The description is the other half of the same panel rather
+  // than a second one below it: both answer "what am I looking at",
+  // and stacking them would push the price out of view.
+  const [tab, setTab] = useState<'history' | 'description'>('history');
+
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
@@ -238,32 +246,68 @@ export function SellDetail({
             )}
 
             <div className="px-5 pb-5">
-              <div className="font-mono text-[12px] uppercase tracking-wider mb-1" style={{ color: r.color }}>
-                {t('item.history')}
+              {/* Two headings, not two buttons in a box: they sit where
+                  the single "HISTORY" label sat, and the separator is
+                  the whole affordance. The inactive one is dimmed to the
+                  colour every muted label on this screen uses, so the
+                  pair reads as one line with one of them chosen. */}
+              <div className="flex items-center gap-2 mb-1">
+                {(['history', 'description'] as const).map((name, i) => (
+                  <Fragment key={name}>
+                    {i > 0 && (
+                      <span
+                        className="font-mono text-[12px]"
+                        style={{ color: '#3a3f55' }}
+                        aria-hidden
+                      >
+                        /
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setTab(name)}
+                      aria-pressed={tab === name}
+                      className="font-mono text-[12px] uppercase tracking-wider transition-colors cursor-pointer"
+                      style={{ color: tab === name ? r.color : '#4a4f68' }}
+                    >
+                      {t(`item.${name}`)}
+                    </button>
+                  </Fragment>
+                ))}
               </div>
-              <div className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: '#6c7290' }}>
-                {t('item.priceHistory')}
-              </div>
-              {/* The frame, with nothing in it yet. Every price read on
-                  this screen is being stored, so the series is being
-                  built from today forward — but nobody can build one
-                  backwards, and drawing a line through four hours of
-                  readings and calling it 30 days would be a lie with a
-                  chart around it. */}
-              <div className="relative" style={{ height: 140 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={[]}>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#3a3f55' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#3a3f55' }} axisLine={false} tickLine={false} width={28} />
-                    <Line type="monotone" dataKey="price" stroke={r.color} strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="font-mono text-[12px]" style={{ color: '#4a4f68' }}>
-                    {t('item.buildingSeries')}
-                  </span>
-                </div>
-              </div>
+
+              {tab === 'history' ? (
+                <>
+                  <div className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: '#6c7290' }}>
+                    {t('item.priceHistory')}
+                  </div>
+                  {/* The frame, with nothing in it yet. Every price read on
+                      this screen is being stored, so the series is being
+                      built from today forward — but nobody can build one
+                      backwards, and drawing a line through four hours of
+                      readings and calling it 30 days would be a lie with a
+                      chart around it. */}
+                  <div className="relative" style={{ height: 140 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={[]}>
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#3a3f55' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 9, fill: '#3a3f55' }} axisLine={false} tickLine={false} width={28} />
+                        <Line type="monotone" dataKey="price" stroke={r.color} strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="font-mono text-[12px]" style={{ color: '#4a4f68' }}>
+                        {t('item.buildingSeries')}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <Description
+                  text={item.catalog?.description ?? null}
+                  flavor={item.catalog?.flavorText ?? null}
+                  emptyLabel={t('item.noDescription')}
+                />
+              )}
             </div>
           </div>
 
@@ -518,6 +562,51 @@ function InstantSell({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Valve's own words about the model.
+ *
+ * **English, in every language.** The text is Valve's, the CS2 client
+ * localises it and our dataset carries only the English — so the choice
+ * was between English everywhere and nothing outside English. It falls
+ * under the same rule as the weapon names: their words, not ours.
+ *
+ * The flavour line is set apart in italics because that is what it is —
+ * a joke at the end, not a fact about the skin — and roughly half the
+ * catalog has none, so it is absent rather than empty when missing.
+ */
+function Description({
+  text,
+  flavor,
+  emptyLabel,
+}: {
+  text: string | null;
+  flavor: string | null;
+  emptyLabel: string;
+}) {
+  if (!text && !flavor) {
+    return (
+      <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
+        {emptyLabel}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3" style={{ minHeight: 140 }}>
+      {text && (
+        <p className="font-mono text-[12px] leading-relaxed" style={{ color: '#9da3c0' }}>
+          {text}
+        </p>
+      )}
+      {flavor && (
+        <p className="font-mono text-[12px] italic leading-relaxed" style={{ color: '#6c7290' }}>
+          {flavor}
+        </p>
+      )}
+    </div>
   );
 }
 

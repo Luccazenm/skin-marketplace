@@ -175,6 +175,8 @@
     "volume": "Volume",
     "applied": "Aplicados",
     "history": "Histórico",
+    "description": "Descrição",
+    "noDescription": "A Valve não dá descrição para este item.",
     "priceHistory": "Preço nos últimos 30 dias",
     "buildingSeries": "Montando a série — ainda faltam dias",
     "untouched": "Intacto",
