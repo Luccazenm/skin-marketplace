@@ -75,6 +75,27 @@ export function SellDetail({
   // and stacking them would push the price out of view.
   const [tab, setTab] = useState<'history' | 'description'>('history');
 
+  const description = item.catalog?.description ?? null;
+  const flavor = item.catalog?.flavorText ?? null;
+
+  /**
+   * Whether there is a second tab at all.
+   *
+   * A fifth of a real inventory has no text: cases, souvenir packages
+   * and medals, plus anything Valve shipped before the dataset caught
+   * up. Offering the tab and then apologising inside it is worse than
+   * not offering it — the heading goes back to being one word.
+   */
+  const hasDescription = Boolean(description || flavor);
+
+  /**
+   * Derived, not stored. The modal is reused between items rather than
+   * remounted, so a reader who opened Description on a rifle and then
+   * opened a case would otherwise be left on a tab that is no longer
+   * there, looking at nothing.
+   */
+  const active = hasDescription ? tab : 'history';
+
   const r = rarityStyle(rarityKeyForItem(item));
   const stickers = stickersOf(item);
   const charms = charmsOf(item);
@@ -252,7 +273,10 @@ export function SellDetail({
                   colour every muted label on this screen uses, so the
                   pair reads as one line with one of them chosen. */}
               <div className="flex items-center gap-2 mb-1">
-                {(['history', 'description'] as const).map((name, i) => (
+                {(hasDescription
+                  ? (['history', 'description'] as const)
+                  : (['history'] as const)
+                ).map((name, i) => (
                   <Fragment key={name}>
                     {i > 0 && (
                       <span
@@ -265,9 +289,10 @@ export function SellDetail({
                     )}
                     <button
                       onClick={() => setTab(name)}
-                      aria-pressed={tab === name}
-                      className="font-mono text-[12px] uppercase tracking-wider transition-colors cursor-pointer"
-                      style={{ color: tab === name ? r.color : '#4a4f68' }}
+                      aria-pressed={active === name}
+                      disabled={!hasDescription}
+                      className="font-mono text-[12px] uppercase tracking-wider transition-colors enabled:cursor-pointer"
+                      style={{ color: active === name ? r.color : '#4a4f68' }}
                     >
                       {t(`item.${name}`)}
                     </button>
@@ -275,7 +300,7 @@ export function SellDetail({
                 ))}
               </div>
 
-              {tab === 'history' ? (
+              {active === 'history' ? (
                 <>
                   <div className="font-mono text-[11px] uppercase tracking-wider mb-3" style={{ color: '#6c7290' }}>
                     {t('item.priceHistory')}
@@ -302,11 +327,7 @@ export function SellDetail({
                   </div>
                 </>
               ) : (
-                <Description
-                  text={item.catalog?.description ?? null}
-                  flavor={item.catalog?.flavorText ?? null}
-                  emptyLabel={t('item.noDescription')}
-                />
+                <Description text={description} flavor={flavor} />
               )}
             </div>
           </div>
@@ -580,20 +601,12 @@ function InstantSell({
 function Description({
   text,
   flavor,
-  emptyLabel,
 }: {
   text: string | null;
   flavor: string | null;
-  emptyLabel: string;
 }) {
-  if (!text && !flavor) {
-    return (
-      <div className="font-mono text-[12px] leading-relaxed" style={{ color: '#4a4f68' }}>
-        {emptyLabel}
-      </div>
-    );
-  }
-
+  // No empty state: the tab that leads here is not drawn without text,
+  // so reaching this with neither is not a case to handle but a bug.
   return (
     <div className="flex flex-col gap-3" style={{ minHeight: 140 }}>
       {text && (
