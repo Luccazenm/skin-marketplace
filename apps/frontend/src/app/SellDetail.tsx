@@ -459,16 +459,27 @@ export function SellDetail({
                 <div className="font-mono text-[12px] uppercase tracking-wider mb-1.5" style={{ color: '#6c7290' }}>
                   {t('sell.yourPrice')}
                 </div>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-sm" style={{ color: '#6c7290' }}>{symbolFor(money.currency)}</span>
-                  {/* The border is set inline and changes colour on an
-                      invalid price, so hover and focus are a ring
-                      instead — a separate shadow that composes with it
-                      rather than fighting it.
+                {/* The symbol sits beside the field rather than on
+                    top of it. It used to be absolutely positioned with
+                    the input padded to clear it, which only works while
+                    the symbol is one character wide: `R$` and `zł` ran
+                    into the number. A row lets each take the width it
+                    needs.
 
-                      Focus had no mark at all before this: `outline-none`
-                      with nothing put back, on the one field somebody has
-                      to type a number into. */}
+                    The border moved out here with it, so the two read
+                    as one control — and hover and focus are a ring,
+                    which composes with a border whose colour already
+                    changes on an invalid price. */}
+                <div
+                  className="flex items-center gap-1.5 pl-2.5 pr-2 py-2 rounded transition-shadow hover:ring-1 hover:ring-white/20 focus-within:ring-2 focus-within:ring-[#f0c040]/50"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: `1px solid ${price && !priced ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
+                  }}
+                >
+                  <span className="font-mono text-sm flex-shrink-0" style={{ color: '#6c7290' }}>
+                    {symbolFor(money.currency)}
+                  </span>
                   <input
                     value={price}
                     onChange={(e) => onPriceChange(e.target.value)}
@@ -476,12 +487,8 @@ export function SellDetail({
                     placeholder={money.digits === 0 ? '0' : '0.00'}
                     disabled={!money.ready}
                     autoFocus
-                    className="w-full pl-6 pr-2 py-2 rounded font-mono text-base font-semibold transition-shadow focus:outline-none hover:ring-1 hover:ring-white/20 focus:ring-2 focus:ring-[#f0c040]/50"
-                    style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      border: `1px solid ${price && !priced ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
-                      color: '#e8eaf0',
-                    }}
+                    className="w-full min-w-0 bg-transparent border-0 p-0 font-mono text-base font-semibold focus:outline-none"
+                    style={{ color: '#e8eaf0' }}
                   />
                 </div>
 

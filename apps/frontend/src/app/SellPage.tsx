@@ -1043,19 +1043,27 @@ function SellPanel(props: {
                 <div className="grid grid-cols-2 gap-2 px-2.5 pb-2.5">
                   <div className="flex flex-col gap-1">
                     <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: '#6c7290' }}>{t('sell.yourPrice')}</span>
-                    <div className="relative">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 font-mono text-[10px]" style={{ color: '#6c7290' }}>{symbolFor(money.currency)}</span>
+                    {/* A row rather than a symbol laid over a padded
+                        field: the padding only ever fits one symbol, and
+                        `R$` and `zł` ran into the number. Same treatment
+                        as the detail modal's field. */}
+                    <div
+                      className="flex items-center gap-1 pl-2 pr-2 py-1.5 rounded focus-within:ring-1 focus-within:ring-[#f0c040]/40"
+                      style={{
+                        background: 'rgba(255,255,255,0.06)',
+                        border: `1px solid ${price && !valid ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
+                      }}
+                    >
+                      <span className="font-mono text-[10px] flex-shrink-0" style={{ color: '#6c7290' }}>
+                        {symbolFor(money.currency)}
+                      </span>
                       <input
                         value={price}
                         onChange={(e) => props.setPrice(item.assetId, e.target.value)}
                         inputMode="decimal"
                         placeholder={money.digits === 0 ? '0' : '0.00'}
-                        className="w-full pl-5 pr-2 py-1.5 rounded font-mono text-xs font-semibold focus:outline-none"
-                        style={{
-                          background: 'rgba(255,255,255,0.06)',
-                          border: `1px solid ${price && !valid ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
-                          color: '#e8eaf0',
-                        }}
+                        className="w-full min-w-0 bg-transparent border-0 p-0 font-mono text-xs font-semibold focus:outline-none"
+                        style={{ color: '#e8eaf0' }}
                       />
                     </div>
                   </div>
