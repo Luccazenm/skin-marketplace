@@ -989,11 +989,11 @@ function SellPanel(props: {
                   <div className="flex-1 min-w-0 flex flex-col gap-1">
                     <div className="flex items-start gap-1.5">
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono text-[9px] truncate" style={{ color: '#6c7290' }}>
+                        <div className="font-mono text-[10px] truncate" style={{ color: '#6c7290' }}>
                           {item.catalog?.weapon ?? item.typeLabel ?? ''}
                           {item.exterior ? ` · ${t(`wear.${item.exterior}`, { defaultValue: item.exterior })}` : ''}
                         </div>
-                        <div className="font-display text-xs font-semibold truncate" style={{ color: '#e8eaf0' }}>
+                        <div className="font-display text-sm font-semibold truncate" style={{ color: '#e8eaf0' }}>
                           {item.catalog?.skinName ?? item.marketHashName}
                         </div>
                       </div>
@@ -1012,7 +1012,7 @@ function SellPanel(props: {
                         keeps its box because it is a marker, not a
                         measurement, and it is the same badge the grid
                         card uses. */}
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[9px]">
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[10px]">
                       {isStatTrak(item) && <Chip text="ST" accent />}
                       {item.float !== null && (
                         <span style={{ color: '#6c7290' }}>
@@ -1042,7 +1042,7 @@ function SellPanel(props: {
                     should not need scrolling or arithmetic. */}
                 <div className="grid grid-cols-2 gap-2 px-2.5 pb-2.5">
                   <div className="flex flex-col gap-1">
-                    <span className="font-mono text-[9px] uppercase tracking-wider" style={{ color: '#6c7290' }}>{t('sell.yourPrice')}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider" style={{ color: '#6c7290' }}>{t('sell.yourPrice')}</span>
                     {/* A row rather than a symbol laid over a padded
                         field: the padding only ever fits one symbol, and
                         `R$` and `zł` ran into the number. Same treatment
@@ -1054,7 +1054,7 @@ function SellPanel(props: {
                         border: `1px solid ${price && !valid ? '#e84060' : 'rgba(255,255,255,0.1)'}`,
                       }}
                     >
-                      <span className="font-mono text-[10px] flex-shrink-0" style={{ color: '#6c7290' }}>
+                      <span className="font-mono text-[11px] flex-shrink-0" style={{ color: '#6c7290' }}>
                         {symbolFor(money.currency)}
                       </span>
                       <input
@@ -1071,21 +1071,21 @@ function SellPanel(props: {
                         }
                         inputMode="decimal"
                         placeholder={money.digits === 0 ? '0' : '0.00'}
-                        className="w-full min-w-0 bg-transparent border-0 p-0 font-mono text-xs font-semibold focus:outline-none"
+                        className="w-full min-w-0 bg-transparent border-0 p-0 font-mono text-[13px] font-semibold focus:outline-none"
                         style={{ color: '#e8eaf0' }}
                       />
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1 min-w-0">
-                    <span className="font-mono text-[9px] uppercase tracking-wider truncate" style={{ color: '#6c7290' }}>
+                    <span className="font-mono text-[10px] uppercase tracking-wider truncate" style={{ color: '#6c7290' }}>
                       {t('sell.youReceive')}
                       {props.feePercent !== null && (
                         <span style={{ color: '#4a4f68' }}>{t('sell.feeShort', { fee: props.feePercent })}</span>
                       )}
                     </span>
                     <div
-                      className="w-full px-2 py-1.5 rounded font-mono text-xs font-semibold truncate"
+                      className="w-full px-2 py-1.5 rounded font-mono text-[13px] font-semibold truncate"
                       style={{
                         background: 'rgba(74,222,128,0.08)',
                         border: '1px solid rgba(74,222,128,0.2)',
