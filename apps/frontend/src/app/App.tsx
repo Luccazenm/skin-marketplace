@@ -55,7 +55,7 @@ import { SellPage } from "./SellPage";
 // up; the component itself is untouched.
 import { NotificationBell } from "./NotificationBell";
 import { MiniSortDropdown, SELL_SORTS, SORT_KEYS } from "./MiniSortDropdown";
-import { CURRENCIES } from "@/lib/currencies";
+import { CURRENCIES, symbolFor } from "@/lib/currencies";
 import { useCurrency, useMoney } from "@/lib/use-currency";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
@@ -694,7 +694,7 @@ function NavDropdown<T extends string>({
  */
 const CURRENCY_OPTIONS = CURRENCIES.map((c) => ({
   value: c.code,
-  label: c.symbol,
+  label: symbolFor(c.code),
   sub: c.code,
 }));
 

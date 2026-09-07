@@ -19,22 +19,20 @@
 export interface Currency {
   /** ISO 4217, and the key into the rate table. */
   code: string;
-  /** What the picker shows, kept short because the header is narrow. */
-  symbol: string;
 }
 
 export const CURRENCIES: Currency[] = [
-  { code: 'USD', symbol: '$' },
-  { code: 'EUR', symbol: '€' },
-  { code: 'GBP', symbol: '£' },
-  { code: 'BRL', symbol: 'R$' },
-  { code: 'RUB', symbol: '₽' },
-  { code: 'CNY', symbol: '¥' },
-  { code: 'PLN', symbol: 'zł' },
-  { code: 'TRY', symbol: '₺' },
-  { code: 'UAH', symbol: '₴' },
-  { code: 'JPY', symbol: '¥' },
-  { code: 'KRW', symbol: '₩' },
+  { code: 'USD' },
+  { code: 'EUR' },
+  { code: 'GBP' },
+  { code: 'BRL' },
+  { code: 'RUB' },
+  { code: 'CNY' },
+  { code: 'PLN' },
+  { code: 'TRY' },
+  { code: 'UAH' },
+  { code: 'JPY' },
+  { code: 'KRW' },
 ];
 
 export const BASE_CURRENCY = 'USD';
@@ -44,13 +42,30 @@ export function isSupported(code: string): boolean {
 }
 
 /**
- * The symbol to sit inside a price field.
+ * The symbol a price is drawn with — `$`, `₽`, `zł`.
  *
- * The field cannot be formatted by `Intl` while somebody is typing in
- * it, so the symbol is drawn beside it and this is where it comes from.
- * Falls back to the code, which is what `Intl` itself does for a
- * currency with no short form.
+ * **Asked of `Intl`, never listed here.** A hand-written table was the
+ * second source of truth for something the formatter also decides, and
+ * the two disagreed on screen: the field beside a price showed `₽`
+ * while the price itself read `RUB 1.167,60`.
+ *
+ * `narrowSymbol` is the point. Left to itself `Intl` writes the dollar
+ * as `US$`, the rouble as `RUB` and the złoty as `PLN` — a code, not a
+ * symbol — while giving the euro its `€`. The narrow form is the one
+ * that is a symbol for every currency in the picker.
+ *
+ * The same locale as the formatter, so the two cannot drift apart.
  */
-export function symbolFor(code: string): string {
-  return CURRENCIES.find((c) => c.code === code)?.symbol ?? code;
+export function symbolFor(code: string, locale = 'en'): string {
+  try {
+    const parts = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'narrowSymbol',
+    }).formatToParts(0);
+
+    return parts.find((p) => p.type === 'currency')?.value ?? code;
+  } catch {
+    return code;
+  }
 }

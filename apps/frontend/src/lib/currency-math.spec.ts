@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { CURRENCIES, symbolFor } from './currencies';
+import { formatMoney } from './use-currency';
 import {
   fromUsdCents,
   minimumMinor,
@@ -222,5 +224,43 @@ describe('minorToPlain', () => {
 
   it('writes a currency with no decimals as a whole number', () => {
     expect(minorToPlain(3000, 0)).toBe('3000');
+  });
+});
+
+/**
+ * Every currency in the picker draws as a symbol, not as its code.
+ *
+ * Left to itself `Intl` writes the dollar as `US$`, the rouble as
+ * `RUB` and the złoty as `PLN` while giving the euro its `€` — so half
+ * the picker read as a symbol and half as text. Worse, the field
+ * beside a price used a hand-written table and the price used `Intl`,
+ * and the two disagreed on the same row.
+ *
+ * One source now, and this is the guard: a currency added to the list
+ * whose narrow symbol is just its code fails here rather than on
+ * somebody's screen.
+ */
+describe('currency symbols', () => {
+  it.each(CURRENCIES.map((c) => c.code))('%s is a symbol, not a code', (code) => {
+    const symbol = symbolFor(code, 'pt');
+
+    expect(symbol).not.toBe(code);
+    expect(symbol.length).toBeLessThanOrEqual(2);
+  });
+
+  it('agrees with what the formatter puts in front of the number', () => {
+    for (const { code } of CURRENCIES) {
+      expect(formatMoney(1, code, 'pt')).toContain(symbolFor(code, 'pt'));
+    }
+  });
+
+  /** The two that used to print as `US$` and `RUB`. */
+  it.each([
+    ['USD', '$'],
+    ['RUB', '₽'],
+    ['PLN', 'zł'],
+    ['UAH', '₴'],
+  ])('draws %s as %s', (code, symbol) => {
+    expect(symbolFor(code, 'pt')).toBe(symbol);
   });
 });

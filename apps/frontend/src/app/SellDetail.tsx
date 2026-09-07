@@ -11,7 +11,6 @@ import {
 } from './AppliedPopup';
 import { payoutCentsAfterFee } from '@/lib/money';
 import { useMoneyEntry } from '@/lib/use-currency';
-import { symbolFor } from '@/lib/currencies';
 import { rarityStyle } from '@/lib/rarity';
 import { useSuggestion } from '@/lib/use-suggestion';
 import {
@@ -478,7 +477,7 @@ export function SellDetail({
                   }}
                 >
                   <span className="font-mono text-sm flex-shrink-0" style={{ color: '#8b92b0' }}>
-                    {symbolFor(money.currency)}
+                    {money.symbol}
                   </span>
                   <input
                     value={price}

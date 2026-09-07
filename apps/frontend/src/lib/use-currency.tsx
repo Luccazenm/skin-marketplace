@@ -18,7 +18,7 @@ import {
   toUsdCents,
 } from './currency-math';
 import { activeLanguage } from './i18n';
-import { BASE_CURRENCY, isSupported } from './currencies';
+import { BASE_CURRENCY, isSupported, symbolFor } from './currencies';
 
 /**
  * Which currency prices are read in, and how to draw one.
@@ -98,9 +98,22 @@ export function formatMoney(
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
+      // Without this the dollar prints as `US$`, the rouble as `RUB`
+      // and the złoty as `PLN` — codes rather than symbols — while the
+      // euro gets its `€`. The narrow form is a symbol for all eleven.
+      currencyDisplay: 'narrowSymbol',
     }).format(value);
   } catch {
-    return value.toFixed(2);
+    try {
+      // An engine without `narrowSymbol` still gets a currency, just a
+      // wordier one. Better than a bare number with no unit at all.
+      return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+      }).format(value);
+    } catch {
+      return value.toFixed(2);
+    }
   }
 }
 
@@ -272,6 +285,13 @@ export function useMoneyEntry() {
     currency,
     rateOf,
     digits,
+
+    /**
+     * The symbol to draw beside the field, from the same locale the
+     * formatter uses — so the prefix and the figure beside it can never
+     * say different things about the same currency.
+     */
+    symbol: symbolFor(currency, locale),
 
     /**
      * False until the rate table has arrived. A field that accepted a

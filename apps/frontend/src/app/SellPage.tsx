@@ -13,7 +13,6 @@ import {
 } from '@/lib/api';
 import { payoutCentsAfterFee, toCents } from '@/lib/money';
 import { repriceText, useMoneyEntry } from '@/lib/use-currency';
-import { symbolFor } from '@/lib/currencies';
 import { rarityStyle } from '@/lib/rarity';
 import { usePrices } from '@/lib/use-prices';
 import {
@@ -1055,7 +1054,7 @@ function SellPanel(props: {
                       }}
                     >
                       <span className="font-mono text-[11px] flex-shrink-0" style={{ color: '#8b92b0' }}>
-                        {symbolFor(money.currency)}
+                        {money.symbol}
                       </span>
                       <input
                         value={price}
