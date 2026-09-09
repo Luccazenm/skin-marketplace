@@ -2981,6 +2981,40 @@ export default function App() {
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
+  /**
+   * Closes the account menu on a click inside the header.
+   *
+   * The overlay below handles the rest of the page — it has to, because
+   * it also swallows the click, so dismissing the menu does not open
+   * the card it landed on. But the overlay sits at z-30 and the header
+   * at z-40, deliberately: it must not cover the bar it belongs to.
+   * That left one gap, and it was the whole complaint — the logo, the
+   * cart, the bell and both pickers all left the menu hanging open.
+   *
+   * `mousedown` rather than `click`: a menu that waits for the button
+   * to come back up feels stuck. The trigger is inside the ref, so its
+   * own toggle still runs and clicking the avatar twice closes it
+   * instead of closing and reopening.
+   */
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+
+    function onMouseDown(event: MouseEvent) {
+      const target = event.target as Element | null;
+      if (!target) return;
+
+      if (!target.closest("nav")) return;
+      if (userMenuRef.current?.contains(target)) return;
+
+      setUserMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [userMenuOpen]);
+
   const [signingOut, setSigningOut]     = useState(false);
 
   /**
@@ -3145,7 +3179,7 @@ export default function App() {
                  with it in alt and title, so it is one hover away and a
                  screen reader still announces it — on a site holding
                  money, "which account am I in?" has to stay answerable. */
-              <div className="relative">
+              <div className="relative" ref={userMenuRef}>
                 {/* A ring, not a background: the avatar is a photo
                     with its own colours, and tinting behind a circle
                     that already fills its own box shows nothing. The
