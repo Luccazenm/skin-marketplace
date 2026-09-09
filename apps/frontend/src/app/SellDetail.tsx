@@ -230,7 +230,18 @@ export function SellDetail({
                         }
                         onMouseLeave={hover.close}
                         className="flex flex-col items-center gap-1 p-2 rounded"
-                        style={{ background: 'rgba(255,255,255,0.04)', width: 72 }}
+                        // A floor rather than a fixed width, because
+                        // the text inside cannot wrap: `Intl` joins the
+                        // symbol to the number with a NON-BREAKING space,
+                        // so `R$ 17.820,84` is one unbreakable 79px word
+                        // in a 72px box and spills out either side. It
+                        // fit in dollars — `$3,475.16` is 20px shorter —
+                        // which is why this only appeared once prices
+                        // were read in reais.
+                        //
+                        // The minimum keeps a row of cheap stickers tidy
+                        // while an expensive one takes the room it needs.
+                        style={{ background: 'rgba(255,255,255,0.04)', minWidth: 72 }}
                       >
                         <div className="w-12 h-12 flex items-center justify-center">
                           {piece.imageUrl && (
@@ -241,7 +252,7 @@ export function SellDetail({
                             could not match a scrape to has none either — so
                             the line is absent rather than empty. */}
                         {piece.wear !== null && (
-                          <div className="font-mono text-[11px] font-semibold" style={{ color: '#f0c040' }}>
+                          <div className="font-mono text-[11px] font-semibold whitespace-nowrap" style={{ color: '#f0c040' }}>
                             {piece.wear === 0 ? t('item.untouched') : `${Math.round(piece.wear * 100)}%`}
                           </div>
                         )}
@@ -250,7 +261,7 @@ export function SellDetail({
                             stickers have none, and a zero would read as
                             worthless rather than as unlisted. */}
                         <div
-                          className="font-mono text-[11px] font-semibold"
+                          className="font-mono text-[11px] font-semibold whitespace-nowrap"
                           style={{ color: part?.own ? '#e8eaf0' : '#7d84a3' }}
                         >
                           {part?.own ? money.formatUsdCents(Math.round(Number(part.own) * 100)) : '—'}
@@ -262,7 +273,7 @@ export function SellDetail({
                             adding $60 says more than any sentence about
                             transfer rates could. */}
                         {part && (
-                          <div className="font-mono text-[11px] font-semibold" style={{ color: '#4ade80' }}>
+                          <div className="font-mono text-[11px] font-semibold whitespace-nowrap" style={{ color: '#4ade80' }}>
                             +{money.formatUsdCents(Math.round(Number(part.adds) * 100))}
                           </div>
                         )}
