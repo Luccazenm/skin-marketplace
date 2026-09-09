@@ -644,14 +644,45 @@ function Description({
   // No empty state: the tab that leads here is not drawn without text,
   // so reaching this with neither is not a case to handle but a bug.
   return (
-    <div className="flex flex-col gap-3" style={{ minHeight: 140 }}>
+    // `fontSize` here and not only on the children, because `ch` is
+    // measured in the font of the element it is written on. Set on a
+    // container inheriting 16px it resolved to 585px — wider than the
+    // panel, so the cap did nothing at all and lines ran to 81
+    // characters. At 13px it means what it looks like it means.
+    <div
+      className="flex flex-col gap-4"
+      style={{ minHeight: 140, maxWidth: '58ch', fontSize: 13 }}
+    >
+      {/* Not `font-mono`. Everywhere else on this screen the monospace
+          is doing a job — floats and prices line up in a column because
+          every digit is the same width. This is a paragraph of English,
+          and prose set in a typewriter face at 12px reads as a log dump
+          rather than as something written, which is exactly what it
+          looked like.
+
+          The measure is capped near 58 characters. The panel is wide
+          enough to run a line past 90, and a line that long loses the
+          reader on the way back to the left edge. */}
       {text && (
-        <p className="font-mono text-[12px] leading-relaxed" style={{ color: '#9da3c0' }}>
+        <p style={{ color: '#c0c4d8', lineHeight: 1.65 }}>
           {text}
         </p>
       )}
+
+      {/* Valve's closing joke, set as the pull quote it is. The rule
+          down the left says "this is a different voice" in a way that
+          italics alone did not — before this it read as a second
+          paragraph that happened to be slanted, floating under the
+          first. */}
       {flavor && (
-        <p className="font-mono text-[12px] italic leading-relaxed" style={{ color: '#8b92b0' }}>
+        <p
+          className="italic pl-3"
+          style={{
+            color: '#8b92b0',
+            lineHeight: 1.6,
+            borderLeft: '2px solid rgba(255,255,255,0.12)',
+          }}
+        >
           {flavor}
         </p>
       )}
