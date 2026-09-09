@@ -751,12 +751,21 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
       <div className="mx-3" style={{ height: '1px', background: 'rgba(255,255,255,0.07)' }} />
 
       <div className="px-3 py-2.5">
-        <div className="flex items-start justify-between gap-2 mb-1.5">
+        {/* gap-1.5, not gap-2. The right column got wider when its
+            two lines went from 9px to 11, and it takes that width from
+            the name beside it — enough to truncate two more names in a
+            190-item inventory. The 2px comes back here. */}
+        <div className="flex items-start justify-between gap-1.5 mb-1.5">
           <div className="min-w-0">
             {/* The weapon comes from the catalog, split there so no second
                 name-splitter exists in the browser. Cases, stickers and
                 graffiti have no weapon, so the line is simply absent. */}
-            <div className="text-[9px] font-mono uppercase tracking-wider leading-none mb-0.5" style={{ color: r.color }}>
+            {/* 11px, not 9. The contrast on these three lines already
+                passed comfortably — what made them hard to read was the
+                size, and uppercase with letter-spacing at 9px is the
+                worst of it. The abbreviation freed the width that pays
+                for this. */}
+            <div className="text-[11px] font-mono uppercase tracking-wider leading-none mb-0.5 truncate" style={{ color: r.color }}>
               {item.catalog?.weapon ?? item.typeLabel ?? ''}
             </div>
             <div className="font-display text-sm font-semibold leading-tight truncate" style={{ color: '#e8eaf0' }}>
@@ -771,8 +780,8 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
                 Spelled out, "Testada em Campo" is 86px in a slot that
                 has about 58, and it was the one grid still saying it in
                 full. The full name is in the detail. */}
-            {item.exterior && <div className="font-mono text-[9px]" style={{ color: '#8b92b0' }}>{wearShort(item.exterior)}</div>}
-            {item.float !== null && <div className="font-mono text-[9px]" style={{ color: r.color }}>{item.float.toFixed(4)}</div>}
+            {item.exterior && <div className="font-mono text-[11px] font-semibold" style={{ color: '#9da3c0' }}>{wearShort(item.exterior)}</div>}
+            {item.float !== null && <div className="font-mono text-[11px]" style={{ color: r.color }}>{item.float.toFixed(4)}</div>}
           </div>
         </div>
         <div className="flex items-center justify-between">
