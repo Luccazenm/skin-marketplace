@@ -14,6 +14,7 @@ import {
 import { payoutCentsAfterFee, toCents } from '@/lib/money';
 import { repriceText, useMoneyEntry } from '@/lib/use-currency';
 import { rarityStyle } from '@/lib/rarity';
+import { wearShort } from '@/lib/wear';
 import { usePrices } from '@/lib/use-prices';
 import {
   AppliedPopup,
@@ -766,7 +767,11 @@ function ItemCard({ item, selected, price, market, minimumCents, onToggle, onOpe
             {/* Three quarters of a real inventory has no float and no
                 exterior. Each line appears only when it has something to
                 say, rather than leaving empty fields across the grid. */}
-            {item.exterior && <div className="font-mono text-[9px]" style={{ color: '#8b92b0' }}>{t(`wear.${item.exterior}`, { defaultValue: item.exterior })}</div>}
+            {/* The abbreviation, like the Market and Trade cards.
+                Spelled out, "Testada em Campo" is 86px in a slot that
+                has about 58, and it was the one grid still saying it in
+                full. The full name is in the detail. */}
+            {item.exterior && <div className="font-mono text-[9px]" style={{ color: '#8b92b0' }}>{wearShort(item.exterior)}</div>}
             {item.float !== null && <div className="font-mono text-[9px]" style={{ color: r.color }}>{item.float.toFixed(4)}</div>}
           </div>
         </div>

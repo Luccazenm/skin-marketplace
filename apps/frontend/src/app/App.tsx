@@ -56,6 +56,7 @@ import { SellPage } from "./SellPage";
 import { NotificationBell } from "./NotificationBell";
 import { MiniSortDropdown, SELL_SORTS, SORT_KEYS } from "./MiniSortDropdown";
 import { CURRENCIES, symbolFor } from "@/lib/currencies";
+import { wearShort } from "@/lib/wear";
 import { useCurrency, useMoney } from "@/lib/use-currency";
 
 /* ─── Rarity config ─────────────────────────────────────────────────── */
@@ -1164,7 +1165,7 @@ function TradeSkinCard({
       rarity={r}
       category={skin.weapon}
       name={skin.name}
-      exterior={WEAR_SHORT[skin.wear] ?? skin.wear}
+      exterior={wearShort(skin.wear)}
       float={skin.float}
       price={money(skin.price)}
       statTrak={skin.statTrak}
@@ -1368,7 +1369,7 @@ function TradeInventoryCard({
       rarity={r}
       category={item.catalog?.weapon ?? item.typeLabel ?? ""}
       name={item.catalog?.skinName ?? item.marketHashName}
-      exterior={item.exterior ? (WEAR_SHORT[item.exterior] ?? item.exterior) : null}
+      exterior={item.exterior ? wearShort(item.exterior) : null}
       float={item.float}
       // What a trade credits for it, not what it would list for: less
       // than the suggestion, because the item becomes our stock and we
@@ -1488,26 +1489,6 @@ const CART_TINT = "rgba(255,255,255,0.015)";
  * cut mid-word; "FN / 0.0395" does, and these are the abbreviations the
  * trading community already uses.
  */
-/**
- * The trading community's shorthand, and deliberately not translated.
- *
- * FN, MW, FT, WW and BS are written the same on a Brazilian forum, a
- * Russian one and a Chinese one — they are closer to ticker symbols than
- * to words, and the full names are one click away in the detail.
- *
- * They are also the only thing that fits. A trade grid card gives the
- * wear 58px; "Field-Tested" needs 65 and "Testada em Campo" needs 86, so
- * every card on the screen was clipping the label the 112px minimum
- * exists to protect.
- */
-const WEAR_SHORT: Record<string, string> = {
-  "Factory New": "FN",
-  "Minimal Wear": "MW",
-  "Field-Tested": "FT",
-  "Well-Worn": "WW",
-  "Battle-Scarred": "BS",
-};
-
 /**
  * One picked item, as it appears in the trade bar at the top.
  *
@@ -2190,7 +2171,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                 charms={charmsOf(item)}
                 stickers={stickersOf(item)}
                 meta={[
-                  item.exterior ? (WEAR_SHORT[item.exterior] ?? item.exterior) : null,
+                  item.exterior ? wearShort(item.exterior) : null,
                   item.float !== null ? item.float.toFixed(4) : null,
                 ].filter(Boolean).join(" / ")}
                 price={myPriceLabel(item).text}
@@ -2534,7 +2515,7 @@ function TradePage({ signedIn }: { signedIn: boolean }) {
                   category={s.weapon}
                   name={s.name}
                   statTrak={s.statTrak}
-                  meta={[WEAR_SHORT[s.wear] ?? s.wear, s.float.toFixed(4)].filter(Boolean).join(" / ")}
+                  meta={[wearShort(s.wear), s.float.toFixed(4)].filter(Boolean).join(" / ")}
                   price={money(s.price)}
                   onRemove={() => toggleMkt(s.id)}
                 >
