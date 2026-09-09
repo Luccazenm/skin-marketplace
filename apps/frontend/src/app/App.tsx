@@ -3146,12 +3146,37 @@ export default function App() {
                  screen reader still announces it — on a site holding
                  money, "which account am I in?" has to stay answerable. */
               <div className="relative">
+                {/* A ring, not a background: the avatar is a photo
+                    with its own colours, and tinting behind a circle
+                    that already fills its own box shows nothing. The
+                    ring sits outside the image, so it reads on any
+                    avatar.
+
+                    It stays on while the menu is open — the control
+                    that opened a panel should look held down, and
+                    without it the only sign the menu belongs to the
+                    avatar is that it happens to be underneath.
+
+                    `cursor-pointer` because this was the one control in
+                    the header that did not say it was one. */}
                 <button
                   onClick={() => setUserMenuOpen((open) => !open)}
                   title={session.user.username}
                   aria-label={t("nav.account", { name: session.user.username })}
                   aria-expanded={userMenuOpen}
-                  className="block rounded-full"
+                  className={[
+                    "block rounded-full cursor-pointer transition-all duration-150",
+                    // The offset rides with each ring rather than sitting
+                    // on the base. On the base it paints a 2px shadow at
+                    // rest that is invisible only because it matches the
+                    // header exactly — so the day the header changes
+                    // colour, every avatar grows a ring nobody asked for.
+                    "focus-visible:outline-none",
+                    "focus-visible:ring-2 focus-visible:ring-[#f0c040]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#08090d]",
+                    userMenuOpen
+                      ? "ring-2 ring-[#f0c040]/70 ring-offset-2 ring-offset-[#08090d]"
+                      : "hover:ring-2 hover:ring-white/30 hover:ring-offset-2 hover:ring-offset-[#08090d] hover:brightness-110",
+                  ].join(" ")}
                 >
                   {session.user.avatarUrl ? (
                     <img
